@@ -1,0 +1,17 @@
+{
+  "patterns": ["Tira un dado de {n}.", "Avienta un dado de {n} lados."],
+  "enroll_speeds": [1.0],
+  "calibration": {
+    "speeds": [0.85, 1.15],
+    "numbers": ["cuatro", "ocho", "diez", "doce", "veinte", "cien"],
+    "negations": ["No {p}", "Oye, no {p}", "Mejor no {p}", "Nunca {p}"],
+    "outside": ["El dado de seis lados está aquí.", "Tira todos los dados.", "Avienta el de seis, dije.", null]
+  },
+  "test": {
+    "speeds": [0.92, 1.07],
+    "numbers": ["cuatro", "ocho", "diez", "doce", "veinte", "cien"],
+    "negations": ["No {p}", "Ahorita no {p}", "Te pedí que no: {p}", "Que nadie diga: {p}", "{p} Bueno, mejor no."],
+    "outside": ["El martes juegan seis personas.", "Ese dado tiene seis lados.", "Avienta un dado porfa.", null],
+    "legacy": [[1, "Pásame la mantequilla."], [2, "Tú pasa la mantequilla."], [3, "Aviéntate un chiste."], [4, "Dime un dato curioso."]]
+  }
+}

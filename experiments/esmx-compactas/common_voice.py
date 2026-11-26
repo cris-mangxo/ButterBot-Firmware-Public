@@ -74,11 +74,11 @@ def tally(summary, label):
         summary["false_accepts_by_label"][key] = summary["false_accepts_by_label"].get(key, 0) + 1
 
 
-def evaluate(archive, program, models, limit):
-    prefix, rows = read_test_split(archive)
-    selected = {prefix / "clips" / clip for clip in select_examples(rows, limit)}
+def evaluate_selected(archive, prefix, clips, classifiers):
+    selected = {prefix / "clips" / clip for clip in clips}
+    limit = len(selected)
     summary = {name: {"rejected": 0, "false_accepts": 0, "false_accepts_by_label": {}}
-               for name in models}
+               for name in classifiers}
     with tempfile.TemporaryDirectory(prefix="cv-esmx-eval-") as temporary:
         mp3 = Path(temporary) / "clip.mp3"
         wav = Path(temporary) / "clip.wav"
@@ -96,8 +96,8 @@ def evaluate(archive, program, models, limit):
                      "-i", mp3, "-t", "4", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav],
                     check=True, capture_output=True, timeout=12,
                 )
-                for key, model in models.items():
-                    tally(summary[key], score(program, model, wav)["label"])
+                for key, classifier in classifiers.items():
+                    tally(summary[key], classifier(wav)["label"])
                 wav.unlink()
                 selected.remove(name)
                 if not selected:
@@ -106,6 +106,14 @@ def evaluate(archive, program, models, limit):
         raise ValueError("El archivo no contiene todos los clips de la muestra")
     return {"split": "test", "outside_command_trials": limit, "distinct_speakers": limit,
             "max_seconds_per_clip": 4, "results": summary}
+
+
+def evaluate(archive, program, models, limit):
+    prefix, rows = read_test_split(archive)
+    clips = select_examples(rows, limit)
+    classifiers = {key: lambda wav, model=model: score(program, model, wav)
+                   for key, model in models.items()}
+    return evaluate_selected(archive, prefix, clips, classifiers)
 
 
 def main():

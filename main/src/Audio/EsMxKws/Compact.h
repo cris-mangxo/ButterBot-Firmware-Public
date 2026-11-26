@@ -36,5 +36,6 @@ struct Result {
 
 // The caller owns the PCM and initialized P31 front-end. No heap allocation.
 bool extract(bb::asr::LogMel& frontend, std::span<const int16_t> pcm, Signature& output);
+uint32_t signatureDistance(const Signature& input, const Signature& example);
 Result classify(const Signature& input, std::span<const Prototype> model, Limits limits);
 }

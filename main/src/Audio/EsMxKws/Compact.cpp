@@ -21,8 +21,9 @@ uint32_t energy(std::span<const int16_t> pcm){
 	}
 	return static_cast<uint32_t>(sum / pcm.size());
 }
+}
 
-uint32_t distance(const Signature& input, const Signature& example){
+uint32_t signatureDistance(const Signature& input, const Signature& example){
 	std::array<uint32_t, Frames + 1> previous, current;
 	previous.fill(Infinite);
 	previous[0] = 0;
@@ -39,7 +40,6 @@ uint32_t distance(const Signature& input, const Signature& example){
 		previous = current;
 	}
 	return previous[Frames];
-}
 }
 
 bool extract(bb::asr::LogMel& frontend, std::span<const int16_t> pcm, Signature& output){
@@ -102,7 +102,7 @@ Result classify(const Signature& input, std::span<const Prototype> model, Limits
 		if(label >= count){
 			return {Intent::Unknown, Infinite, 0};
 		}
-		costs[label] = std::min(costs[label], distance(input, example.signature));
+		costs[label] = std::min(costs[label], signatureDistance(input, example.signature));
 	}
 	if(std::find(costs.begin(), costs.end(), Infinite) != costs.end()){
 		return {Intent::Unknown, Infinite, 0};

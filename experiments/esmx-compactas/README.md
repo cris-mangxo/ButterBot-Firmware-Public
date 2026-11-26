@@ -11,9 +11,10 @@ Desde la raíz del fork, en fish. Se necesita Apple clang, Python 3 y las voces 
 ```fish
 set -l lab (mktemp -d)
 c++ -std=c++20 -O2 -Wall -Wextra -Werror \
-  -I experiments/esmx-commands/host -I main/src \
+  -I experiments/esmx-commands/host -I experiments/esmx-compactas/guard -I main/src \
   -I components/ButterBot-Common/src -I components/CMF/src \
   experiments/esmx-compactas/host/main.cpp \
+  experiments/esmx-compactas/guard/Dice6Guard.cpp \
   main/src/Audio/EsMxKws/Compact.cpp main/src/Audio/EsMxKws/logmel.cpp \
   -o "$lab/kws"
 python3 -B experiments/esmx-compactas/pilot.py \
@@ -56,3 +57,24 @@ python3.12 -B experiments/esmx-compactas/common_voice.py \
 ```
 
 Descargar los archivos desde las [fichas femenina](https://mozilladatacollective.com/datasets/cmr3zunmk00flnt07p7ai9p43) y [masculina](https://mozilladatacollective.com/datasets/cmr3jjevj0041nt07vb3sm35d). Mozilla pide autenticar el acceso y aceptar los términos. Mantener los archivos, las plantillas y los audios fuera de Git.
+
+## Verificación acotada de D6
+
+`d6_corpus.py` genera dos bancos Ald. El banco amplio usa construcciones distintas entre entrenamiento, ajuste y evaluación para un clasificador cuantizado de cuatro clases. El banco `--anchor` separa las tomas y velocidades de dos frases fijas, «Tira un dado de seis» y «Avienta un dado de seis lados». Usa dos firmas de turno completo y fija el límite a partir de la calibración. Ambos métodos conservan las decisiones de la base para mantequilla, chiste, dato y hora. Las rutas D6 se deciden en el verificador con el mismo mapeo al escenario original.
+
+Desde la raíz del fork, en fish, con el binario `$lab/kws` anterior y el modelo compacto congelado en `$baseline`:
+
+```fish
+python3.12 -B experiments/esmx-compactas/d6_corpus.py --anchor \
+  --piper-python "$piper_python" --ald "$ald_onnx" --out "$anchor_dir"
+for operation in fit ald
+    python3.12 -B experiments/esmx-compactas/d6_guard.py "$operation" --anchor \
+      --program "$lab/kws" --baseline "$baseline" \
+      --weights "$anchor_dir/anchor.bin" --corpus "$anchor_dir"
+end
+python3.12 -B experiments/esmx-compactas/d6_guard.py common-voice --anchor --new-cohort \
+  --program "$lab/kws" --baseline "$baseline" \
+  --weights "$anchor_dir/anchor.bin" --archive "$archivo_mozilla"
+```
+
+Omitir `--anchor` para repetir la rama cuantizada con otro directorio de corpus y el Python que tiene NumPy instalado. `--anchor --broad` cruza el verificador de frases fijas con el banco amplio. Common Voice acepta aquí el archivo oficial o el SHA local conocido del diagnóstico, que se identifica como provisional. El corpus humano mide rechazo de habla general. Para enlazar el verificador en el banco ESP32-S3, generar `dice6_anchors.h` con `d6_guard.py header --anchor --header <ruta>` y los mismos argumentos de programa, base y pesos. Agregar `-D DICE6_ANCHOR_DIR=<directorio del encabezado>` al comando de compilación del banco.

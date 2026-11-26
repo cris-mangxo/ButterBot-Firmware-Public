@@ -1,0 +1,38 @@
+{
+  "train": {
+    "patterns": [
+      "Tira un dado de {n}.", "Lanza el dado de {n} caras.", "Avienta un dado de {n} lados.",
+      "Échame un dado de {n}.", "Puedes tirar un dado de {n} caras.", "Haz una tirada con el dado de {n}."
+    ],
+    "numbers": ["cuatro", "ocho", "diez", "doce", "veinte", "cien"],
+    "negations": ["No {p}", "Por favor no {p}", "Mejor no {p}"],
+    "outside": [
+      "Veo un dado de seis caras.", "El dado cayó en seis.", "El dado tiene seis puntos.", "Son las seis de la tarde.",
+      "Seis personas usan los dados.", "No quiero ir a la tienda.", "Mejor pide dos cafés.",
+      "No me pases la mantequilla.", "No cuentes un chiste.", "No digas un dato curioso.",
+      "Pásame la mantequilla.", "Tú pasa la mantequilla.", "Aviéntate un chiste.", "Dime un dato curioso.",
+      "Son las cinco y cuarto.", "Dime la hora actual.", "Más tarde salimos a comer.", "Lanza un dado."
+    ],
+    "speeds": [0.88, 1.00, 1.12]
+  },
+  "dev": {
+    "patterns": ["Me puedes lanzar un dado de {n} lados.", "Haz rodar un dado de {n}."],
+    "numbers": ["cuatro", "ocho", "doce", "veinte", "cien"],
+    "negations": ["Ahora no {p}", "No quiero que uses esta orden: {p}"],
+    "outside": ["El dado de seis tiene un punto rojo.", "Compré seis dados.", "El robot dijo que eran las seis.", "No me digas la hora.", "¿Cuál dado tiene seis lados?", "Usa el otro dado."],
+    "speeds": [0.94, 1.08]
+  },
+  "test": {
+    "patterns": ["Quiero tirar un dado de {n}.", "Tírame el dado de {n} caras.", "Avienta un dado de {n}, porfa.", "Rueda el dado de {n} lados."],
+    "numbers": ["cuatro", "ocho", "diez", "doce", "veinte", "cien"],
+    "negations": ["Ahorita no {p}", "No {p}", "Te dije que no: {p}"],
+    "outside": [
+      "El dado de seis es rojo.", "Hay seis dados en la caja.", "No era un dado de seis.", "¿Qué hora es ahorita?",
+      "Seis más seis son doce.", "Lánzalo a las seis.", "Lanza el dado y dime la hora.", "No hagas nada.",
+      "No quiero que me pases la mantequilla.", "No avientes un chiste.", "No me digas un dato curioso.",
+      "No quiero que tú pases la mantequilla.", "No me digas la hora actual.", null
+    ],
+    "legacy": [[1, "Pásame la mantequilla."], [2, "Tú pasa la mantequilla."], [3, "Aviéntate un chiste."], [4, "Dime un dato curioso."]],
+    "speeds": [0.91, 1.06]
+  }
+}
