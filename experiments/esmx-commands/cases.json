@@ -1,0 +1,44 @@
+{
+  "routes": {
+    "pass_the_butter": "PassTheButterRoutine",
+    "you_pass_butter": "YouPassButterRoutine",
+    "joke": "JokeRoutine",
+    "fact": "FactRoutine",
+    "whats_this": "WhatsThisRoutine",
+    "current_time": "CurrentTimeRoutine",
+    "dice": "DiceRollRoutine",
+    "dice_d6": "DiceRollD6Routine",
+    "dice_d100": "DiceRollD100Routine",
+    "eight_ball": "EightBallRoutine"
+  },
+  "audio": [
+    ["butter", "Pásame la mantequilla.", "pass_the_butter"],
+    ["you-butter", "Tú pasa la mantequilla.", "you_pass_butter"],
+    ["joke", "Cuéntame un chiste.", "joke"],
+    ["mexican-joke", "Aviéntate un chiste.", "joke"],
+    ["fact", "Dime un dato curioso.", "fact"],
+    ["object", "¿Qué es esto?", "whats_this"],
+    ["time", "¿Qué hora es?", "current_time"],
+    ["dice", "Tira un dado.", "dice"],
+    ["dice6", "Tira un dado de seis.", "dice_d6"],
+    ["dice100", "Tira un dado de cien.", "dice_d100"],
+    ["eight-ball", "Ayúdame a decidir.", "eight_ball"],
+    ["negation", "No me pases la mantequilla.", null],
+    ["reported", "Ella dijo que le pasaras la mantequilla.", null],
+    ["two-orders", "Pásame la mantequilla y dime un chiste.", null],
+    ["unsupported-dice", "Tira un dado de doce.", null],
+    ["unknown", "Abre la ventana de la cocina.", null],
+    ["dance-stop", "Deja de bailar.", null]
+  ],
+  "extra_text": [
+    ["accent-case", "  ¿QUÉ\tHORA ES?  ", "current_time"],
+    ["accent-nfd", "Pa\u0301same la mantequilla.", "pass_the_butter"],
+    ["dice6-numeral", "Tira un dado de 6.", "dice_d6"],
+    ["dice100-numeral", "Tira un dado de 100.", "dice_d100"],
+    ["quoted", "«Pásame la mantequilla»", null],
+    ["separate-clauses", "Pásame la mantequilla. Dime un chiste.", null],
+    ["unrelated-dice", "Dado de seis", null],
+    ["embedded-nul", "Pásame la mantequilla\u0000 no", null],
+    ["empty", "", null]
+  ]
+}
