@@ -1,0 +1,265 @@
+{
+  "enroll": {
+    "d6": [
+      "Tira un dado de seis.",
+      "Avienta un dado de seis lados.",
+      "Lanza el dado de seis.",
+      "Tírame el dado de seis caras.",
+      "Quiero tirar un dado de seis.",
+      "Échame un dado de seis.",
+      "Rueda el dado de seis lados.",
+      "Haz rodar un dado de seis.",
+      "Tira un dado de seis caras.",
+      "Avienta el dado de seis lados.",
+      "Quiero tirar el dado de seis.",
+      "Lanza un dado de seis."
+    ],
+    "fact": [
+      "Dime un dato curioso.",
+      "Cuéntame un dato curioso."
+    ],
+    "deny_fact": [
+      "No me digas un dato curioso.",
+      "No me cuentes un dato curioso.",
+      "Mejor no me digas un dato curioso.",
+      "No quiero que me digas un dato curioso.",
+      "No quiero un dato curioso.",
+      "Ahorita no quiero un dato curioso."
+    ],
+    "speeds": [
+      1.0
+    ]
+  },
+  "calibrate": {
+    "d6": [
+      "Tira un dado de seis.",
+      "Avienta un dado de seis lados.",
+      "Lanza el dado de seis.",
+      "Tírame el dado de seis caras.",
+      "Quiero tirar un dado de seis.",
+      "Échame un dado de seis.",
+      "Rueda el dado de seis lados.",
+      "Haz rodar un dado de seis.",
+      "Tira el dado de seis.",
+      "Avienta un dado de seis.",
+      "Échame el dado de seis.",
+      "Tira un dado de seis caras.",
+      "Avienta el dado de seis lados.",
+      "Quiero tirar el dado de seis.",
+      "Lanza un dado de seis."
+    ],
+    "fact": [
+      "Dime un dato curioso.",
+      "Cuéntame un dato curioso.",
+      "Aviéntate un dato curioso.",
+      "¿Me das un dato curioso?",
+      "Platícame un dato curioso.",
+      "¿Me cuentas un dato curioso?"
+    ],
+    "deny_fact": [
+      "No me digas un dato curioso.",
+      "No me cuentes un dato curioso.",
+      "Mejor no me digas un dato curioso.",
+      "No quiero que me digas un dato curioso.",
+      "No quiero un dato curioso.",
+      "Ahorita no quiero un dato curioso."
+    ],
+    "contrasts": [
+      "Tira un dado de {n}.",
+      "Avienta un dado de {n} lados.",
+      "Lanza el dado de {n}.",
+      "Tírame el dado de {n} caras.",
+      "Quiero tirar un dado de {n}.",
+      "Échame un dado de {n}.",
+      "Rueda el dado de {n} lados.",
+      "Haz rodar un dado de {n}.",
+      "Tira un dado de {n} caras.",
+      "Avienta el dado de {n} lados.",
+      "Quiero tirar el dado de {n}.",
+      "Lanza un dado de {n}."
+    ],
+    "numbers": [
+      "cuatro",
+      "ocho",
+      "doce",
+      "veinte",
+      "cien"
+    ],
+    "negations": [
+      "No {p}",
+      "Oye, no {p}",
+      "Te dije que no: {p}"
+    ],
+    "outside": [
+      "El dado tiene seis caras.",
+      "Son las seis de la tarde.",
+      "El dado cayó en un seis.",
+      "Nada de seis dados por hoy.",
+      "No avienta un dado de seis lados."
+    ],
+    "legacy": [
+      [
+        1,
+        "Pásame la mantequilla."
+      ],
+      [
+        2,
+        "Tú pasa la mantequilla."
+      ],
+      [
+        3,
+        "Aviéntate un chiste."
+      ]
+    ],
+    "speeds": [
+      0.9,
+      1.1
+    ],
+    "known_d6_deny": [
+      "No avienta un dado de seis lados."
+    ],
+    "known_d6_deny_speeds": [
+      0.92
+    ]
+  },
+  "test": {
+    "d6": [
+      "Me tiras un dado de seis.",
+      "Avienta un dado de seis caras.",
+      "Lánzame el dado de seis.",
+      "Quiero lanzar un dado de seis.",
+      "Tira el dado de seis caras.",
+      "Rueda ese dado de seis lados.",
+      "Haz rodar un dado de seis lados.",
+      "Lanza un dado de seis caras."
+    ],
+    "fact": [
+      "A ver, dime un dato curioso.",
+      "Dame un dato curioso.",
+      "Porfa, cuéntame un dato curioso."
+    ],
+    "deny_fact": [
+      "No me digas ese dato curioso.",
+      "No me cuentes ningún dato curioso.",
+      "Por favor no quiero que me des un dato curioso."
+    ],
+    "known_deny": [
+      "No me digas un dato curioso.",
+      "No quiero un dato curioso.",
+      "Ahorita no quiero un dato curioso."
+    ],
+    "contrasts": [
+      "Me tiras un dado de {n}.",
+      "Avienta un dado de {n} caras.",
+      "Lánzame el dado de {n}.",
+      "Quiero lanzar un dado de {n}.",
+      "Tira el dado de {n} caras.",
+      "Rueda ese dado de {n} lados.",
+      "Haz rodar un dado de {n} lados.",
+      "Lanza un dado de {n} caras."
+    ],
+    "numbers": [
+      "cuatro",
+      "ocho",
+      "diez",
+      "doce",
+      "veinte",
+      "cien"
+    ],
+    "negations": [
+      "Ahora no {p}",
+      "Te pedí que no: {p}",
+      "{p} Bueno, mejor no."
+    ],
+    "outside": [
+      "Hay seis dados en la mesa.",
+      "¿Cuántas caras tiene el dado?",
+      "Voy a llegar a las seis.",
+      "El dado es blanco y tiene seis puntos.",
+      "Dado que no vienes, vemos el juego.",
+      "Lanza el dado, pero no el de seis.",
+      null
+    ],
+    "legacy": [
+      [
+        1,
+        "Pásame la mantequilla."
+      ],
+      [
+        2,
+        "Tú pasa la mantequilla."
+      ],
+      [
+        3,
+        "Aviéntate un chiste."
+      ],
+      [
+        4,
+        "Dime un dato curioso."
+      ]
+    ],
+    "speeds": [
+      0.96,
+      1.04
+    ]
+  },
+  "confirm": {
+    "d6": [
+      "Avienta tu dado de seis lados.",
+      "Tira un dado de seis, porfa.",
+      "Me avientas un dado de seis.",
+      "Rueda el dado de seis caras."
+    ],
+    "fact": [
+      "Dime otro dato curioso.",
+      "Dame, por favor, un dato curioso."
+    ],
+    "deny_fact": [
+      "Esta vez no quiero un dato curioso.",
+      "No me des un dato interesante."
+    ],
+    "contrasts": [
+      "Avienta tu dado de {n} lados.",
+      "Tira un dado de {n}, porfa.",
+      "Me avientas un dado de {n}.",
+      "Rueda el dado de {n} caras."
+    ],
+    "numbers": [
+      "cuatro",
+      "ocho",
+      "veinte"
+    ],
+    "negations": [
+      "Ni se te ocurra: {p}",
+      "No quiero que hagas esto: {p}"
+    ],
+    "outside": [
+      "Tengo seis dados de colores.",
+      "Ese dado no cayó en seis."
+    ],
+    "speeds": [
+      0.98,
+      1.02
+    ]
+  },
+  "enrolled": {
+    "d6": [
+      "Tira un dado de seis.",
+      "Avienta un dado de seis lados.",
+      "Lanza el dado de seis.",
+      "Tírame el dado de seis caras.",
+      "Quiero tirar un dado de seis.",
+      "Échame un dado de seis.",
+      "Rueda el dado de seis lados.",
+      "Haz rodar un dado de seis.",
+      "Tira un dado de seis caras.",
+      "Avienta el dado de seis lados.",
+      "Quiero tirar el dado de seis.",
+      "Lanza un dado de seis."
+    ],
+    "speeds": [
+      0.97,
+      1.03
+    ]
+  }
+}

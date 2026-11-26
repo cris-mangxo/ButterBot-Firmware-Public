@@ -6,6 +6,9 @@
 #ifdef KWS_WITH_DICE6_ANCHORS
 #include "Dice6Guard.h"
 #include "dice6_anchors.h"
+#elif defined(KWS_WITH_PHRASE_BANK)
+#include "PhraseGate.h"
+#include "phrase_bank.h"
 #endif
 
 bb::asr::LogMel frontend;
@@ -24,6 +27,8 @@ extern "C" void app_main(){
 		const auto result = classify(signature, PilotModel, PilotLimits);
 #ifdef KWS_WITH_DICE6_ANCHORS
 		label = static_cast<int>(confirmDice6(signature, result.intent, PilotDice6Anchors).intent);
+#elif defined(KWS_WITH_PHRASE_BANK)
+		label = static_cast<int>(verifyPhrase(signature, result.intent, PilotPhrases));
 #else
 		label = static_cast<int>(result.intent);
 #endif

@@ -1,5 +1,6 @@
 #include "Audio/EsMxKws/Compact.h"
 #include "Dice6Guard.h"
+#include "PhraseGate.h"
 #include "Audio/EsMxKws/ScenarioForIntent.h"
 
 #include <array>
@@ -7,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <string_view>
+#include <type_traits>
 
 using namespace EsMx::Kws;
 
@@ -15,6 +17,7 @@ static_assert(sizeof(Prototype) == sizeof(Signature) + 1);
 static_assert(sizeof(Signature) == Frames * Bands);
 static_assert(sizeof(Dice6Model) == 5876);
 static_assert(sizeof(Dice6Anchors) == 964);
+static_assert(sizeof(PhraseBank) == 9676);
 std::array<int16_t, MaxSamples + 1> pcm;
 bb::asr::LogMel frontend;
 
@@ -29,6 +32,22 @@ bool load(const char* path, Model& model){
 	return stream.read(reinterpret_cast<char*>(&model), sizeof(model)) &&
 	       stream.peek() == std::ifstream::traits_type::eof() && !stream.bad();
 }
+
+template <typename T, size_t N>
+void writeDistances(const Signature& input, const std::array<T, N>& examples){
+	std::cout << '[';
+	for(size_t i = 0; i < N; ++i){
+		if(i){
+			std::cout << ',';
+		}
+		if constexpr(std::is_same_v<T, Signature>){
+			std::cout << signatureDistance(input, examples[i]);
+		}else{
+			std::cout << signatureDistance(input, examples[i].signature);
+		}
+	}
+	std::cout << ']';
+}
 }
 
 int main(int argc, char** argv){
@@ -36,7 +55,9 @@ int main(int argc, char** argv){
 	const bool score = argc == 5 && std::string_view(argv[1]) == "score";
 	const bool guard = argc == 6 && std::string_view(argv[1]) == "guard";
 	const bool anchor = argc == 6 && std::string_view(argv[1]) == "anchor";
-	if(!features && !score && !guard && !anchor){
+	const bool phrases = argc == 6 && std::string_view(argv[1]) == "phrases";
+	const bool distances = argc == 3 && std::string_view(argv[1]) == "distances";
+	if(!features && !score && !guard && !anchor && !phrases && !distances){
 		return 2;
 	}
 	std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
@@ -51,6 +72,20 @@ int main(int argc, char** argv){
 	if(features){
 		std::cout.write(reinterpret_cast<const char*>(&signature), sizeof(signature));
 		return std::cout ? 0 : 2;
+	}
+	if(distances){
+		PhraseBank bank;
+		if(!load(argv[2], bank) || !validPhraseBank(bank)){
+			return 2;
+		}
+		std::cout << "{\"dice\":";
+		writeDistances(signature, bank.dice);
+		std::cout << ",\"facts\":";
+		writeDistances(signature, bank.facts);
+		std::cout << ",\"deniedFacts\":";
+		writeDistances(signature, bank.deniedFacts);
+		std::cout << "}\n";
+		return 0;
 	}
 
 	std::ifstream file(argv[2], std::ios::binary);
@@ -86,6 +121,13 @@ int main(int argc, char** argv){
 		const auto decision = confirmDice6(signature, intent, anchors);
 		intent = decision.intent;
 		margin = decision.margin;
+	}
+	if(phrases){
+		PhraseBank bank;
+		if(!load(argv[5], bank) || !validPhraseBank(bank)){
+			return 2;
+		}
+		intent = verifyPhrase(signature, intent, bank);
 	}
 	const auto scenario = scenarioForIntent(intent);
 	std::cout << "{\"label\":" << static_cast<int>(intent)

@@ -15,6 +15,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Werror \
   -I components/ButterBot-Common/src -I components/CMF/src \
   experiments/esmx-compactas/host/main.cpp \
   experiments/esmx-compactas/guard/Dice6Guard.cpp \
+  experiments/esmx-compactas/guard/PhraseGate.cpp \
   main/src/Audio/EsMxKws/Compact.cpp main/src/Audio/EsMxKws/logmel.cpp \
   -o "$lab/kws"
 python3 -B experiments/esmx-compactas/pilot.py \
@@ -91,3 +92,35 @@ python3.12 -B -m unittest discover -s experiments/esmx-compactas -p 'test_*.py'
 ```
 
 Para enlazar el verificador en el banco ESP32-S3, generar `dice6_anchors.h` con `d6_guard.py header --anchor --header <ruta>` y los mismos argumentos de programa, base y pesos. Agregar `-D DICE6_ANCHOR_DIR=<directorio del encabezado>` al comando de compilación del banco.
+
+## Verificador ampliado de D6 y veto de Dato curioso
+
+El banco de 9,676 bytes usa doce firmas D6 con radios independientes y seis firmas de negaciones de Dato curioso. Una negación puede cancelar Dato curioso si su distancia de turno completo cae en el radio de una firma negativa y mejora por al menos 256 la distancia a las dos firmas afirmativas. El banco verifica únicamente decisiones D6, desconocido y Dato curioso. La capa experimental sigue en `experiments/esmx-compactas`.
+
+**Resultado de escritorio.** El verificador bloqueó el audio exacto de la regresión «No me digas un dato curioso» y conservó las 22 tomas afirmativas que la versión de dos frases acertaba en los conjuntos comparados. D6 pasó de 3/24 a 24/24 en las doce frases dadas de alta, a ritmos de prueba distintos, y obtuvo 0/8 en cuatro formulaciones inéditas. El turno original de negación de D6 que activó una variante de desarrollo se incorporó a calibración. El replay final conserva 20/20 rechazos de negaciones y 4/4 aciertos D6 del banco anterior. Common Voice aportó 45 clips dentro de cuatro segundos y sin activaciones, con 121 clips largos contabilizados aparte. El audio público es habla leída ajena al repertorio, de una copia local provisional. Falta medir órdenes humanas positivas y negativos cercanos. El banco compiló para ESP32-S3. El estudio no acredita uso en el robot.
+
+Con `$fixed_anchor` apuntando a la referencia anterior de dos frases y `$anchor_dir` a su corpus:
+
+```fish
+python3.12 -B experiments/esmx-compactas/phrases_corpus.py \
+  --piper-python "$piper_python" --ald "$ald_onnx" --out "$phrases_dir"
+python3.12 -B experiments/esmx-compactas/phrases.py fit \
+  --program "$lab/kws" --baseline "$baseline" --bank "$phrases_dir/bank.bin" --corpus "$phrases_dir"
+for operation in ald confirm enrolled
+    python3.12 -B experiments/esmx-compactas/phrases.py "$operation" \
+      --program "$lab/kws" --baseline "$baseline" --anchor "$fixed_anchor" \
+      --bank "$phrases_dir/bank.bin" --corpus "$phrases_dir"
+end
+python3.12 -B experiments/esmx-compactas/phrases.py replay \
+  --program "$lab/kws" --baseline "$baseline" --anchor "$fixed_anchor" \
+  --bank "$phrases_dir/bank.bin" --corpus "$anchor_dir"
+python3.12 -B experiments/esmx-compactas/phrases_human.py --fresh \
+  --program "$lab/kws" --baseline "$baseline" --anchor "$fixed_anchor" \
+  --bank "$phrases_dir/bank.bin" --archive "$archivo_mozilla"
+```
+
+`ald` repite el panel usado durante el desarrollo. `confirm` mide textos nuevos. `enrolled` mantiene los textos de alta D6 y cambia el ritmo de síntesis. `replay` vuelve al banco anterior. La negación «No avienta un dado de seis lados» se incluyó en calibración a la velocidad que mostró el fallo durante ese replay. La toma se conserva como regresión conocida.
+
+`--fresh` excluye los hablantes y las frases seleccionadas en el corte exploratorio de esta ronda y prioriza las frases cortas. Los clips largos se contabilizan aparte. Se analiza habla leída del corpus, sin publicar audio, transcripciones ni identidad de voces.
+
+Para compilar el banco, generar `phrase_bank.h` con `phrases.py header --header <ruta>` y los mismos argumentos de programa, base y banco. Configurar `-D PHRASE_BANK_DIR=<directorio del encabezado>` y omitir `DICE6_ANCHOR_DIR`. Las pruebas directas de C++ se compilan con `host/test_phrase_gate.cpp`, `guard/PhraseGate.cpp`, `Compact.cpp` y `logmel.cpp` y las rutas de inclusión del reconocedor.
