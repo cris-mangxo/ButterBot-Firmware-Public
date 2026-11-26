@@ -1,0 +1,34 @@
+{
+  "d6": [
+    "¿Puedes lanzarme un dado de seis caras?",
+    "Por favor, tira este dado de seis lados.",
+    "Ahorita me avientas el dado de seis.",
+    "Avienta porfa un dado de seis caras.",
+    "Oye, me tiras ese dado de seis lados.",
+    "Échame el dado de seis lados, porfa.",
+    "Quiero que tires el dado de seis caras.",
+    "Haz rodar este dado de seis."
+  ],
+  "other_die": [
+    "¿Puedes lanzarme un dado de doce caras?",
+    "Por favor, tira este dado de ocho lados.",
+    "Ahorita me avientas el dado de veinte.",
+    "Avienta porfa un dado de cuatro caras.",
+    "Oye, me tiras ese dado de dieciséis lados.",
+    "Échame el dado de setenta lados, porfa."
+  ],
+  "negated_d6": [
+    "Por favor, nunca tires ese dado de seis.",
+    "No, el dado de seis no lo avientes.",
+    "No avientes porfa un dado de seis caras.",
+    "Ahorita no tires este dado de seis lados.",
+    "Oye, no eches el dado de seis.",
+    "Tira el dado de seis, pensándolo bien no."
+  ],
+  "mention": [
+    "El dado de seis caras rueda bien.",
+    "Para el juego puedes tirar un dado de seis.",
+    "No tengo el dado de seis lados.",
+    "Dime cuántos lados tiene ese dado."
+  ]
+}

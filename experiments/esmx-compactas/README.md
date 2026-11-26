@@ -124,3 +124,28 @@ python3.12 -B experiments/esmx-compactas/phrases_human.py --fresh \
 `--fresh` excluye los hablantes y las frases seleccionadas en el corte exploratorio de esta ronda y prioriza las frases cortas. Los clips largos se contabilizan aparte. Se analiza habla leída del corpus, sin publicar audio, transcripciones ni identidad de voces.
 
 Para compilar el banco, generar `phrase_bank.h` con `phrases.py header --header <ruta>` y los mismos argumentos de programa, base y banco. Configurar `-D PHRASE_BANK_DIR=<directorio del encabezado>` y omitir `DICE6_ANCHOR_DIR`. Las pruebas directas de C++ se compilan con `host/test_phrase_gate.cpp`, `guard/PhraseGate.cpp`, `Compact.cpp` y `logmel.cpp` y las rutas de inclusión del reconocedor.
+
+## D6 sin registrar el texto completo
+
+La gramática de C++ en `transcript/` interpreta una petición afirmativa y completa de un solo dado de seis caras. Sigue después del banco anterior y solo se consulta cuando la base y el verificador devuelven desconocido. Un veto de Dato curioso y una orden ya reconocida conservan su resultado. Las transcripciones se calculan en la Mac con Whisper; los modelos de esta prueba empiezan en 32,152,673 bytes, por encima de la memoria flash de 16 MiB del robot. La opción `-D TRANSCRIPT_GRAMMAR_BENCH=ON` enlaza solo la gramática con una entrada de texto fija en el banco de ESP32-S3.
+
+**Resultado de escritorio.** Whisper Small con ventana completa reconoció 5/10 formulaciones D6 nuevas de Ald en un panel reservado. El banco acústico anterior acertó 0/10. La gramática interpretó las diez al recibir el texto de referencia. Los 16 controles de otros dados, negaciones y menciones quedaron rechazados. Esta comparación deja fuera del banco del robot el motor de transcripción.
+
+Desde la raíz del fork, con whisper.cpp 1.9.6 instalado, pesos multilingües `tiny-q5_1`, `base-q5_1` y `small-q5_1` fuera de Git y la base y el banco acústico fijados del ensayo anterior:
+
+```fish
+set -lx PYTHONPATH experiments/esmx-compactas
+c++ -std=c++20 -O2 -Wall -Wextra -Werror \
+  -I experiments/esmx-compactas/transcript -I main/src \
+  experiments/esmx-compactas/host/text_gate.cpp \
+  experiments/esmx-compactas/transcript/DiceGrammar.cpp -o "$lab/text-gate"
+python3.12 -B experiments/esmx-compactas/transcript/render_cases.py --suite holdout \
+  --piper-python "$piper_python" --ald "$ald_onnx" --out "$asr_corpus"
+set -l asr_opts --whisper (command -s whisper-cli) --base "$whisper_base" \
+  --tiny "$whisper_tiny" --small "$whisper_small" --program "$lab/kws" \
+  --grammar "$lab/text-gate" --baseline "$baseline" --bank "$phrases_dir/bank.bin"
+python3.12 -B experiments/esmx-compactas/transcript/evaluate.py holdout $asr_opts --corpus "$asr_corpus"
+python3.12 -B experiments/esmx-compactas/transcript/evaluate.py human $asr_opts --archive "$archivo_mozilla"
+```
+
+También se puede usar `predict` con `--wav <PCM mono 16 kHz>`, `replay` con los corpus anteriores `--corpus` y `--older-wide`, o generar y evaluar `panel`, `confirm` y `final`. `--short-window` reproduce la comparación con ventana de contexto de 256. El script comprueba los pesos y el banco por SHA-256. Ejecuta Whisper con Metal y sin red ni acceso serie. Los clips de Common Voice, el audio sintético y las transcripciones temporales quedan fuera de Git.

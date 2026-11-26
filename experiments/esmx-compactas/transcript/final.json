@@ -1,0 +1,43 @@
+{
+  "d6": [
+    "¿Me puedes echar un dado de seis caras?",
+    "Oye, tira porfa ese dado de seis lados.",
+    "¿Podrías aventar este dado de seis caras?",
+    "Quiero que lances un dado de seis lados.",
+    "A ver, tira el dado de seis, por fa.",
+    "Haz una tirada con un dado de seis caras.",
+    "¿Me lanzas el dado de seis lados?",
+    "Vamos a aventar un dado de seis caras.",
+    "Échame mi dado de seis, por favor.",
+    "Porfa, tira tu dado de seis lados.",
+    "Te pido que lances el dado de seis.",
+    "¿Puedes, por favor, tirar un dado de seis lados?"
+  ],
+  "other_die": [
+    "¿Me puedes echar un dado de veinte caras?",
+    "Oye, tira porfa ese dado de ocho lados.",
+    "¿Podrías aventar este dado de cuatro caras?",
+    "Quiero que lances un dado de diez lados.",
+    "A ver, tira el dado de doce, por fa.",
+    "Haz una tirada con un dado de dieciséis caras.",
+    "¿Me lanzas el dado de setenta lados?",
+    "Vamos a aventar dos dados de seis caras."
+  ],
+  "negated_d6": [
+    "No quiero que lances el dado de seis lados.",
+    "A ver, no tires ese dado de seis, por fa.",
+    "Oye, nunca avientes mi dado de seis lados.",
+    "Por favor, no me eches un dado de seis caras.",
+    "Te pido que no tires el dado de seis.",
+    "Tampoco lances tu dado de seis lados.",
+    "Tira un dado de seis lados, aunque mejor no.",
+    "Mejor no tires el dado de seis caras."
+  ],
+  "mention": [
+    "Este es mi dado de seis caras.",
+    "Por la mañana tiré un dado de seis lados.",
+    "Si él quiere, avienta un dado de seis caras.",
+    "El dado de seis es nuevo y está en la caja.",
+    "Pregunta si alguien puede tirar un dado de seis."
+  ]
+}

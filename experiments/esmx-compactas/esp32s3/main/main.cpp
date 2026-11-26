@@ -9,6 +9,9 @@
 #elif defined(KWS_WITH_PHRASE_BANK)
 #include "PhraseGate.h"
 #include "phrase_bank.h"
+#ifdef KWS_WITH_TRANSCRIPT_GRAMMAR
+#include "DiceGrammar.h"
+#endif
 #endif
 
 bb::asr::LogMel frontend;
@@ -28,7 +31,12 @@ extern "C" void app_main(){
 #ifdef KWS_WITH_DICE6_ANCHORS
 		label = static_cast<int>(confirmDice6(signature, result.intent, PilotDice6Anchors).intent);
 #elif defined(KWS_WITH_PHRASE_BANK)
-		label = static_cast<int>(verifyPhrase(signature, result.intent, PilotPhrases));
+		const auto verified = verifyPhrase(signature, result.intent, PilotPhrases);
+#ifdef KWS_WITH_TRANSCRIPT_GRAMMAR
+		label = static_cast<int>(completeDice6(result.intent, verified, "Podrías lanzarme un dado de seis."));
+#else
+		label = static_cast<int>(verified);
+#endif
 #else
 		label = static_cast<int>(result.intent);
 #endif

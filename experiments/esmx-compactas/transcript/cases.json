@@ -1,0 +1,70 @@
+{
+  "d6": [
+    "¿Podrías lanzarme ese dado de seis caras?",
+    "A ver, echa el dado de seis lados, porfa.",
+    "¿Me tiras el dado de seis lados, por favor?",
+    "Te pido que avientes un dado de seis caras.",
+    "Quiero echar un dado de seis lados.",
+    "¿Puedes tirar por favor un dado de seis caras?",
+    "Oye, échame este dado de seis.",
+    "Vamos a lanzar ese dado de seis.",
+    "Haz rodar el dado de seis caras.",
+    "Ahorita lanza tu dado de seis caras.",
+    "Échame por favor el dado de seis caras.",
+    "Tírame ese dado de seis.",
+    "A ver, ¿puedes rodar un dado de seis lados?",
+    "Porfa, avienta mi dado de seis caras.",
+    "¿Me lanzas un dado de seis caras, por favor?",
+    "¿Podrías aventar el dado de seis, porfa?",
+    "Lanza un D6.",
+    "Oye, tira un dado de 6."
+  ],
+  "other_die": [
+    "¿Podrías lanzarme ese dado de cuatro caras?",
+    "A ver, echa el dado de ocho lados, porfa.",
+    "¿Me tiras el dado de siete lados, por favor?",
+    "Te pido que avientes un dado de diez caras.",
+    "Quiero echar un dado de doce lados.",
+    "¿Puedes tirar por favor un dado de dieciséis caras?",
+    "Oye, échame este dado de veinte.",
+    "Vamos a lanzar ese dado de cien.",
+    "Lanza un dado de sesenta caras.",
+    "Lanza un D veinte.",
+    "Tira un dado de seis y otro de veinte."
+  ],
+  "negated_d6": [
+    "No me tires el dado de seis lados, por favor.",
+    "Oye, no me lances un dado de seis caras.",
+    "Por favor, no avientes el dado de seis.",
+    "Nunca eches un dado de seis caras.",
+    "Te pido que no lances un dado de seis lados.",
+    "No quiero echar un dado de seis lados.",
+    "Tira el dado de seis, pero no ahorita.",
+    "A ver, el dado de seis no lo lances.",
+    "Mejor no lances ese dado de seis.",
+    "Lanza un dado de seis. No, espera.",
+    "Tampoco me avientes un dado de seis lados.",
+    "No tires un D seis."
+  ],
+  "mention": [
+    "El dado de seis caras es azul.",
+    "¿Tienes un dado de seis lados?",
+    "Dime qué es un dado de seis caras.",
+    "Si puedes, lanza un dado de seis lados.",
+    "Él dijo: lanza un dado de seis lados.",
+    "La orden era: tira un dado de seis.",
+    "Se me cayó el dado de seis lados.",
+    "Espera seis segundos antes de tirar el dado.",
+    "¿Cuánto vale un dado de seis caras?",
+    "Tira seis dados.",
+    "Lanza un dado de seis y dime la hora.",
+    "Mientras tiras el dado de seis, yo salgo.",
+    "El dado se quedó en seis.",
+    "Porfa, la mantequilla."
+  ],
+  "known_fact_deny": [
+    "No me digas un dato curioso.",
+    "No quiero un dato curioso.",
+    "Ahorita no quiero un dato curioso."
+  ]
+}
