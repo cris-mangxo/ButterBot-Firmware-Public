@@ -64,12 +64,13 @@ int main(int argc, char** argv){
 	const bool acoustic = argc == 7 && std::string_view(argv[1]) == "acoustic";
 	const bool acousticScores = argc == 3 && std::string_view(argv[1]) == "acoustic-scores";
 	const bool words = argc == 7 && std::string_view(argv[1]) == "words";
+	const bool wordPair = argc == 8 && std::string_view(argv[1]) == "word-pair";
 	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
 	const bool wordScores = argc == 3 && std::string_view(argv[1]) == "word-scores";
 	const bool wordAccept = argc == 3 && std::string_view(argv[1]) == "word-accept";
 	const bool distances = argc == 3 && std::string_view(argv[1]) == "distances";
 	if(!features && !score && !guard && !anchor && !phrases && !distances && !acoustic && !acousticScores &&
-	   !words && !wordFrames && !wordScores && !wordAccept){
+	   !words && !wordPair && !wordFrames && !wordScores && !wordAccept){
 		return 2;
 	}
 	std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
@@ -166,7 +167,7 @@ int main(int argc, char** argv){
 		intent = decision.intent;
 		margin = decision.margin;
 	}
-	if(phrases || acoustic || words){
+	if(phrases || acoustic || words || wordPair){
 		PhraseBank bank;
 		if(!load(argv[5], bank) || !validPhraseBank(bank)){
 			return 2;
@@ -180,12 +181,15 @@ int main(int argc, char** argv){
 		}
 		intent = completeAcousticDice(signature, result.intent, intent, model);
 	}
-	if(words){
+	if(words || wordPair){
 		WordBank bank;
-		if(!load(argv[6], bank) || !validWordBank(bank)){
+		WordBank supplement;
+		if(!load(argv[6], bank) || !validWordBank(bank) ||
+		   (wordPair && (!load(argv[7], supplement) || !validWordBank(supplement)))){
 			return 2;
 		}
-		intent = completeWordDice(frontend, samples, result.intent, intent, bank, wordFeatures);
+		intent = completeWordDice(frontend, samples, result.intent, intent, bank, wordFeatures,
+		                          wordPair ? &supplement : nullptr);
 	}
 	const auto scenario = scenarioForIntent(intent);
 	std::cout << "{\"label\":" << static_cast<int>(intent)

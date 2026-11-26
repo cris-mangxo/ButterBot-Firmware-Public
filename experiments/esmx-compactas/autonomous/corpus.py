@@ -5,14 +5,17 @@ from concurrent.futures import ProcessPoolExecutor
 import io
 import json
 from pathlib import Path
+import re
 import wave
 
 import numpy as np
 from piper import PiperVoice, SynthesisConfig
 
 from ald_round import ALD_SHA256, canonical, digest
+from model_sources import SHARVARD_CONFIG_SHA256, SHARVARD_SHA256
 
 FIXTURE = Path(__file__).with_name("fixture.json")
+FRESH = FIXTURE.with_name("fresh_suite.json")
 CLASSES = {"outside": 0, "positive": 1, "other_die": 2, "negated": 3}
 NUMBERS = ("cuatro", "ocho", "diez", "doce", "veinte", "cien", "siete",
            "dieciséis", "tres", "dos", "cinco", "sesenta")
@@ -71,10 +74,34 @@ def initialize(model, aligned):
     VOICE = PiperVoice.load(model, include_alignments=aligned)
 
 
+def fresh_rows(previous):
+    old = {canonical(row["text"]) for row in previous}
+    items = json.loads(FRESH.read_text("utf-8"))
+    index = 0
+    for category, texts in items.items():
+        for text in texts:
+            key = canonical(text)
+            if key in old:
+                raise ValueError("Frase repetida en la prueba nueva")
+            old.add(key)
+            index += 1
+            yield {"id": f"test-{index:04d}-0", "split": "test", "label": CLASSES[category],
+                   "category": category, "speed": (0.95, 1.05)[index % 2], "text": text}
+
+
+def shorthand_rows(previous):
+    for row in previous:
+        if row["split"] == "test" or row["category"] == "outside":
+            continue
+        text, changes = re.subn(r"\bun dado de\b", "un de", row["text"], count=1)
+        if changes:
+            yield dict(row, text=text)
+
+
 def waveform(task):
-    output, row, aligned = task
+    output, row, aligned, speaker = task
     raw = io.BytesIO()
-    synthesis = SynthesisConfig(length_scale=row["speed"], noise_scale=0, noise_w_scale=0)
+    synthesis = SynthesisConfig(speaker_id=speaker, length_scale=row["speed"], noise_scale=0, noise_w_scale=0)
     with wave.open(raw, "wb") as original:
         intervals = VOICE.synthesize_wav(row["text"], original, synthesis, include_alignments=aligned)
     raw.seek(0)
@@ -101,21 +128,48 @@ def waveform(task):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ald", type=Path, required=True)
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument("--ald", type=Path)
+    sources.add_argument("--sharvard", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--aligned", action="store_true")
+    parser.add_argument("--fresh", action="store_true", help="Genera solo el nuevo panel reservado")
+    parser.add_argument("--shorthand", action="store_true", help="Genera contrastes sintéticos para «un de seis»")
     args = parser.parse_args()
-    if digest(args.ald) != ALD_SHA256:
-        parser.error("Ald no coincide con la versión fijada")
+    model = args.ald or args.sharvard
+    expected = ALD_SHA256 if args.ald else SHARVARD_SHA256
+    if digest(model) != expected:
+        parser.error("La voz de síntesis no coincide con la versión fijada")
+    if args.sharvard and digest(Path(str(model) + ".json")) != SHARVARD_CONFIG_SHA256:
+        parser.error("La configuración Sharvard difiere de la referencia")
+    if args.fresh and not args.ald:
+        parser.error("El panel reservado usa Ald")
+    if args.fresh and args.shorthand:
+        parser.error("La variante abreviada se reserva al desarrollo")
     corpus = list(rows())
+    if args.fresh:
+        corpus = list(fresh_rows(corpus))
+    if args.shorthand:
+        corpus = list(shorthand_rows(corpus))
+    if args.sharvard:
+        corpus = [row for row in corpus if row["split"] != "test"]
     args.out.mkdir(mode=0o700)
     audio = args.out / "audio"
     audio.mkdir(mode=0o700)
-    with ProcessPoolExecutor(max_workers=3, initializer=initialize, initargs=(args.ald, args.aligned)) as pool:
-        for _ in pool.map(waveform, ((audio, row, args.aligned) for row in corpus), chunksize=8):
+    def speaker(row):
+        if args.ald:
+            return None
+        _, sequence, replica = row["id"].split("-")
+        return (int(sequence) + int(replica)) % 2
+
+    with ProcessPoolExecutor(max_workers=3, initializer=initialize, initargs=(model, args.aligned)) as pool:
+        for _ in pool.map(waveform, ((audio, row, args.aligned, speaker(row)) for row in corpus), chunksize=8):
             pass
     (args.out / "manifest.json").write_text(json.dumps({
-        "fixture_sha256": digest(FIXTURE), "ald_sha256": ALD_SHA256, "samples": corpus,
+        "fixture_sha256": digest(FRESH if args.fresh else FIXTURE),
+        "ald_sha256" if args.ald else "sharvard_sha256": expected,
+        "samples": corpus,
+        **({"shorthand": True} if args.shorthand else {}),
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 

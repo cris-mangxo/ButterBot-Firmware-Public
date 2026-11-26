@@ -14,6 +14,9 @@
 #elif defined(KWS_WITH_WORD_DICE)
 #include "WordDice.h"
 #include "word_bank.h"
+#ifdef KWS_WITH_WORD_DICE_EXTRA
+#include "word_extra.h"
+#endif
 #ifdef KWS_WITH_WORD_TEST_PCM
 #include "word_pcm.h"
 #endif
@@ -37,8 +40,13 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 #ifdef KWS_WITH_TRANSCRIPT_GRAMMAR
 		label = static_cast<int>(completeDice6(result.intent, verified, "Podrías lanzarme un dado de seis."));
 #elif defined(KWS_WITH_WORD_DICE)
+#ifdef KWS_WITH_WORD_DICE_EXTRA
+		label = static_cast<int>(completeWordDice(frontend, pcm, result.intent, verified,
+		                                         PilotWordDice, wordWorkspace, &PilotWordExtra));
+#else
 		label = static_cast<int>(completeWordDice(frontend, pcm, result.intent, verified,
 		                                         PilotWordDice, wordWorkspace));
+#endif
 #else
 		label = static_cast<int>(verified);
 #endif

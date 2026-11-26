@@ -125,11 +125,13 @@ bool acceptsWordDice(const WordFeatures& input, const WordBank& bank){
 }
 
 Intent completeWordDice(bb::asr::LogMel& frontend, std::span<const int16_t> pcm,
-                        Intent baseline, Intent verified, const WordBank& model, WordFeatures& workspace){
+                        Intent baseline, Intent verified, const WordBank& model, WordFeatures& workspace,
+                        const WordBank* supplement){
 	if(baseline != Intent::Unknown || verified != Intent::Unknown){
 		return verified;
 	}
-	if(extractWordFeatures(frontend, pcm, workspace) && acceptsWordDice(workspace, model)){
+	if(extractWordFeatures(frontend, pcm, workspace) &&
+	   (acceptsWordDice(workspace, model) || (supplement && acceptsWordDice(workspace, *supplement)))){
 		return Intent::Dice6;
 	}
 	return Intent::Unknown;

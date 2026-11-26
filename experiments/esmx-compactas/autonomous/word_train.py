@@ -32,6 +32,7 @@ WORDS = (
          "mientras quedamos guardar pintar resultado color precio salio pienso sabes tampoco").split()),
 )
 VOCABULARY = {word: label for label, group in reversed(list(enumerate(WORDS))) for word in group}
+OTHER_NUMBERS = WORDS[5] - {"dados"}
 WINDOW = 17
 HIDDEN = 24
 LABELS = len(WORDS)
@@ -76,16 +77,19 @@ def prepare(item, program):
     # At 16 kHz the first analysis window's midpoint is 240 samples.
     centers = (np.arange(len(signal)) * 320 + 240) * align["sample_rate"] / 16000
     targets = np.zeros(len(signal), np.int64)
-    for token, (start, end) in zip(tokens, intervals, strict=True):
+    for index, (token, (start, end)) in enumerate(zip(tokens, intervals, strict=True)):
         label = VOCABULARY.get(token, 0)
+        if (token == "de" and 0 < index < len(tokens) - 1 and tokens[index - 1] == "un"
+                and (tokens[index + 1] == "seis" or tokens[index + 1] in OTHER_NUMBERS)):
+            label = VOCABULARY["dado"]
         if label:
             inset = (end - start) // 6
             targets[(centers >= start + inset) & (centers < end - inset)] = label
     return signal, targets, row["label"], wav
 
 
-def load(corpus, program):
-    rows = read_manifest(corpus)
+def load(corpus, program, sharvard=False):
+    rows = read_manifest(corpus, sharvard=sharvard)
     pairs = [(row, corpus / "audio" / (row["id"] + ".wav")) for row in rows if row["split"] != "test"]
     groups = {"train": [], "dev": []}
     omitted = Counter()
@@ -163,7 +167,22 @@ def calibrate(logits, labels, unit):
     return best
 
 
-def fit(groups):
+def shift_bands(signal):
+    # A small spectral warp on training batches models differences in vocal
+    # tract length. The identities, timestamps and development clips stay fixed.
+    batch = len(signal)
+    grid = torch.arange(signal.shape[1], dtype=signal.dtype)[None]
+    factor = torch.empty((batch, 1)).uniform_(0.91, 1.09)
+    position = ((grid - 9.5) * factor + 9.5).clamp(0, signal.shape[1] - 1)
+    lower = position.floor().long()
+    upper = (lower + 1).clamp_max(signal.shape[1] - 1)
+    shape = (-1, -1, signal.shape[2])
+    left = signal.gather(1, lower[..., None].expand(shape))
+    right = signal.gather(1, upper[..., None].expand(shape))
+    return left.lerp(right, (position - lower)[..., None])
+
+
+def fit(groups, multi_voice=False):
     train, y_train = tensors(groups["train"])
     dev_x, _ = tensors(groups["dev"])
     lengths = [len(item[0]) for item in groups["dev"]]
@@ -179,6 +198,8 @@ def fit(groups):
         model.train()
         for batch in torch.randperm(len(train)).split(48):
             signal = train[batch]
+            if multi_voice:
+                signal = shift_bands(signal)
             signal = signal * torch.empty((len(batch), 1, 1)).uniform_(0.9, 1.1)
             signal = signal + torch.randn_like(signal) * 0.023
             opt.zero_grad()
@@ -253,13 +274,14 @@ def score_dev(program, bank, groups, weights, unit):
             "word_margin": word_margin, "veto_margin": veto_margin, "parity_cpp_turns": len(decisions)}
 
 
-def header(bank, target):
+def header(bank, target, supplement=False):
     raw = bank.read_bytes()
     if len(raw) != BYTES:
         raise ValueError("Modelo binario inválido")
     with target.open("x", encoding="utf-8") as output:
         output.write('#pragma once\n#include "WordDice.h"\n#include <bit>\n')
-        output.write(f'inline constexpr auto PilotWordDice = '
+        symbol = "PilotWordExtra" if supplement else "PilotWordDice"
+        output.write(f'inline constexpr auto {symbol} = '
                      f'std::bit_cast<EsMx::Kws::WordBank>(std::array<uint8_t, {BYTES}>{{\n')
         for start in range(0, len(raw), 20):
             output.write("    " + ", ".join(map(str, raw[start:start + 20])) + ",\n")
@@ -271,25 +293,41 @@ def main():
     parser.add_argument("operation", choices=("fit", "header"))
     for name in ("program", "corpus", "bank", "header"):
         parser.add_argument(f"--{name}", type=Path, required=name == "bank")
+    parser.add_argument("--sharvard-corpus", type=Path)
+    parser.add_argument("--shorthand-ald", type=Path)
+    parser.add_argument("--shorthand-sharvard", type=Path)
+    parser.add_argument("--supplement", action="store_true")
     args = parser.parse_args()
     if args.operation == "header":
         if args.header is None:
             parser.error("Falta --header")
-        header(args.bank, args.header)
+        header(args.bank, args.header, supplement=args.supplement)
         return
     if args.program is None or args.corpus is None:
         parser.error("Faltan --program y --corpus")
     torch.set_num_threads(4)
     torch.manual_seed(1151)
     groups, omitted = load(args.corpus, args.program)
-    net, epoch, training = fit(groups)
+    voice_counts = {"ald": {split: len(records) for split, records in groups.items()}}
+    additions = (("sharvard_2_voices", args.sharvard_corpus, True),
+                 ("shorthand_ald", args.shorthand_ald, False),
+                 ("shorthand_sharvard", args.shorthand_sharvard, True))
+    for name, path, sharvard in additions:
+        if path is None:
+            continue
+        extra, other_omissions = load(path, args.program, sharvard=sharvard)
+        voice_counts[name] = {split: len(records) for split, records in extra.items()}
+        omitted.update({f"{name}/{key}": value for key, value in other_omissions.items()})
+        for split in groups:
+            groups[split].extend(extra[split])
+    net, epoch, training = fit(groups, multi_voice=bool(args.sharvard_corpus))
     weights, unit = quantize(net, training)
     results = score_dev(args.program, args.bank, groups, weights, unit)
     print(json.dumps({"model_bytes": BYTES, "model_sha256": digest(args.bank), "fixture_sha256": digest(FIXTURE),
                       "chosen_epoch": epoch, "torch_version": torch.__version__,
                       "train_turns": len(groups["train"]), "dev_turns": len(groups["dev"]),
                       "dev_d6_total": sum(row[2] == 1 for row in groups["dev"]),
-                      "omitted": omitted, **results}, indent=2))
+                      "omitted": omitted, "voice_counts": voice_counts, **results}, indent=2))
 
 
 if __name__ == "__main__":

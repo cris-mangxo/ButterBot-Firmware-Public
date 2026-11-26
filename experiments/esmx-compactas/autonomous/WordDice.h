@@ -33,5 +33,6 @@ bool extractWordFeatures(bb::asr::LogMel& frontend, std::span<const int16_t> pcm
 std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t time, const WordBank& bank);
 bool acceptsWordDice(const WordFeatures& input, const WordBank& bank);
 Intent completeWordDice(bb::asr::LogMel& frontend, std::span<const int16_t> pcm,
-                        Intent baseline, Intent verified, const WordBank& model, WordFeatures& workspace);
+                        Intent baseline, Intent verified, const WordBank& model, WordFeatures& workspace,
+                        const WordBank* supplement = nullptr);
 }

@@ -1,0 +1,43 @@
+{
+  "positive": [
+    "Anda, tírame un dado de seis lados.",
+    "Va, lanza ese dado de seis caras, por favor.",
+    "Porfa, ¿me tiras tu dado de seis?",
+    "Ahorita lánzame este dado de seis.",
+    "Échame el dado de seis caras cuando puedas.",
+    "¿Puedes hacer rodar mi dado de seis?",
+    "Échale un dado de seis caras, por favor.",
+    "Va, haz una tirada con ese dado de seis lados.",
+    "Quiero que me lances un dado de seis caras.",
+    "Oye, tírame ese dado de seis, porfa.",
+    "Por favor avienta este dado de seis lados.",
+    "¿Podrías lanzar ese dado de seis?"
+  ],
+  "other_die": [
+    "Anda, tírame un dado de ocho lados.",
+    "Va, lanza ese dado de cuatro caras, por favor.",
+    "Porfa, ¿me tiras tu dado de veinte?",
+    "Ahorita lánzame este dado de doce.",
+    "Échame el dado de sesenta caras cuando puedas.",
+    "¿Puedes hacer rodar mi dado de diez?",
+    "Échale dos dados de seis caras, por favor.",
+    "Por favor avienta este dado de dieciséis lados."
+  ],
+  "negated": [
+    "Anda, no me tires un dado de seis lados.",
+    "Va, nunca lances ese dado de seis caras.",
+    "Porfa, no me tires tu dado de seis.",
+    "Ahorita no me lances este dado de seis.",
+    "No me eches el dado de seis caras.",
+    "No quiero que ruedes mi dado de seis.",
+    "Échame un dado de seis, aunque no, espera.",
+    "Oye, mejor no tires ese dado de seis, porfa."
+  ],
+  "outside": [
+    "¿Sabías que cada dado tiene seis caras?",
+    "Mis dados de seis caras son blancos.",
+    "Cuéntame qué juegos usan un dado de seis.",
+    "Cuando caiga en seis me avisas, porfa.",
+    "Dado que son seis personas, vamos a jugar."
+  ]
+}

@@ -13,6 +13,7 @@ from d6_guard import LOCAL_CV_SHA256, guarded_score
 from phrases import too_long
 from phrases_human import group, read_tables, select, selected_wavs
 from pilot import MAX_COST, MIN_GAP, read_pcm, score
+from public_orders import FIXTURE as PUBLIC_FIXTURE, verified_cases
 
 BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
 FIXTURE = Path(__file__).with_name("fixture.json")
@@ -21,8 +22,9 @@ VARIANTS = ("compact", "turn_cnn", "word_gate")
 
 def trial(args, wav, category, expected, identifier=None):
     long = too_long(wav)
+    variants = VARIANTS + (("word_pair",) if args.extra else ())
     data = {"category": category, "expected": expected, "overlong": long,
-            "baseline": 0, "decisions": dict.fromkeys(VARIANTS, 0)}
+            "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
         data["id"] = identifier
     if long:
@@ -30,9 +32,11 @@ def trial(args, wav, category, expected, identifier=None):
     data["baseline"] = score(args.program, args.baseline, wav)["label"]
     compact = guarded_score(args.program, args.baseline, args.prior, wav, mode="phrases")
     data["decisions"]["compact"] = compact["label"]
-    for variant, mode, path in (("turn_cnn", "acoustic", args.turn),
-                                ("word_gate", "words", args.words)):
-        command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, path]
+    commands = [("turn_cnn", "acoustic", [args.turn]), ("word_gate", "words", [args.words])]
+    if args.extra:
+        commands.append(("word_pair", "word-pair", [args.words, args.extra]))
+    for variant, mode, models in commands:
+        command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
         if process.returncode == 3:
             if compact["label"]:
@@ -45,15 +49,18 @@ def trial(args, wav, category, expected, identifier=None):
         if (data["baseline"] or compact["label"]) and result["label"] != compact["label"]:
             raise ValueError("Se alteró una decisión anterior o un veto")
         data["decisions"][variant] = result["label"]
+    if args.extra and data["decisions"]["word_gate"] == 6 and data["decisions"]["word_pair"] != 6:
+        raise ValueError("El banco nuevo perdió un D6 ya reconocido")
     return data
 
 
 def summarize(rows):
     output = {}
     for row in rows:
+        variants = tuple(row["decisions"])
         current = output.setdefault(row["category"], {
-            "trials": 0, "overlong": 0, "correct": dict.fromkeys(VARIANTS, 0),
-            "false_d6": dict.fromkeys(VARIANTS, 0),
+            "trials": 0, "overlong": 0, "correct": dict.fromkeys(variants, 0),
+            "false_d6": dict.fromkeys(variants, 0),
         })
         current["trials"] += 1
         current["overlong"] += row["overlong"]
@@ -121,9 +128,10 @@ def real_trials(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("test", "asr-holdout", "replay", "human"))
+    parser.add_argument("operation", choices=("test", "fresh", "asr-holdout", "replay", "human", "public-orders"))
     for name in ("program", "baseline", "prior", "turn", "words"):
         parser.add_argument(f"--{name}", type=Path, required=True)
+    parser.add_argument("--extra", type=Path)
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
@@ -131,12 +139,23 @@ def main():
         parser.error("El banco acústico anterior no coincide con la referencia")
     provenance = {key: digest(value) for key, value in (("compact", args.prior), ("turn_cnn", args.turn),
                                                        ("word_gate", args.words))}
+    if args.extra:
+        provenance["word_pair_extra"] = digest(args.extra)
     if args.operation == "human":
         rows, metadata = real_trials(args)
         report = metadata
+    elif args.operation == "public-orders":
+        if args.corpus is None:
+            parser.error("--corpus debe apuntar a los cortes públicos verificados")
+        rows = [trial(args, wav, case["category"], case["expected"], case["id"])
+                for case, wav in verified_cases(args.corpus)]
+        if any(row["overlong"] for row in rows):
+            raise ValueError("Una orden pública supera el límite del turno")
+        report = {"public_fixture_sha256": digest(PUBLIC_FIXTURE), "cases": rows}
     else:
         parent = FIXTURE.parent.parent
-        fixture = {"test": FIXTURE, "asr-holdout": parent / "transcript/holdout.json",
+        fixture = {"test": FIXTURE, "fresh": FIXTURE.with_name("fresh_suite.json"),
+                   "asr-holdout": parent / "transcript/holdout.json",
                    "replay": parent / "phrases_cases.json"}[args.operation]
         source = manifest(args.corpus, fixture)
         rows = []
@@ -148,11 +167,9 @@ def main():
             rows.append(trial(args, args.older_wide / "audio/test-0379.wav", "original_fact_veto",
                               0, original["id"]))
         for row in source:
-            if args.operation == "test" and row["split"] != "test":
+            if args.operation in {"test", "fresh"} and row["split"] != "test":
                 continue
-            expected = 6 if args.operation == "test" and row["label"] == 1 else row["label"]
-            if args.operation == "test" and expected != 6:
-                expected = 0
+            expected = (6 if row["label"] == 1 else 0) if args.operation in {"test", "fresh"} else row["label"]
             wav = args.corpus / "audio" / (row["id"] + ".wav")
             rows.append(trial(args, wav, row["category"], expected, row["id"]))
         report = {"fixture_sha256": digest(fixture), "cases": rows}

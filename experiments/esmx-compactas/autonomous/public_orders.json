@@ -1,0 +1,38 @@
+{
+  "sources": {
+    "tirando-rol": {
+      "page": "https://podcasters.spotify.com/pod/show/tirandorol/episodes/Tirando-Rol---BONUS-La-Leyenda-de-Zelda-Parte-1-e3sbpnh",
+      "rss": "https://anchor.fm/s/100f3c838/podcast/rss",
+      "enclosure": "https://anchor.fm/s/100f3c838/podcast/play/129410225/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-14%2F436696776-44100-2-612a0b0fcf437.mp3",
+      "sha256": "bc00c16316407f2fbf87c51359d0a56a090ef173eec1d0ebe88e280bc74a3674"
+    },
+    "oneshots": {
+      "page": "https://www.ivoox.com/64-el-mas-lejano-todos-hombres-audios-mp3_rf_179814211_1.html",
+      "rss": "https://feeds.ivoox.com/feed_fg_f11629516_filtro_1.xml",
+      "enclosure": "https://www.ivoox.com/64-el-mas-lejano-todos-hombres_mf_179814211_feed_1.mp3",
+      "sha256": "5fb8c2cc1e94086df8934cab1a839b38b4411d44ff105290f0ae586ae92ca204"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-01", "source": "tirando-rol", "start_ms": 436550, "end_ms": 439050,
+      "category": "direct_short_d6", "expected": 6
+    },
+    {
+      "id": "public-02", "source": "tirando-rol", "start_ms": 270250, "end_ms": 273290,
+      "category": "direct_short_d6", "expected": 6
+    },
+    {
+      "id": "public-03", "source": "oneshots", "start_ms": 178370, "end_ms": 179780,
+      "category": "instruction_clause_d6", "expected": 6
+    },
+    {
+      "id": "public-04", "source": "tirando-rol", "start_ms": 623790, "end_ms": 626640,
+      "category": "multiple_dice", "expected": 0
+    },
+    {
+      "id": "public-05", "source": "oneshots", "start_ms": 182430, "end_ms": 184100,
+      "category": "multiple_dice", "expected": 0
+    }
+  ]
+}

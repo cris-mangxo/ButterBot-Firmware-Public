@@ -184,3 +184,31 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py human $word_opts 
 ```
 
 Compilar para ESP32-S3 con `-D WORD_DICE_DIR=<directorio de word_bank.h>` junto con `KWS_WITH_MODEL` y `PHRASE_BANK_DIR`. Omitir `TRANSCRIPT_GRAMMAR_BENCH`. Para QEMU, generar `word_pcm.h` con `autonomous/qemu_fixture.py` y usar `-D WORD_DICE_TEST_PCM_DIR=<directorio de word_pcm.h>` en otro build. Ejecutar con `idf.py qemu --qemu-extra-args="-nic none"` apuntando al build de prueba. La salida esperada es cinco líneas `WORD_D6_CASE` y `WORD_D6_DONE 0`. [QEMU para ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32s3/api-guides/tools/qemu.html).
+
+## Más voces sintéticas y prueba con órdenes públicas
+
+El banco complementario usa Ald y dos locutores sintetizados de [Sharvard](https://huggingface.co/rhasspy/piper-voices/blob/f5b7f7cfcab751578ac223f7decb9781b72d676a/es/es_ES/sharvard/medium/MODEL_CARD). Comparte las tramas con el detector anterior y solo se consulta después de su rechazo. La unión conserva decisiones anteriores y el veto de Dato curioso. Como en el primer experimento, la detección de negaciones de D6 es empírica y depende del audio.
+
+El banco adicional aportó 1 reconocimiento sobre 10 órdenes sintéticas del panel previo y 2 sobre las 40 tomas repetidas. El panel Ald nuevo quedó en 9/12 y conservó el rechazo de 21/21 controles. Con voces humanas públicas obtuvo 0/2 peticiones directas de un D6 y 0/1 cláusula imperativa de un D6 extraída de una explicación. Rechazó los dos controles de varios dados. Una segunda variante con ejemplos sintéticos abreviados obtuvo 0/2 y 0/1 en esas mismas pruebas humanas y produjo una activación falsa en el panel sintético previo. La compilación de laboratorio usa el banco sin abreviaturas. El reconocimiento en personas queda abierto.
+
+Usar las rutas del experimento anterior y crear directorios nuevos. La variable `sharvard_onnx` apunta al ONNX de la revisión enlazada. Colocar su `.onnx.json` junto al modelo. `public_sources` contiene los dos MP3 locales bajo los nombres `tirando-rol.mp3` y `oneshots.mp3`. Las ubicaciones y sumas se publican en [public_orders.json](autonomous/public_orders.json). La prueba usó FFmpeg 9.1. Comparar `cases[].wav_sha256` del manifiesto generado con `public_pcm_sha256` del recibo publicado usando sus identificadores. Los recortes se mantienen localmente.
+
+```fish
+set -l v2 "$lab/autonomous-v2"
+mkdir -p "$v2/selected-bank"
+"$piper_python" -B experiments/esmx-compactas/autonomous/corpus.py --aligned \
+  --sharvard "$sharvard_onnx" --out "$v2/sharvard"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py fit \
+  --program "$lab/kws" --corpus "$aligned_dir" --sharvard-corpus "$v2/sharvard" \
+  --bank "$v2/words-extra.bin"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py header --supplement \
+  --bank "$v2/words-extra.bin" --header "$v2/selected-bank/word_extra.h"
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --sources "$public_sources" --out "$v2/public-holdout"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $word_opts \
+  --extra "$v2/words-extra.bin" --corpus "$v2/public-holdout"
+```
+
+Para reproducir la variante de abreviaturas, generar otros dos corpus alineados con `--shorthand`, uno con Ald y otro con Sharvard, y pasarlos a `word_train.py fit` mediante `--shorthand-ald` y `--shorthand-sharvard`. Para generar el panel sintético nuevo usar `corpus.py --ald "$ald_onnx" --fresh --out <directorio nuevo>`. Evaluar ese directorio con `measure.py fresh`. `measure.py --extra` requiere un ejecutable anfitrión recompilado con el modo `word-pair`.
+
+Para el banco doble, agregar `-D WORD_DICE_EXTRA_DIR=<directorio de word_extra.h>`. `qemu_fixture.py --public-dir <directorio de cortes>` incorpora los cinco clips públicos al build de prueba. Agregar `--supplement-hit` con el resultado de `measure.py replay --extra` para usar como caso D6 una toma que reconoce únicamente el banco adicional. Ambos argumentos juntos producen diez líneas `WORD_D6_CASE` y `WORD_D6_DONE 3` para este candidato. `WORD_D6_CASE` compara cada salida con su etiqueta y `WORD_D6_DONE` cuenta errores de reconocimiento. Comprobar por separado la paridad con el ejecutable anfitrión. Mantener el binario que contiene grabaciones en el directorio local de QEMU.

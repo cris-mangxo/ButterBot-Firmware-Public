@@ -61,8 +61,10 @@ int main(){
 	require(!acceptsWordDice(contrasted, model));
 
 	bb::asr::LogMel frontend{};
-	require(completeWordDice(frontend, {}, Intent::Fact, Intent::Unknown, model, signal) == Intent::Unknown);
-	require(completeWordDice(frontend, {}, Intent::Unknown, Intent::Dice6, model, signal) == Intent::Dice6);
+	for(const WordBank* supplement : {static_cast<const WordBank*>(nullptr), &model}){
+		require(completeWordDice(frontend, {}, Intent::Fact, Intent::Unknown, model, signal, supplement) == Intent::Unknown);
+		require(completeWordDice(frontend, {}, Intent::Unknown, Intent::Dice6, model, signal, supplement) == Intent::Dice6);
+	}
 	for(auto intent : {Intent::Butter, Intent::YouButter, Intent::Joke, Intent::Fact, Intent::Time}){
 		require(completeWordDice(frontend, {}, intent, intent, model, signal) == intent);
 	}

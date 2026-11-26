@@ -17,6 +17,7 @@ from torch import nn
 from ald_round import ALD_SHA256, canonical, digest
 from phrases import too_long
 from pilot import feature, read_pcm
+from model_sources import SHARVARD_SHA256
 
 FIXTURE = Path(__file__).with_name("fixture.json")
 BANK_BYTES = 6468
@@ -45,10 +46,11 @@ def pool(signal):
     return signal.reshape(-1, 24, 3, 8).max(axis=3)[0].transpose(1, 2).reshape(-1, 72)
 
 
-def read_manifest(folder):
+def read_manifest(folder, sharvard=False):
     manifest = json.loads((folder / "manifest.json").read_text("utf-8"))
-    if manifest["fixture_sha256"] != digest(FIXTURE) or manifest["ald_sha256"] != ALD_SHA256:
-        raise ValueError("Corpus Ald fuera de la referencia fijada")
+    field, voice_hash = ("sharvard_sha256", SHARVARD_SHA256) if sharvard else ("ald_sha256", ALD_SHA256)
+    if manifest["fixture_sha256"] != digest(FIXTURE) or manifest.get(field) != voice_hash:
+        raise ValueError("Corpus de síntesis fuera de la referencia fijada")
     rows = manifest["samples"]
     ids = set()
     texts = {}
