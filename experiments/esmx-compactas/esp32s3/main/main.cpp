@@ -18,6 +18,9 @@
 #include "word_extra.h"
 #ifdef KWS_WITH_WORD_DICE_ADAPTED
 #include "word_adapted.h"
+#ifdef KWS_WITH_CONTINUOUS_DICE
+#include "acoustic_dice.h"
+#endif
 #endif
 static constexpr const WordBank* WordSupplements[]{
 	&PilotWordExtra,
@@ -51,8 +54,13 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 #ifdef KWS_WITH_TRANSCRIPT_GRAMMAR
 		label = static_cast<int>(completeDice6(result.intent, verified, "Podrías lanzarme un dado de seis."));
 #elif defined(KWS_WITH_WORD_DICE)
-		label = static_cast<int>(completeWordDice(frontend, pcm, result.intent, verified,
-		                                         PilotWordDice, wordWorkspace, WordSupplements));
+		const auto words = completeWordDice(frontend, pcm, result.intent, verified,
+		                                    PilotWordDice, wordWorkspace, WordSupplements);
+#ifdef KWS_WITH_CONTINUOUS_DICE
+		label = static_cast<int>(completeAcousticDice(signature, result.intent, words, PilotAcousticDice));
+#else
+		label = static_cast<int>(words);
+#endif
 #else
 		label = static_cast<int>(verified);
 #endif

@@ -246,3 +246,30 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $wo
 Para evaluar la concatenación directa, entrenar con `--human-word-corpus "$v3/human-words"` y medir ese banco con `--extra`. La concatenación produjo una activación falsa ante una negación en las pruebas. La ruta híbrida se compara con `--extra` apuntando al banco suplementario anterior y `--adapted` al banco nuevo. El ejecutable anfitrión debe recompilarse para agregar `word-adapt`.
 
 Compilar el banco de pruebas con `-D WORD_DICE_ADAPTED_DIR=<directorio de word_adapted.h>` junto con las opciones anteriores, incluido `WORD_DICE_EXTRA_DIR`. Conservar los tres bancos en su orden. Para QEMU, generar otro `word_pcm.h` con `--adapted-hit`, el resultado de `measure.py test --adapted` y el directorio de los cinco recortes públicos. El banco adaptado añadió dos aciertos en el panel sintético anterior, conservó las decisiones correctas de los dos bancos y siguió omitiendo los tres D6 humanos. QEMU produjo diez resultados y `WORD_D6_DONE 3`. Los pesos, las grabaciones y los binarios de prueba se generan localmente.
+
+## Entrenamiento con instrucciones humanas continuas
+
+`autonomous/whole_orders.json` fija seis grabaciones públicas, sus grupos de voces y los 16 intervalos usados. El entrenador recibe cada intervalo completo como una sola señal. Los cuatro D6 positivos de entrenamiento incluyen tres instrucciones del narrador para su propia tirada y una instrucción leída durante una partida. Las menciones de D6, otros dados y varias tiradas sirven de contraste. Los locutores se separaron por programa. Las grabaciones de Tirando Rol y OneShots, declaradas en `public_orders.json`, se usaron exclusivamente para prueba.
+
+Descargar los enlaces `enclosure` de la ficha y nombrar cada archivo local con su clave más `.mp3`. La etiqueta y la posición se obtuvieron de audio continuo con Whisper local y contexto del episodio. El código comprueba las sumas de las fuentes y rechaza los episodios reservados por enlace o hash. Usa FFmpeg 9.1. Solo en entrenamiento se generan velocidades de 0.92, 1.00 y 1.08 dentro del límite de cuatro segundos. Cada variante entra ocho veces en el conjunto de ajuste. La calibración permanece a velocidad original.
+
+Desde la raíz del fork y con las variables del experimento anterior disponibles, el banco temporal se entrena con el corpus Ald sin alineaciones y los intervalos humanos fijados.
+
+```fish
+set -l v4 "$lab/autonomous-v4"
+mkdir -p "$v4/continuous-bank"
+python3.12 -B experiments/esmx-compactas/autonomous/whole_orders.py \
+  --sources "$public_training_sources" --out "$v4/continuous"
+"$train_python" -B experiments/esmx-compactas/autonomous/train.py fit \
+  --program "$lab/kws" --corpus "$unaligned_dir" --continuous "$v4/continuous" \
+  --bank "$v4/whole.bin"
+"$train_python" -B experiments/esmx-compactas/autonomous/train.py header \
+  --bank "$v4/whole.bin" --header "$v4/continuous-bank/acoustic_dice.h"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $word_opts \
+  --extra "$v2/words-extra.bin" --adapted "$v3/words-mixed.bin" \
+  --continuous "$v4/whole.bin" --corpus "$v2/public-holdout"
+```
+
+Recompilar el ejecutable anfitrión para agregar `word-full`. Con `--prioritize-human`, se intentó priorizar el único positivo humano en calibración y se obtuvieron los mismos bytes. La evaluación con `--continuous` conserva la comparación con los tres bancos previos. La CNN final solo añade un D6 después de que esos bancos se quedan en desconocido. El veto de Dato curioso termina la decisión antes de evaluar la CNN.
+
+En ESP32-S3, el banco experimental requiere los tres bancos anteriores y `-D CONTINUOUS_DICE_DIR=<directorio de acoustic_dice.h>`. La variante existe en el banco de laboratorio. El resultado con voces humanas sigue en 0/3 y produjo tres activaciones falsas en Common Voice. Los pesos y el firmware de prueba quedan locales. Para QEMU, usar `qemu_fixture.py --continuous-hit` con el informe de `measure.py test --continuous` y los recortes de prueba. La ejecución esperada produce diez líneas `WORD_D6_CASE` y `WORD_D6_DONE 3`.

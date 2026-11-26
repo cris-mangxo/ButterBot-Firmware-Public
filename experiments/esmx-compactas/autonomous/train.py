@@ -88,7 +88,7 @@ def collect(corpus, rows, program):
     return observed, dict(omitted)
 
 
-def choose_limits(scores, labels, unit):
+def choose_limits(scores, labels, unit, priority_tail=0):
     margin = scores[:, 1] - scores[:, [0, 2, 3]].max(axis=1)
     min_score = scores[:, 1]
     best = None
@@ -99,13 +99,14 @@ def choose_limits(scores, labels, unit):
         admit = (margin >= gap) & (min_score >= threshold)
         positive = int((admit & (labels == 1)).sum())
         false = int((admit & (labels != 1)).sum())
-        candidate = (positive, -false, gap, int(threshold))
+        priority_hits = int((admit[-priority_tail:] & (labels[-priority_tail:] == 1)).sum()) if priority_tail else 0
+        candidate = (priority_hits, positive, -false, gap, int(threshold))
         if best is None or candidate > best:
             best = candidate
     return best
 
 
-def fit(train, dev, labels, development):
+def fit(train, dev, labels, development, priority_tail=0):
     model = TemporalDice()
     optim = torch.optim.AdamW(model.parameters(), lr=0.003, weight_decay=0.015)
     weights = torch.bincount(labels, minlength=4).float().pow(-0.65)
@@ -135,9 +136,9 @@ def fit(train, dev, labels, development):
             model.eval()
             with torch.no_grad():
                 scores = model(dev).numpy()
-            result = choose_limits(scores, development, 1)
+            result = choose_limits(scores, development, 1, priority_tail)
             accuracy = int((scores.argmax(axis=1) == development).sum())
-            rank = (result[0], accuracy)
+            rank = (*result[:2], accuracy)
             if best is None or rank > best[0]:
                 best = (rank, epoch, {key: value.detach().clone()
                                        for key, value in model.state_dict().items()})
@@ -213,6 +214,18 @@ def train_bank(args):
     torch.set_num_threads(4)
     torch.manual_seed(1118)
     observed, omitted = collect(args.corpus, read_manifest(args.corpus), args.program)
+    human_dev = []
+    provenance = {}
+    if args.continuous:
+        from whole_orders import read_manifest as continuous_manifest
+        rows, provenance = continuous_manifest(args.continuous)
+        human, skipped = collect(args.continuous, rows, args.program)
+        if skipped:
+            raise ValueError("Una toma humana quedó fuera del rango de entrada")
+        # Oversample the scarce human turns, with noise/time masking applied by fit().
+        observed["train"].extend(human["train"] * 8)
+        human_dev = human["dev"]
+        observed["dev"].extend(human_dev)
     sets = {}
     for split, values in observed.items():
         signal, label, _ = zip(*values)
@@ -220,13 +233,24 @@ def train_bank(args):
     pcm, truth = sets["train"]
     dev, dev_truth = sets["dev"]
     dataset = torch.from_numpy(pcm).float() / 32
-    net, epoch = fit(dataset, torch.from_numpy(dev).float() / 32, torch.from_numpy(truth), dev_truth)
+    priority = len(human_dev) if args.prioritize_human else 0
+    net, epoch = fit(dataset, torch.from_numpy(dev).float() / 32, torch.from_numpy(truth), dev_truth, priority)
     layers, output, bias, unit = quantize(net, dataset)
     exact = integer_scores(dev, layers, output, bias)
-    positives, negative_false_count, gap, threshold = choose_limits(exact, dev_truth, unit)
+    _, positives, negative_false_count, gap, threshold = choose_limits(exact, dev_truth, unit, priority)
     with args.bank.open("xb") as handle:
         handle.write(wire_bank(layers, output, bias, threshold, gap))
     parity = verify_wire(args.program, args.bank, observed["dev"], exact)
+    if provenance:
+        matched = exact[-len(human_dev):]
+        decisions = (matched[:, 1] >= threshold) & (matched[:, 1] - matched[:, [0, 2, 3]].max(axis=1) >= gap)
+        human_truth = dev_truth[-len(human_dev):]
+        provenance.update({
+            "train_repeat_per_tempo": 8, "dev_turns": len(human_dev),
+            **({"priority": "human_development"} if priority else {}),
+            "dev_positive_detected": int((decisions & (human_truth == 1)).sum()),
+            "dev_false_activations": int((decisions & (human_truth != 1)).sum()),
+        })
     class_names = tuple(LABELS)
     summary = {split: dict(Counter(class_names[int(label)] for label in values[1]))
                for split, values in sets.items()}
@@ -236,7 +260,8 @@ def train_bank(args):
                       "dev_positives": int((dev_truth == 1).sum()),
                       "dev_d6_detected": positives, "dev_false_activations": -negative_false_count,
                       "minimum_score": threshold, "minimum_margin": gap,
-                      "parity_cpp_cases": parity, "torch_version": torch.__version__}, indent=2))
+                      "parity_cpp_cases": parity, "torch_version": torch.__version__,
+                      **({"continuous": provenance} if provenance else {})}, indent=2))
 
 
 def emit_header(bank, header):
@@ -257,7 +282,11 @@ def main():
     parser.add_argument("operation", choices=("fit", "header"))
     for name in ("program", "corpus", "bank", "header"):
         parser.add_argument(f"--{name}", type=Path, required=name == "bank")
+    parser.add_argument("--continuous", type=Path)
+    parser.add_argument("--prioritize-human", action="store_true")
     args = parser.parse_args()
+    if args.prioritize_human and (args.operation != "fit" or not args.continuous):
+        parser.error("--prioritize-human requiere fit y un corpus humano continuo")
     if args.operation == "fit":
         if args.program is None or args.corpus is None:
             parser.error("Faltan --program y --corpus")

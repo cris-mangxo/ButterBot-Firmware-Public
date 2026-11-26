@@ -23,6 +23,8 @@ VARIANTS = ("compact", "turn_cnn", "word_gate")
 def trial(args, wav, category, expected, identifier=None):
     long = too_long(wav)
     variants = VARIANTS + (("word_pair",) if args.extra else ()) + (("word_adapt",) if args.adapted else ())
+    if args.continuous:
+        variants += ("word_full",)
     data = {"category": category, "expected": expected, "overlong": long,
             "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
@@ -37,6 +39,8 @@ def trial(args, wav, category, expected, identifier=None):
         commands.append(("word_pair", "word-pair", [args.words, args.extra]))
     if args.adapted:
         commands.append(("word_adapt", "word-adapt", [args.words, args.extra, args.adapted]))
+    if args.continuous:
+        commands.append(("word_full", "word-full", [args.words, args.extra, args.adapted, args.continuous]))
     for variant, mode, models in commands:
         command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
@@ -55,6 +59,8 @@ def trial(args, wav, category, expected, identifier=None):
         raise ValueError("El banco nuevo perdió un D6 ya reconocido")
     if args.adapted and data["decisions"]["word_adapt"] != 6 and data["decisions"]["word_pair"] == 6:
         raise ValueError("El banco adaptado perdió un D6 de los dos bancos anteriores")
+    if args.continuous and data["decisions"]["word_adapt"] and data["decisions"]["word_full"] != data["decisions"]["word_adapt"]:
+        raise ValueError("El detector continuo alteró una orden ya reconocida")
     return data
 
 
@@ -137,11 +143,14 @@ def main():
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--extra", type=Path)
     parser.add_argument("--adapted", type=Path)
+    parser.add_argument("--continuous", type=Path)
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
     if args.adapted and not args.extra:
         parser.error("--adapted requiere --extra para conservar la referencia anterior")
+    if args.continuous and not args.adapted:
+        parser.error("--continuous requiere los bancos anteriores")
     if digest(args.baseline) != BASELINE_SHA256 or digest(args.prior) != BANK_SHA256:
         parser.error("El banco acústico anterior no coincide con la referencia")
     provenance = {key: digest(value) for key, value in (("compact", args.prior), ("turn_cnn", args.turn),
@@ -150,6 +159,8 @@ def main():
         provenance["word_pair_extra"] = digest(args.extra)
     if args.adapted:
         provenance["word_adapt_extra"] = digest(args.adapted)
+    if args.continuous:
+        provenance["word_full_acoustic"] = digest(args.continuous)
     if args.operation == "human":
         rows, metadata = real_trials(args)
         report = metadata

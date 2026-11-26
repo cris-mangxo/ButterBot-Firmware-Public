@@ -1,0 +1,182 @@
+{
+  "sources": {
+    "brainless": {
+      "publisher": "Actual Solo Game Plays",
+      "speaker_group": "actual-solo-game-plays",
+      "split": "train",
+      "page": "https://www.ivoox.com/brainless-s01e03-audios-mp3_rf_122521187_1.html",
+      "enclosure": "https://www.ivoox.com/brainless-s01e03_mf_122521187_feed_1.mp3",
+      "sha256": "1964ae347af3feaa1ddbb493311b763cd6916356c5b1bd54aead6b31c3f8b8d4"
+    },
+    "brainless1": {
+      "publisher": "Actual Solo Game Plays",
+      "speaker_group": "actual-solo-game-plays",
+      "split": "train",
+      "page": "https://www.ivoox.com/brainless-s1e01-audios-mp3_rf_122095748_1.html",
+      "enclosure": "https://www.ivoox.com/brainless-s1e01_mf_122095748_feed_1.mp3",
+      "sha256": "9c9dbeb6015672240321881cccba20d362e1c6144893264c11741d5b10e8ae99"
+    },
+    "brainless4": {
+      "publisher": "Actual Solo Game Plays",
+      "speaker_group": "actual-solo-game-plays",
+      "split": "train",
+      "page": "https://www.ivoox.com/brainless-s01e04-audios-mp3_rf_122659707_1.html",
+      "enclosure": "https://www.ivoox.com/brainless-s01e04_mf_122659707_feed_1.mp3",
+      "sha256": "ba6627984e148a18640db5b0d94de86ba80397693e42265e199f6ec28a102cfd"
+    },
+    "mazmorras": {
+      "publisher": "Dados y Mazmorras",
+      "speaker_group": "dados-y-mazmorras",
+      "split": "train",
+      "page": "https://www.ivoox.com/episodio-99-la-sombra-reina-audios-mp3_rf_183537878_1.html",
+      "enclosure": "https://www.ivoox.com/episodio-99-la-sombra-reina_mf_183537878_feed_1.mp3",
+      "sha256": "ac41eee4e4366ee9b86424ead34e37560864ee1ba8a9befa1c28da627b40050c"
+    },
+    "ursus": {
+      "publisher": "Ursus el Bardo",
+      "speaker_group": "ursus-el-bardo",
+      "split": "train",
+      "page": "https://www.ivoox.com/herrlamientas-roleras-iron-core-opalbreeze-games-audios-mp3_rf_83309614_1.html",
+      "enclosure": "https://www.ivoox.com/herrlamientas-roleras-iron-core-opalbreeze-games_mf_83309614_feed_1.mp3",
+      "sha256": "0da49fc6d0246c878608f8cf2459e21ac44e725e9cc0ceef1e4c76930fa13fb8"
+    },
+    "apaga": {
+      "publisher": "Apaga Tu Radio",
+      "speaker_group": "apaga-tu-radio",
+      "split": "dev",
+      "page": "https://www.ivoox.com/9x01-la-vuelta-mas-grunona-audios-mp3_rf_180489648_1.html",
+      "enclosure": "https://www.ivoox.com/9x01-la-vuelta-mas-grunona_mf_180489648_feed_1.mp3",
+      "sha256": "441bee034a48dc833de8422b582d17b7c55f40b0076f2377c8946d144fccddd2"
+    }
+  },
+  "cases": [
+    {
+      "id": "train-01",
+      "source": "brainless",
+      "start_ms": 178610,
+      "end_ms": 180240,
+      "category": "positive",
+      "form": "self_directed_explicit"
+    },
+    {
+      "id": "train-02",
+      "source": "brainless4",
+      "start_ms": 230850,
+      "end_ms": 232490,
+      "category": "positive",
+      "form": "self_directed_shorthand"
+    },
+    {
+      "id": "train-03",
+      "source": "mazmorras",
+      "start_ms": 169080,
+      "end_ms": 171910,
+      "category": "positive",
+      "form": "instruction_read_in_game"
+    },
+    {
+      "id": "train-04",
+      "source": "brainless1",
+      "start_ms": 212540,
+      "end_ms": 216420,
+      "category": "positive",
+      "form": "self_directed_explicit"
+    },
+    {
+      "id": "train-05",
+      "source": "brainless",
+      "start_ms": 239400,
+      "end_ms": 241100,
+      "category": "other_die",
+      "form": "d10"
+    },
+    {
+      "id": "train-06",
+      "source": "brainless1",
+      "start_ms": 322970,
+      "end_ms": 324520,
+      "category": "other_die",
+      "form": "d10"
+    },
+    {
+      "id": "train-07",
+      "source": "ursus",
+      "start_ms": 169590,
+      "end_ms": 171680,
+      "category": "other_die",
+      "form": "multiple_d6"
+    },
+    {
+      "id": "train-08",
+      "source": "ursus",
+      "start_ms": 465430,
+      "end_ms": 468580,
+      "category": "outside",
+      "form": "mention_d6"
+    },
+    {
+      "id": "train-09",
+      "source": "mazmorras",
+      "start_ms": 302900,
+      "end_ms": 303920,
+      "category": "other_die",
+      "form": "d4"
+    },
+    {
+      "id": "train-10",
+      "source": "brainless4",
+      "start_ms": 214250,
+      "end_ms": 215910,
+      "category": "outside",
+      "form": "mention_d6"
+    },
+    {
+      "id": "train-11",
+      "source": "mazmorras",
+      "start_ms": 286790,
+      "end_ms": 290770,
+      "category": "outside",
+      "form": "unspecified_die"
+    },
+    {
+      "id": "dev-01",
+      "source": "apaga",
+      "start_ms": 523520,
+      "end_ms": 525450,
+      "category": "positive",
+      "form": "instruction_in_explanation"
+    },
+    {
+      "id": "dev-02",
+      "source": "apaga",
+      "start_ms": 526000,
+      "end_ms": 528580,
+      "category": "outside",
+      "form": "general_speech"
+    },
+    {
+      "id": "dev-03",
+      "source": "apaga",
+      "start_ms": 529140,
+      "end_ms": 531620,
+      "category": "outside",
+      "form": "general_speech"
+    },
+    {
+      "id": "dev-04",
+      "source": "apaga",
+      "start_ms": 520620,
+      "end_ms": 523130,
+      "category": "outside",
+      "form": "other_numbers"
+    },
+    {
+      "id": "dev-05",
+      "source": "apaga",
+      "start_ms": 562200,
+      "end_ms": 565900,
+      "category": "outside",
+      "form": "unspecified_die"
+    }
+  ]
+}

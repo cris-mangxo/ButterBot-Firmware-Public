@@ -66,12 +66,13 @@ int main(int argc, char** argv){
 	const bool words = argc == 7 && std::string_view(argv[1]) == "words";
 	const bool wordPair = argc == 8 && std::string_view(argv[1]) == "word-pair";
 	const bool wordAdapt = argc == 9 && std::string_view(argv[1]) == "word-adapt";
+	const bool wordFull = argc == 10 && std::string_view(argv[1]) == "word-full";
 	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
 	const bool wordScores = argc == 3 && std::string_view(argv[1]) == "word-scores";
 	const bool wordAccept = argc == 3 && std::string_view(argv[1]) == "word-accept";
 	const bool distances = argc == 3 && std::string_view(argv[1]) == "distances";
 	if(!features && !score && !guard && !anchor && !phrases && !distances && !acoustic && !acousticScores &&
-	   !words && !wordPair && !wordAdapt && !wordFrames && !wordScores && !wordAccept){
+	   !words && !wordPair && !wordAdapt && !wordFull && !wordFrames && !wordScores && !wordAccept){
 		return 2;
 	}
 	std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
@@ -168,7 +169,7 @@ int main(int argc, char** argv){
 		intent = decision.intent;
 		margin = decision.margin;
 	}
-	if(phrases || acoustic || words || wordPair || wordAdapt){
+	if(phrases || acoustic || words || wordPair || wordAdapt || wordFull){
 		PhraseBank bank;
 		if(!load(argv[5], bank) || !validPhraseBank(bank)){
 			return 2;
@@ -182,10 +183,10 @@ int main(int argc, char** argv){
 		}
 		intent = completeAcousticDice(signature, result.intent, intent, model);
 	}
-	if(words || wordPair || wordAdapt){
+	if(words || wordPair || wordAdapt || wordFull){
 		WordBank bank;
 		std::array<WordBank, 2> models;
-		const size_t count = argc - 7;
+		const size_t count = wordFull ? models.size() : argc - 7;
 		if(!load(argv[6], bank) || !validWordBank(bank)){
 			return 2;
 		}
@@ -197,6 +198,13 @@ int main(int argc, char** argv){
 		const std::array<const WordBank*, 2> supplements{&models[0], &models[1]};
 		intent = completeWordDice(frontend, samples, result.intent, intent, bank, wordFeatures,
 		                          std::span(supplements).first(count));
+	}
+	if(wordFull){
+		AcousticDice model;
+		if(!load(argv[9], model) || !validAcousticDice(model)){
+			return 2;
+		}
+		intent = completeAcousticDice(signature, result.intent, intent, model);
 	}
 	const auto scenario = scenarioForIntent(intent);
 	std::cout << "{\"label\":" << static_cast<int>(intent)
