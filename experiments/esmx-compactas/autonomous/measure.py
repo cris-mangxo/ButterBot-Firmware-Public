@@ -13,7 +13,7 @@ from d6_guard import LOCAL_CV_SHA256, guarded_score
 from phrases import too_long
 from phrases_human import group, read_tables, select, selected_wavs
 from pilot import MAX_COST, MIN_GAP, read_pcm, score
-from public_orders import FIXTURE as PUBLIC_FIXTURE, verified_cases
+from public_orders import EXPANDED_FIXTURE as EXPANDED_PUBLIC, FIXTURE as PUBLIC_FIXTURE, verified_cases
 
 BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
 FIXTURE = Path(__file__).with_name("fixture.json")
@@ -24,7 +24,7 @@ def trial(args, wav, category, expected, identifier=None):
     long = too_long(wav)
     variants = VARIANTS + (("word_pair",) if args.extra else ()) + (("word_adapt",) if args.adapted else ())
     if args.continuous:
-        variants += ("word_full",)
+        variants += ("word_full", "word_guarded")
     data = {"category": category, "expected": expected, "overlong": long,
             "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
@@ -40,7 +40,8 @@ def trial(args, wav, category, expected, identifier=None):
     if args.adapted:
         commands.append(("word_adapt", "word-adapt", [args.words, args.extra, args.adapted]))
     if args.continuous:
-        commands.append(("word_full", "word-full", [args.words, args.extra, args.adapted, args.continuous]))
+        banks = [args.words, args.extra, args.adapted, args.continuous]
+        commands.extend([("word_full", "word-full", banks), ("word_guarded", "word-guarded", banks)])
     for variant, mode, models in commands:
         command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
@@ -59,8 +60,13 @@ def trial(args, wav, category, expected, identifier=None):
         raise ValueError("El banco nuevo perdió un D6 ya reconocido")
     if args.adapted and data["decisions"]["word_adapt"] != 6 and data["decisions"]["word_pair"] == 6:
         raise ValueError("El banco adaptado perdió un D6 de los dos bancos anteriores")
-    if args.continuous and data["decisions"]["word_adapt"] and data["decisions"]["word_full"] != data["decisions"]["word_adapt"]:
-        raise ValueError("El detector continuo alteró una orden ya reconocida")
+    if args.continuous:
+        decisions = data["decisions"]
+        prior = decisions["word_adapt"]
+        if prior and (decisions["word_full"], decisions["word_guarded"]) != (prior, prior):
+            raise ValueError("El detector continuo alteró una orden ya reconocida")
+        if decisions["word_guarded"] and decisions["word_guarded"] != decisions["word_full"]:
+            raise ValueError("La confirmación añadió una activación sin propuesta de la CNN")
     return data
 
 
@@ -144,9 +150,12 @@ def main():
     parser.add_argument("--extra", type=Path)
     parser.add_argument("--adapted", type=Path)
     parser.add_argument("--continuous", type=Path)
+    parser.add_argument("--expanded-public", action="store_true")
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
+    if args.expanded_public and args.operation != "public-orders":
+        parser.error("--expanded-public requiere public-orders")
     if args.adapted and not args.extra:
         parser.error("--adapted requiere --extra para conservar la referencia anterior")
     if args.continuous and not args.adapted:
@@ -167,11 +176,12 @@ def main():
     elif args.operation == "public-orders":
         if args.corpus is None:
             parser.error("--corpus debe apuntar a los cortes públicos verificados")
+        fixture = EXPANDED_PUBLIC if args.expanded_public else PUBLIC_FIXTURE
         rows = [trial(args, wav, case["category"], case["expected"], case["id"])
-                for case, wav in verified_cases(args.corpus)]
+                for case, wav in verified_cases(args.corpus, fixture)]
         if any(row["overlong"] for row in rows):
             raise ValueError("Una orden pública supera el límite del turno")
-        report = {"public_fixture_sha256": digest(PUBLIC_FIXTURE), "cases": rows}
+        report = {"public_fixture_sha256": digest(fixture), "cases": rows}
     else:
         parent = FIXTURE.parent.parent
         fixture = {"test": FIXTURE, "fresh": FIXTURE.with_name("fresh_suite.json"),

@@ -10,10 +10,11 @@ from ald_round import digest
 from pilot import read_pcm
 
 FIXTURE = Path(__file__).with_name("public_orders.json")
+EXPANDED_FIXTURE = FIXTURE.with_name("public_orders_expanded.json")
 
 
-def specification():
-    data = json.loads(FIXTURE.read_text("utf-8"))
+def specification(fixture=None):
+    data = json.loads((fixture or FIXTURE).read_text("utf-8"))
     declared = set()
     for name, source in data["sources"].items():
         if not re.fullmatch(r"[a-z]+(?:-[a-z]+)*", name) or not re.fullmatch(r"[a-f0-9]{64}", source["sha256"]):
@@ -29,8 +30,9 @@ def specification():
     return data
 
 
-def extract(sources, out):
-    fixture = specification()
+def extract(sources, out, fixture_path=None):
+    fixture_path = fixture_path or FIXTURE
+    fixture = specification(fixture_path)
     paths = {key: sources / (key + ".mp3") for key in fixture["sources"]}
     for key, path in paths.items():
         if digest(path) != fixture["sources"][key]["sha256"]:
@@ -49,15 +51,16 @@ def extract(sources, out):
         read_pcm(wav)
         rows.append(dict(case, wav_sha256=digest(wav)))
     (out / "manifest.json").write_text(json.dumps({
-        "public_fixture_sha256": digest(FIXTURE), "cases": rows,
+        "public_fixture_sha256": digest(fixture_path), "cases": rows,
     }, indent=2) + "\n", encoding="utf-8")
 
 
-def verified_cases(folder):
+def verified_cases(folder, fixture_path=None):
+    fixture_path = fixture_path or FIXTURE
     evidence = json.loads((folder / "manifest.json").read_text("utf-8"))
-    if evidence["public_fixture_sha256"] != digest(FIXTURE):
+    if evidence["public_fixture_sha256"] != digest(fixture_path):
         raise ValueError("El corpus humano difiere de la anotación fijada")
-    for case, reference in zip(evidence["cases"], specification()["cases"], strict=True):
+    for case, reference in zip(evidence["cases"], specification(fixture_path)["cases"], strict=True):
         if {key: value for key, value in case.items() if key != "wav_sha256"} != reference:
             raise ValueError("Cambió la anotación previa al ensayo")
         wav = folder / (reference["id"] + ".wav")
@@ -70,8 +73,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--expanded", action="store_true")
     args = parser.parse_args()
-    extract(args.sources, args.out)
+    extract(args.sources, args.out, EXPANDED_FIXTURE if args.expanded else FIXTURE)
 
 
 if __name__ == "__main__":

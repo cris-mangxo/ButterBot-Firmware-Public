@@ -273,3 +273,30 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $wo
 Recompilar el ejecutable anfitrión para agregar `word-full`. Con `--prioritize-human`, se intentó priorizar el único positivo humano en calibración y se obtuvieron los mismos bytes. La evaluación con `--continuous` conserva la comparación con los tres bancos previos. La CNN final solo añade un D6 después de que esos bancos se quedan en desconocido. El veto de Dato curioso termina la decisión antes de evaluar la CNN.
 
 En ESP32-S3, el banco experimental requiere los tres bancos anteriores y `-D CONTINUOUS_DICE_DIR=<directorio de acoustic_dice.h>`. La variante existe en el banco de laboratorio. El resultado con voces humanas sigue en 0/3 y produjo tres activaciones falsas en Common Voice. Los pesos y el firmware de prueba quedan locales. Para QEMU, usar `qemu_fixture.py --continuous-hit` con el informe de `measure.py test --continuous` y los recortes de prueba. La ejecución esperada produce diez líneas `WORD_D6_CASE` y `WORD_D6_DONE 3`.
+
+## Más órdenes y negaciones de tiradas humanas
+
+Las fichas `whole_orders_expanded.json` y `public_orders_expanded.json` fijan el corpus ampliado y el panel nuevo de locutores. El entrenamiento incluye cinco instrucciones D6 nuevas de Alone in the ROL y seis negaciones de tirada sin número de caras. La calibración añade dos negaciones de Doblajes y Mazmorras. Se reservan por programa, enlace y hash tanto los dos episodios del panel anterior como Todo es Rock And Roll y Nadie Sabe Nada. Las tres negaciones del panel nuevo incluyen una de **varios** D6. Las otras dos no indican cuántas caras tiene el dado.
+
+Cada enlace `enclosure` apunta a la publicación de origen. Al descargar, usar la clave de la fuente como nombre y la extensión declarada en `format`, con `.mp3` como valor predeterminado. El preparador usa FFmpeg 9.1 y verifica las sumas. Con las variables de las secciones anteriores, el experimento se reproduce en fish así.
+
+```fish
+set -l v5 "$lab/autonomous-v5"
+mkdir -p "$v5/continuous-bank"
+python3.12 -B experiments/esmx-compactas/autonomous/whole_orders.py --expanded \
+  --sources "$training_sources" --out "$v5/expanded-train"
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py --expanded \
+  --sources "$test_sources" --out "$v5/expanded-test"
+"$train_python" -B experiments/esmx-compactas/autonomous/train.py fit \
+  --program "$lab/kws" --corpus "$unaligned_dir" --continuous "$v5/expanded-train" \
+  --bank "$v5/expanded.bin"
+"$train_python" -B experiments/esmx-compactas/autonomous/train.py header \
+  --bank "$v5/expanded.bin" --header "$v5/continuous-bank/acoustic_dice.h"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders \
+  $word_opts --extra "$v2/words-extra.bin" --adapted "$v3/words-mixed.bin" \
+  --continuous "$v5/expanded.bin" --expanded-public --corpus "$v5/expanded-test"
+```
+
+Recompilar el programa anfitrión para incorporar `word-guarded`. El informe compara la CNN continua sola y con la confirmación adicional. Esta confirmación solo examina un D6 nuevo propuesto por la CNN. Exige evidencia sostenida de «seis» y rechaza si el banco de palabras detecta una negación, otro número o contexto. Las órdenes previas y el veto del clasificador original conservan su prioridad. En ESP32-S3 se activa únicamente con `-D CONTINUOUS_DICE_GUARD=ON` junto con `CONTINUOUS_DICE_DIR`. La configuración anterior sigue siendo la referencia.
+
+Para reproducir el panel nuevo en QEMU, usar `qemu_fixture.py --expanded-public --public-dir <directorio de los recortes>`. `--guard-control <wav>` usa un control local con etiqueta de rechazo y conserva las pruebas de negación, orden previa y veto de Dato curioso. La medición usó un falso positivo de Common Voice seleccionado después de observar la diferencia en la Mac. Se conserva como diagnóstico separado del panel nuevo. Mantener las grabaciones y los binarios de emulación fuera de Git.

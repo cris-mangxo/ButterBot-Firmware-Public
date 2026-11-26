@@ -7,7 +7,7 @@ import re
 import struct
 
 from pilot import read_pcm
-from public_orders import verified_cases
+from public_orders import EXPANDED_FIXTURE, verified_cases
 
 
 def load(path):
@@ -42,7 +42,11 @@ def write(args):
                  (pick(replay, "original_fact_veto"), args.older_wide)]
     selected = [(case["category"], case["expected"], folder / "audio" / (case["id"] + ".wav"))
                 for case, folder in selected]
-    if args.continuous_hit:
+    if args.guard_control:
+        # The expanded panel already includes other dice. Keep the regression
+        # vetoes and the legacy action within QEMU's one-megabyte app partition.
+        selected[:2] = [("continuous_false_positive", 0, args.guard_control)]
+    elif args.continuous_hit:
         rows, folder, reference, candidate = tests, args.corpus, "word_adapt", "word_full"
         case = new_hit(rows, reference, candidate)
         selected[0] = ("continuous_hit", 6, folder / "audio" / (case["id"] + ".wav"))
@@ -54,8 +58,9 @@ def write(args):
         case = new_hit(rows, reference, candidate)
         selected[0] = ("adapted_hit" if args.adapted_hit else "supplement_hit", 6, folder / "audio" / (case["id"] + ".wav"))
     if args.public_dir:
+        fixture = EXPANDED_FIXTURE if args.expanded_public else None
         selected += [(case["id"], case["expected"], wav)
-                     for case, wav in verified_cases(args.public_dir)]
+                     for case, wav in verified_cases(args.public_dir, fixture)]
     with args.header.open("x", encoding="utf-8") as output:
         output.write('#pragma once\n#include <cstdint>\n#include <span>\n')
         output.write('struct PcmCase { const char* name; int expected; std::span<const int16_t> samples; };\n')
@@ -77,10 +82,12 @@ def main():
     for name in ("test", "replay", "corpus", "legacy", "older-wide", "header"):
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--public-dir", type=Path)
+    parser.add_argument("--expanded-public", action="store_true")
     positive = parser.add_mutually_exclusive_group()
     positive.add_argument("--supplement-hit", action="store_true")
     positive.add_argument("--adapted-hit", action="store_true")
     positive.add_argument("--continuous-hit", action="store_true")
+    positive.add_argument("--guard-control", type=Path)
     write(parser.parse_args())
 
 

@@ -1,0 +1,76 @@
+{
+  "sources": {
+    "rock": {
+      "speaker_group": "todo-es-rock-and-roll",
+      "publisher": "Todo es Rock And Roll",
+      "page": "https://www.ivoox.com/ley-caos-4-blackhackeando-i-panico-y-audios-mp3_rf_172022349_1.html",
+      "enclosure": "https://www.ivoox.com/ley-caos-4-blackhackeando-i-panico-y_mf_172022349_feed_1.mp3",
+      "sha256": "1fed4bc7d311247004dba82399e78e5c3e4f7482b7cb39afc867bdcb7694fb64"
+    },
+    "nadie": {
+      "speaker_group": "nadie-sabe-nada",
+      "publisher": "Nadie Sabe Nada",
+      "page": "https://pod.enacast.com/c/nadie-sabe-nada/nacho-vigalondo-en-nadie-sabe-nada-iniciacion-al-rol",
+      "enclosure": "https://prisa-es.mc.tritondigital.com/NADIE_SABE_NADA_SER_PODCAST_488_P/media/playser/audio/20224/29/1651229357242_58246.mp3",
+      "sha256": "6bbcd819ef4ebf301ca3dbc79c8a3fa79b7215006573e121296e7a6d90986102"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-21",
+      "source": "rock",
+      "start_ms": 416260,
+      "end_ms": 417980,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-22",
+      "source": "rock",
+      "start_ms": 951100,
+      "end_ms": 952920,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-23",
+      "source": "rock",
+      "start_ms": 915050,
+      "end_ms": 916840,
+      "category": "negated_multiple_d6",
+      "expected": 0
+    },
+    {
+      "id": "public-24",
+      "source": "rock",
+      "start_ms": 469960,
+      "end_ms": 471010,
+      "category": "negated_unspecified_roll",
+      "expected": 0
+    },
+    {
+      "id": "public-25",
+      "source": "rock",
+      "start_ms": 487970,
+      "end_ms": 489430,
+      "category": "negated_unspecified_roll",
+      "expected": 0
+    },
+    {
+      "id": "public-26",
+      "source": "nadie",
+      "start_ms": 3021490,
+      "end_ms": 3024000,
+      "category": "additive_d6",
+      "expected": 0
+    },
+    {
+      "id": "public-27",
+      "source": "nadie",
+      "start_ms": 836550,
+      "end_ms": 838700,
+      "category": "multiple_dice",
+      "expected": 0
+    }
+  ]
+}

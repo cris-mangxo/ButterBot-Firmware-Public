@@ -57,7 +57,12 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 		const auto words = completeWordDice(frontend, pcm, result.intent, verified,
 		                                    PilotWordDice, wordWorkspace, WordSupplements);
 #ifdef KWS_WITH_CONTINUOUS_DICE
-		label = static_cast<int>(completeAcousticDice(signature, result.intent, words, PilotAcousticDice));
+		const auto candidate = completeAcousticDice(signature, result.intent, words, PilotAcousticDice);
+#ifdef KWS_WITH_CONTINUOUS_DICE_GUARD
+		label = static_cast<int>(confirmContinuousDice(words, candidate, wordWorkspace, PilotWordAdapted));
+#else
+		label = static_cast<int>(candidate);
+#endif
 #else
 		label = static_cast<int>(words);
 #endif

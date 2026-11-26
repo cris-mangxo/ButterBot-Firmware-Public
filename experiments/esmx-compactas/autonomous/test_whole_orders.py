@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import whole_orders
-from public_orders import specification as reserved
+from public_orders import EXPANDED_FIXTURE, specification as reserved
 
 
 class WholeOrderSplitTest(unittest.TestCase):
@@ -40,3 +40,13 @@ class WholeOrderSplitTest(unittest.TestCase):
         self.spec["cases"].append(duplicate)
         with self.assertRaisesRegex(ValueError, "superponen"):
             self.verify()
+
+    def test_expanded_heldout_group_remains_reserved_under_filename_alias(self):
+        source = next(iter(reserved(EXPANDED_FIXTURE)["sources"].values()))
+        data = whole_orders.specification(whole_orders.EXPANDED_FIXTURE)
+        data["sources"]["apaga"]["speaker_group"] = source["speaker_group"]
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / "training-copy.json"
+            fixture.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "panel reservado"):
+                whole_orders.specification(fixture)

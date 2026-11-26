@@ -46,13 +46,18 @@ int main(){
 	word(signal, 8, 2);
 	word(signal, 15, 3);
 	require(acceptsWordDice(signal, model));
+	require(confirmContinuousDice(Intent::Unknown, Intent::Dice6, signal, model) == Intent::Dice6);
 
 	auto contrasted = signal;
 	word(contrasted, 15, 5);
 	require(!acceptsWordDice(contrasted, model));
+	require(confirmContinuousDice(Intent::Unknown, Intent::Dice6, contrasted, model) == Intent::Unknown);
 	contrasted = signal;
 	word(contrasted, 22, 4);
 	require(!acceptsWordDice(contrasted, model));
+	require(confirmContinuousDice(Intent::Unknown, Intent::Dice6, contrasted, model) == Intent::Unknown);
+	require(confirmContinuousDice(Intent::Dice6, Intent::Dice6, contrasted, model) == Intent::Dice6);
+	require(confirmContinuousDice(Intent::Fact, Intent::Dice6, contrasted, model) == Intent::Fact);
 	contrasted = signal;
 	word(contrasted, 22, 6);
 	require(!acceptsWordDice(contrasted, model));
@@ -71,4 +76,6 @@ int main(){
 		require(completeWordDice(frontend, {}, intent, intent, model, signal) == intent);
 	}
 	require(completeWordDice(frontend, {}, Intent::Unknown, Intent::Unknown, model, signal) == Intent::Unknown);
+	require(signal.count == 0);
+	require(confirmContinuousDice(Intent::Unknown, Intent::Dice6, signal, model) == Intent::Unknown);
 }

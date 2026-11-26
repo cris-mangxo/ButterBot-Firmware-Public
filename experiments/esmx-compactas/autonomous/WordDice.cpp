@@ -43,6 +43,7 @@ bool validWordBank(const WordBank& bank){
 
 bool extractWordFeatures(bb::asr::LogMel& frontend, std::span<const int16_t> pcm, WordFeatures& output){
 	if(!frontend.ready || pcm.size() < bb::asr::kWin || pcm.size() > MaxSamples){
+		output.count = 0;
 		return false;
 	}
 	output.count = 1 + (pcm.size() - bb::asr::kWin) / WordStride;
@@ -122,6 +123,26 @@ bool acceptsWordDice(const WordFeatures& input, const WordBank& bank){
 		++stage;
 	}
 	return stage == order.size();
+}
+
+Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,
+                             const WordBank& bank){
+	if(previous != Intent::Unknown || candidate != Intent::Dice6 || input.count > input.frames.size()){
+		return previous;
+	}
+	bool heardSix = false;
+	int preceding = Other;
+	for(size_t frame = 0; frame < input.count; ++frame){
+		const int current = token(wordLogits(input, frame, bank), bank);
+		if(current == preceding){
+			if(current >= Denial){
+				return Intent::Unknown;
+			}
+			heardSix |= current == Six;
+		}
+		preceding = current;
+	}
+	return heardSix ? Intent::Dice6 : Intent::Unknown;
 }
 
 Intent completeWordDice(bb::asr::LogMel& frontend, std::span<const int16_t> pcm,
