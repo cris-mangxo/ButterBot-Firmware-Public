@@ -1,4 +1,4 @@
-"""Fit an int8 word detector from Ald's local phoneme alignments."""
+"""Fit an int8 word detector from locally aligned speech."""
 
 import argparse
 from collections import Counter
@@ -65,7 +65,13 @@ def prepare(item, program):
         return "length"
     align = json.loads(wav.with_suffix(".json").read_text("utf-8"))
     tokens = canonical(row["text"]).split()
-    intervals = word_ranges(align["phones"])
+    if "word_intervals" in align:
+        words, starts, ends = zip(*align["word_intervals"], strict=True)
+        if [canonical(word) for word in words] != tokens or align["sample_rate"] != 16000:
+            raise ValueError("La alineación de palabras no coincide con el turno")
+        intervals = list(zip(starts, ends, strict=True))
+    else:
+        intervals = word_ranges(align["phones"])
     if len(tokens) != len(intervals):
         return "alignment"
     pcm = read_pcm(wav)
@@ -89,7 +95,10 @@ def prepare(item, program):
 
 
 def load(corpus, program, sharvard=False):
-    rows = read_manifest(corpus, sharvard=sharvard)
+    return load_rows(corpus, program, read_manifest(corpus, sharvard=sharvard))
+
+
+def load_rows(corpus, program, rows):
     pairs = [(row, corpus / "audio" / (row["id"] + ".wav")) for row in rows if row["split"] != "test"]
     groups = {"train": [], "dev": []}
     omitted = Counter()
@@ -274,13 +283,12 @@ def score_dev(program, bank, groups, weights, unit):
             "word_margin": word_margin, "veto_margin": veto_margin, "parity_cpp_turns": len(decisions)}
 
 
-def header(bank, target, supplement=False):
+def header(bank, target, symbol):
     raw = bank.read_bytes()
     if len(raw) != BYTES:
         raise ValueError("Modelo binario inválido")
     with target.open("x", encoding="utf-8") as output:
         output.write('#pragma once\n#include "WordDice.h"\n#include <bit>\n')
-        symbol = "PilotWordExtra" if supplement else "PilotWordDice"
         output.write(f'inline constexpr auto {symbol} = '
                      f'std::bit_cast<EsMx::Kws::WordBank>(std::array<uint8_t, {BYTES}>{{\n')
         for start in range(0, len(raw), 20):
@@ -296,12 +304,16 @@ def main():
     parser.add_argument("--sharvard-corpus", type=Path)
     parser.add_argument("--shorthand-ald", type=Path)
     parser.add_argument("--shorthand-sharvard", type=Path)
-    parser.add_argument("--supplement", action="store_true")
+    parser.add_argument("--human-word-corpus", type=Path)
+    symbols = parser.add_mutually_exclusive_group()
+    symbols.add_argument("--supplement", dest="symbol", action="store_const", const="PilotWordExtra")
+    symbols.add_argument("--adapted", dest="symbol", action="store_const", const="PilotWordAdapted")
+    parser.set_defaults(symbol="PilotWordDice")
     args = parser.parse_args()
     if args.operation == "header":
         if args.header is None:
             parser.error("Falta --header")
-        header(args.bank, args.header, supplement=args.supplement)
+        header(args.bank, args.header, args.symbol)
         return
     if args.program is None or args.corpus is None:
         parser.error("Faltan --program y --corpus")
@@ -320,14 +332,27 @@ def main():
         omitted.update({f"{name}/{key}": value for key, value in other_omissions.items()})
         for split in groups:
             groups[split].extend(extra[split])
-    net, epoch, training = fit(groups, multi_voice=bool(args.sharvard_corpus))
+    provenance = {}
+    if args.human_word_corpus:
+        from human_words import read_manifest as read_human_words
+        rows, provenance = read_human_words(args.human_word_corpus)
+        human, human_omitted = load_rows(args.human_word_corpus, args.program, rows)
+        method = provenance["method"]
+        voice_counts[method] = {split: len(records) for split, records in human.items()}
+        omitted.update({f"{method}/{key}": value for key, value in human_omitted.items()})
+        # Boost the human recordings in training and count dev turns only once.
+        groups["train"].extend(human["train"] * 2)
+        groups["dev"].extend(human["dev"])
+    net, epoch, training = fit(groups, multi_voice=bool(args.sharvard_corpus or args.human_word_corpus))
     weights, unit = quantize(net, training)
     results = score_dev(args.program, args.bank, groups, weights, unit)
     print(json.dumps({"model_bytes": BYTES, "model_sha256": digest(args.bank), "fixture_sha256": digest(FIXTURE),
                       "chosen_epoch": epoch, "torch_version": torch.__version__,
                       "train_turns": len(groups["train"]), "dev_turns": len(groups["dev"]),
                       "dev_d6_total": sum(row[2] == 1 for row in groups["dev"]),
-                      "omitted": omitted, "voice_counts": voice_counts, **results}, indent=2))
+                      "omitted": omitted, "voice_counts": voice_counts,
+                      **({"human_words": provenance, "human_train_repeats": 2} if provenance else {}),
+                      **results}, indent=2))
 
 
 if __name__ == "__main__":

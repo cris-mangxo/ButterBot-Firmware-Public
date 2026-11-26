@@ -34,5 +34,5 @@ std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t tim
 bool acceptsWordDice(const WordFeatures& input, const WordBank& bank);
 Intent completeWordDice(bb::asr::LogMel& frontend, std::span<const int16_t> pcm,
                         Intent baseline, Intent verified, const WordBank& model, WordFeatures& workspace,
-                        const WordBank* supplement = nullptr);
+                        std::span<const WordBank* const> supplements = {});
 }

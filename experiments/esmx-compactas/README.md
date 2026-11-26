@@ -212,3 +212,37 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $wo
 Para reproducir la variante de abreviaturas, generar otros dos corpus alineados con `--shorthand`, uno con Ald y otro con Sharvard, y pasarlos a `word_train.py fit` mediante `--shorthand-ald` y `--shorthand-sharvard`. Para generar el panel sintético nuevo usar `corpus.py --ald "$ald_onnx" --fresh --out <directorio nuevo>`. Evaluar ese directorio con `measure.py fresh`. `measure.py --extra` requiere un ejecutable anfitrión recompilado con el modo `word-pair`.
 
 Para el banco doble, agregar `-D WORD_DICE_EXTRA_DIR=<directorio de word_extra.h>`. `qemu_fixture.py --public-dir <directorio de cortes>` incorpora los cinco clips públicos al build de prueba. Agregar `--supplement-hit` con el resultado de `measure.py replay --extra` para usar como caso D6 una toma que reconoce únicamente el banco adicional. Ambos argumentos juntos producen diez líneas `WORD_D6_CASE` y `WORD_D6_DONE 3` para este candidato. `WORD_D6_CASE` compara cada salida con su etiqueta y `WORD_D6_DONE` cuenta errores de reconocimiento. Comprobar por separado la paridad con el ejecutable anfitrión. Mantener el binario que contiene grabaciones en el directorio local de QEMU.
+
+## Adaptación con voces humanas de MSWC
+
+El entrenamiento puede incorporar palabras reales de la edición española del [Multilingual Spoken Words Corpus](https://mlcommons.org/datasets/multilingual-spoken-words/) de Mazumder y colaboradores, publicado por MLCommons bajo CC BY 4.0. Se reservan los identificadores de las tablas train, dev y test del archivo Common Voice es-MX usado para regresión. La auditoría recorre todas las tablas del archivo local. Solo contiene train, dev y test, con 314 identificadores y sin coincidencias con los dos grupos MSWC. La comprobación entre corpus se limita a los identificadores compatibles. Dentro de MSWC se separan entrenamiento y calibración por identificador de locutor. El manifiesto comprueba también que ningún archivo original se use en ambas particiones. Los dos episodios de la evaluación anterior siguen reservados y sus audios nunca se entregan al entrenador.
+
+`human_words.py` verifica los ocho bloques de audio, el archivo de particiones y el de alineaciones. Toma palabras cortas del audio recortado y rellenado por el corpus, y construye turnos compuestos. `mix_human_words.py` sustituye algunas palabras por esos mismos recortes dentro de turnos continuos de Ald, conservando el resto de la frase. Esos turnos híbridos siguen siendo audio de entrenamiento; el panel de órdenes humanas completas usa audio continuo de los episodios.
+
+Para reproducir, usar FFmpeg 9.1, las rutas del experimento anterior y un directorio de salida nuevo. En `mswc_dir` colocar estos archivos de la [revisión fijada](https://huggingface.co/datasets/MLCommons/ml_spoken_words/tree/0bc9df68e92fd6bb54176bf7eb29e2b9e97cb218).
+
+- `data/splits/es/splits.tar.gz` como `mswc-es-splits.tar.gz`.
+- `data/opus/es/train/audio/{2,3,4,8,9,10,13,14}.tar.gz` como `mswc-es-train-N.tar.gz`.
+- [Alineaciones de español](https://mswc.mlcommons-storage.org/alignments/es.tar.gz) como `mswc-es-alignments.tar.gz`.
+
+```fish
+set -l v3 "$lab/autonomous-v3"
+mkdir -p "$v3/adapted-bank"
+"$train_python" -B experiments/esmx-compactas/autonomous/human_words.py \
+  --sources "$mswc_dir" --reference "$archivo_mozilla" --out "$v3/human-words"
+"$train_python" -B experiments/esmx-compactas/autonomous/mix_human_words.py \
+  --human "$v3/human-words" --carrier "$aligned_dir" --out "$v3/human-mixed"
+"$train_python" -B experiments/esmx-compactas/autonomous/audit_human_words.py \
+  --reference "$archivo_mozilla" --corpus "$v3/human-words" "$v3/human-mixed"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py fit \
+  --program "$lab/kws" --corpus "$aligned_dir" --sharvard-corpus "$v2/sharvard" \
+  --human-word-corpus "$v3/human-mixed" --bank "$v3/words-mixed.bin"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py header --adapted \
+  --bank "$v3/words-mixed.bin" --header "$v3/adapted-bank/word_adapted.h"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders $word_opts \
+  --extra "$v2/words-extra.bin" --adapted "$v3/words-mixed.bin" --corpus "$v2/public-holdout"
+```
+
+Para evaluar la concatenación directa, entrenar con `--human-word-corpus "$v3/human-words"` y medir ese banco con `--extra`. La concatenación produjo una activación falsa ante una negación en las pruebas. La ruta híbrida se compara con `--extra` apuntando al banco suplementario anterior y `--adapted` al banco nuevo. El ejecutable anfitrión debe recompilarse para agregar `word-adapt`.
+
+Compilar el banco de pruebas con `-D WORD_DICE_ADAPTED_DIR=<directorio de word_adapted.h>` junto con las opciones anteriores, incluido `WORD_DICE_EXTRA_DIR`. Conservar los tres bancos en su orden. Para QEMU, generar otro `word_pcm.h` con `--adapted-hit`, el resultado de `measure.py test --adapted` y el directorio de los cinco recortes públicos. El banco adaptado añadió dos aciertos en el panel sintético anterior, conservó las decisiones correctas de los dos bancos y siguió omitiendo los tres D6 humanos. QEMU produjo diez resultados y `WORD_D6_DONE 3`. Los pesos, las grabaciones y los binarios de prueba se generan localmente.

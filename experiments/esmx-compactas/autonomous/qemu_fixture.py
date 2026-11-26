@@ -32,12 +32,18 @@ def write(args):
                  (pick(replay, "original_fact_veto"), args.older_wide)]
     selected = [(case["category"], case["expected"], folder / "audio" / (case["id"] + ".wav"))
                 for case, folder in selected]
-    if args.supplement_hit:
-        case = next(row for row in replay if not row["overlong"] and row["expected"] == 6
-                    and row["decisions"]["word_gate"] == 0 and row["decisions"].get("word_pair") == 6)
+    if args.supplement_hit or args.adapted_hit:
+        rows, folder, reference, candidate = (
+            (tests, args.corpus, "word_pair", "word_adapt") if args.adapted_hit
+            else (replay, args.legacy, "word_gate", "word_pair")
+        )
+        case = next((row for row in rows if not row["overlong"] and row["expected"] == 6
+                     and row["decisions"].get(reference) == 0 and row["decisions"].get(candidate) == 6), None)
+        if case is None:
+            raise ValueError(f"El informe debe incluir una toma D6 que solo reconozca {candidate}")
         if not re.fullmatch(r"test-[0-9]{4}(?:-[0-9])?", case["id"]):
             raise ValueError("ID de audio Ald inválido")
-        selected[0] = ("supplement_hit", 6, args.legacy / "audio" / (case["id"] + ".wav"))
+        selected[0] = ("adapted_hit" if args.adapted_hit else "supplement_hit", 6, folder / "audio" / (case["id"] + ".wav"))
     if args.public_dir:
         selected += [(case["id"], case["expected"], wav)
                      for case, wav in verified_cases(args.public_dir)]
@@ -62,7 +68,9 @@ def main():
     for name in ("test", "replay", "corpus", "legacy", "older-wide", "header"):
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--public-dir", type=Path)
-    parser.add_argument("--supplement-hit", action="store_true")
+    positive = parser.add_mutually_exclusive_group()
+    positive.add_argument("--supplement-hit", action="store_true")
+    positive.add_argument("--adapted-hit", action="store_true")
     write(parser.parse_args())
 
 

@@ -16,6 +16,17 @@
 #include "word_bank.h"
 #ifdef KWS_WITH_WORD_DICE_EXTRA
 #include "word_extra.h"
+#ifdef KWS_WITH_WORD_DICE_ADAPTED
+#include "word_adapted.h"
+#endif
+static constexpr const WordBank* WordSupplements[]{
+	&PilotWordExtra,
+#ifdef KWS_WITH_WORD_DICE_ADAPTED
+	&PilotWordAdapted,
+#endif
+};
+#else
+static constexpr std::span<const WordBank* const> WordSupplements;
 #endif
 #ifdef KWS_WITH_WORD_TEST_PCM
 #include "word_pcm.h"
@@ -40,13 +51,8 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 #ifdef KWS_WITH_TRANSCRIPT_GRAMMAR
 		label = static_cast<int>(completeDice6(result.intent, verified, "Podrías lanzarme un dado de seis."));
 #elif defined(KWS_WITH_WORD_DICE)
-#ifdef KWS_WITH_WORD_DICE_EXTRA
 		label = static_cast<int>(completeWordDice(frontend, pcm, result.intent, verified,
-		                                         PilotWordDice, wordWorkspace, &PilotWordExtra));
-#else
-		label = static_cast<int>(completeWordDice(frontend, pcm, result.intent, verified,
-		                                         PilotWordDice, wordWorkspace));
-#endif
+		                                         PilotWordDice, wordWorkspace, WordSupplements));
 #else
 		label = static_cast<int>(verified);
 #endif
