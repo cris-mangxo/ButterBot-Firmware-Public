@@ -1,6 +1,8 @@
 #include "Audio/EsMxKws/Compact.h"
 #include "Dice6Guard.h"
 #include "PhraseGate.h"
+#include "AcousticDice.h"
+#include "WordDice.h"
 #include "Audio/EsMxKws/ScenarioForIntent.h"
 
 #include <array>
@@ -18,8 +20,11 @@ static_assert(sizeof(Signature) == Frames * Bands);
 static_assert(sizeof(Dice6Model) == 5876);
 static_assert(sizeof(Dice6Anchors) == 964);
 static_assert(sizeof(PhraseBank) == 9676);
+static_assert(sizeof(AcousticDice) == 6468);
+static_assert(sizeof(WordBank) == 9140);
 std::array<int16_t, MaxSamples + 1> pcm;
 bb::asr::LogMel frontend;
+WordFeatures wordFeatures;
 
 bool parseUnsigned(std::string_view text, uint32_t& value){
 	const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -56,14 +61,44 @@ int main(int argc, char** argv){
 	const bool guard = argc == 6 && std::string_view(argv[1]) == "guard";
 	const bool anchor = argc == 6 && std::string_view(argv[1]) == "anchor";
 	const bool phrases = argc == 6 && std::string_view(argv[1]) == "phrases";
+	const bool acoustic = argc == 7 && std::string_view(argv[1]) == "acoustic";
+	const bool acousticScores = argc == 3 && std::string_view(argv[1]) == "acoustic-scores";
+	const bool words = argc == 7 && std::string_view(argv[1]) == "words";
+	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
+	const bool wordScores = argc == 3 && std::string_view(argv[1]) == "word-scores";
+	const bool wordAccept = argc == 3 && std::string_view(argv[1]) == "word-accept";
 	const bool distances = argc == 3 && std::string_view(argv[1]) == "distances";
-	if(!features && !score && !guard && !anchor && !phrases && !distances){
+	if(!features && !score && !guard && !anchor && !phrases && !distances && !acoustic && !acousticScores &&
+	   !words && !wordFrames && !wordScores && !wordAccept){
 		return 2;
 	}
 	std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
 	const auto bytes = static_cast<size_t>(std::cin.gcount());
 	if(bytes % 2 != 0 || bytes > MaxSamples * 2 || !bb::asr::logmel_init(&frontend)){
 		return 2;
+	}
+	const auto samples = std::span(pcm.data(), bytes / 2);
+	if(wordFrames || wordScores || wordAccept){
+		if(!extractWordFeatures(frontend, samples, wordFeatures)){
+			return 3;
+		}
+		if(wordFrames){
+			std::cout.write(reinterpret_cast<const char*>(wordFeatures.frames.data()), wordFeatures.count * Bands);
+			return std::cout ? 0 : 2;
+		}
+		WordBank bank;
+		if(!load(argv[2], bank) || !validWordBank(bank)){
+			return 2;
+		}
+		if(wordAccept){
+			std::cout << acceptsWordDice(wordFeatures, bank) << '\n';
+			return 0;
+		}
+		for(size_t i = 0; i < wordFeatures.count; ++i){
+			const auto logits = wordLogits(wordFeatures, i, bank);
+			std::cout.write(reinterpret_cast<const char*>(logits.data()), sizeof(logits));
+		}
+		return std::cout ? 0 : 2;
 	}
 	Signature signature;
 	if(!extract(frontend, std::span(pcm.data(), bytes / 2), signature)){
@@ -72,6 +107,15 @@ int main(int argc, char** argv){
 	if(features){
 		std::cout.write(reinterpret_cast<const char*>(&signature), sizeof(signature));
 		return std::cout ? 0 : 2;
+	}
+	if(acousticScores){
+		AcousticDice model;
+		if(!load(argv[2], model) || !validAcousticDice(model)){
+			return 2;
+		}
+		const auto scores = acousticDiceScores(signature, model);
+		std::cout << '[' << scores[0] << ',' << scores[1] << ',' << scores[2] << ',' << scores[3] << "]\n";
+		return 0;
 	}
 	if(distances){
 		PhraseBank bank;
@@ -122,12 +166,26 @@ int main(int argc, char** argv){
 		intent = decision.intent;
 		margin = decision.margin;
 	}
-	if(phrases){
+	if(phrases || acoustic || words){
 		PhraseBank bank;
 		if(!load(argv[5], bank) || !validPhraseBank(bank)){
 			return 2;
 		}
 		intent = verifyPhrase(signature, intent, bank);
+	}
+	if(acoustic){
+		AcousticDice model;
+		if(!load(argv[6], model) || !validAcousticDice(model)){
+			return 2;
+		}
+		intent = completeAcousticDice(signature, result.intent, intent, model);
+	}
+	if(words){
+		WordBank bank;
+		if(!load(argv[6], bank) || !validWordBank(bank)){
+			return 2;
+		}
+		intent = completeWordDice(frontend, samples, result.intent, intent, bank, wordFeatures);
 	}
 	const auto scenario = scenarioForIntent(intent);
 	std::cout << "{\"label\":" << static_cast<int>(intent)

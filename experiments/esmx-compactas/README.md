@@ -11,11 +11,14 @@ Desde la raíz del fork, en fish. Se necesita Apple clang, Python 3 y las voces 
 ```fish
 set -l lab (mktemp -d)
 c++ -std=c++20 -O2 -Wall -Wextra -Werror \
-  -I experiments/esmx-commands/host -I experiments/esmx-compactas/guard -I main/src \
+  -I experiments/esmx-commands/host -I experiments/esmx-compactas/guard \
+  -I experiments/esmx-compactas/autonomous -I main/src \
   -I components/ButterBot-Common/src -I components/CMF/src \
   experiments/esmx-compactas/host/main.cpp \
   experiments/esmx-compactas/guard/Dice6Guard.cpp \
   experiments/esmx-compactas/guard/PhraseGate.cpp \
+  experiments/esmx-compactas/autonomous/AcousticDice.cpp \
+  experiments/esmx-compactas/autonomous/WordDice.cpp \
   main/src/Audio/EsMxKws/Compact.cpp main/src/Audio/EsMxKws/logmel.cpp \
   -o "$lab/kws"
 python3 -B experiments/esmx-compactas/pilot.py \
@@ -149,3 +152,35 @@ python3.12 -B experiments/esmx-compactas/transcript/evaluate.py human $asr_opts 
 ```
 
 También se puede usar `predict` con `--wav <PCM mono 16 kHz>`, `replay` con los corpus anteriores `--corpus` y `--older-wide`, o generar y evaluar `panel`, `confirm` y `final`. `--short-window` reproduce la comparación con ventana de contexto de 256. El script comprueba los pesos y el banco por SHA-256. Ejecuta Whisper con Metal y sin red ni acceso serie. Los clips de Common Voice, el audio sintético y las transcripciones temporales quedan fuera de Git.
+
+## D6 acústico autónomo
+
+El detector temporal de `autonomous/` se entrena en la Mac con las alineaciones fonéticas de Ald. En ejecución requiere solo audio PCM, el frontend existente y un banco de 9,140 bytes. Acepta señales de verbo, «dado» y «seis» en orden. Rechaza cuando también detecta negación, otro número o señales de cita y contexto. El banco anterior conserva la prioridad sobre toda decisión conocida, incluidas sus negaciones de Dato curioso.
+
+**Resultado de laboratorio.** Obtuvo 5/16 D6 nuevos en un banco Ald y 4/10 al repetir el panel previo de transcripción, con 0/26 para el banco anterior. Rechazó los 60 controles sintéticos y los 55 clips humanos públicos de hasta cuatro segundos. El corpus de voces humanas aporta controles de rechazo. La evaluación con órdenes completas de personas y en el robot queda pendiente. El ejecutable Xtensa produjo las cinco decisiones de la muestra seleccionada en QEMU. La versión con audio fijo es exclusiva para pruebas en el emulador.
+
+Requisitos de entrenamiento. Python 3.12 con PyTorch 2.9.1, NumPy 2.4.2 y un entorno separado con Piper 1.8.0, NumPy y ONNX 1.20.1. Usar `$lab/kws` compilado con el comando anterior.
+
+```fish
+set -lx PYTHONPATH experiments/esmx-compactas
+"$piper_python" -B experiments/esmx-compactas/autonomous/corpus.py \
+  --ald "$ald_onnx" --out "$unaligned_dir"
+"$piper_python" -B experiments/esmx-compactas/autonomous/corpus.py --aligned \
+  --ald "$ald_onnx" --out "$aligned_dir"
+"$train_python" -B experiments/esmx-compactas/autonomous/train.py fit \
+  --program "$lab/kws" --corpus "$unaligned_dir" --bank "$autonomous_dir/turn.bin"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py fit \
+  --program "$lab/kws" --corpus "$aligned_dir" --bank "$autonomous_dir/words.bin"
+set -l word_opts --program "$lab/kws" --baseline "$baseline" \
+  --prior "$phrases_dir/bank.bin" --turn "$autonomous_dir/turn.bin" --words "$autonomous_dir/words.bin"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py test $word_opts \
+  --corpus "$aligned_dir" > "$autonomous_dir/test.json"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py replay $word_opts \
+  --corpus "$phrases_dir" --older-wide "$broad_dir" > "$autonomous_dir/replay.json"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py human $word_opts \
+  --archive "$archivo_mozilla"
+"$train_python" -B experiments/esmx-compactas/autonomous/word_train.py header \
+  --bank "$autonomous_dir/words.bin" --header "$autonomous_dir/word_bank.h"
+```
+
+Compilar para ESP32-S3 con `-D WORD_DICE_DIR=<directorio de word_bank.h>` junto con `KWS_WITH_MODEL` y `PHRASE_BANK_DIR`. Omitir `TRANSCRIPT_GRAMMAR_BENCH`. Para QEMU, generar `word_pcm.h` con `autonomous/qemu_fixture.py` y usar `-D WORD_DICE_TEST_PCM_DIR=<directorio de word_pcm.h>` en otro build. Ejecutar con `idf.py qemu --qemu-extra-args="-nic none"` apuntando al build de prueba. La salida esperada es cinco líneas `WORD_D6_CASE` y `WORD_D6_DONE 0`. [QEMU para ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32s3/api-guides/tools/qemu.html).

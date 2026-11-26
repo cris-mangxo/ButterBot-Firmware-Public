@@ -1,0 +1,87 @@
+{
+  "train": {
+    "stems": [
+      "Tira un dado", "Lanza un dado", "Avienta el dado", "Échame este dado",
+      "Tírame el dado", "Rueda un dado", "Haz rodar el dado", "Lánzame ese dado",
+      "¿Puedes echar un dado", "Quiero aventar un dado", "Vamos a tirar el dado",
+      "Te pido que lances un dado", "A ver, avienta tu dado", "Oye, lanza el dado",
+      "Por favor, rueda este dado", "Quiero que tires un dado", "Me avientas este dado",
+      "Haz una tirada con un dado", "Porfa, avienta un dado", "¿Puedes tirar el dado"
+    ],
+    "tails": ["", " caras", " lados"],
+    "polite_tails": ["", ", porfa"],
+    "negated": ["No {request}", "Nunca {request}", "Ahorita no {request}", "{request}. Mejor no",
+                "No quiero que digas: {request}", "Yo no dije: {request}"],
+    "outside": [
+      "El dado de seis es azul.", "Ese dado tiene seis lados.", "Seis dados son demasiados.",
+      "Quiero pintar un dado de seis lados.", "Ya tengo el resultado del dado.",
+      "Me dijeron que tirara un dado de seis caras.", "Ayer tiré un dado de seis lados.",
+      "El dado cayó en seis.", "Saca seis fichas y un dado.", "¿Tienes un dado de seis caras?",
+      "Quedamos a las seis de la tarde.", "Tira seis dados.", "Lanza el dado y luego dime la hora.",
+      "El número seis está al lado de los dados.", "Pásame la mantequilla.",
+      "Tú pasa la mantequilla.", "Aviéntate un chiste.", "Dime un dato curioso.", "¿Qué hora es?",
+      "No me digas un dato curioso.", "No quiero un dado.", "Se hizo tarde.",
+      "Ya llegó el camión.", "Las seis personas se fueron temprano.", "Quiero jugar con dos dados.",
+      "Yo eché el dado y cayó en seis.", "Tira un dado de seis y después uno de ocho.",
+      "Lanza dos dados de seis lados.", "Lanza un dado.", "Dime la hora y tira un dado.",
+      "Haz una fila con seis dados.", "La tirada con el dado de seis fue mala."
+    ]
+  },
+  "dev": {
+    "stems": [
+      "Oye, tírame tu dado", "Avienta porfa este dado", "¿Podrías lanzarme un dado",
+      "Quiero que eches el dado", "Vamos a aventar ese dado", "Me puedes lanzar un dado",
+      "Rueda por favor tu dado", "Échame porfa un dado"
+    ],
+    "tails": ["", " caras", " lados"],
+    "polite_tails": [""],
+    "negated": ["No me pidas: {request}", "Mejor no {request}", "{request}. No, espera"],
+    "outside": [
+      "El dado de seis es de color rojo.", "En este juego hacen falta seis dados.",
+      "Nunca pensé que fuera un dado de seis.", "Quiero guardar el dado con seis puntos.",
+      "Yo lancé un dado de seis al suelo.", "Quiero saber si ese dado tiene seis lados.",
+      "Lanza tres dados de seis caras.", "Yo dije que no lances ese dado.", "Seis por dos son doce.",
+      "¿Qué día es hoy?", "No tengo el dado y son las seis.", "Tira un dado y trae seis fichas."
+    ]
+  },
+  "test": {
+    "positive": [
+      "Órale, me tiras ese dado de seis caras.", "¿Me echas ese dado de seis lados?",
+      "Quiero que me avientes tu dado de seis.", "Ahorita tira el dado de seis lados por favor.",
+      "Te encargo una tirada con este dado de seis.", "¿Me puedes rodar un dado de seis caras?",
+      "Avienta, por favor, mi dado de seis.", "¡Échale con ese dado de seis lados!",
+      "Vamos a hacer rodar tu dado de seis.", "Lánzame un dado de seis, porfa.",
+      "Oye, ¿te avientas el dado de seis?", "¿Puedes tirar ese dado de seis caras?",
+      "Quiero rodar el dado de seis lados.", "Porfa, haz una tirada con el dado de seis.",
+      "Tírame este dado de seis lados, por favor.", "¿Me lanzas porfa ese dado de seis caras?"
+    ],
+    "other_die": [
+      "Órale, me tiras ese dado de ocho caras.", "¿Me echas ese dado de cuatro lados?",
+      "Quiero que me avientes tu dado de doce.", "Ahorita tira el dado de veinte lados por favor.",
+      "Te encargo una tirada con este dado de dieciséis.", "¿Me puedes rodar un dado de tres caras?",
+      "Avienta, por favor, mi dado de setenta.", "¡Échale con ese dado de diez lados!",
+      "Vamos a hacer rodar tu dado de sesenta.", "Lánzame un dado de siete, porfa.",
+      "Oye, ¿te avientas el dado de cien?", "¿Puedes tirar ese dado de cinco caras?",
+      "Quiero rodar el dado de ocho lados.", "Porfa, haz una tirada con el dado de dos.",
+      "Tírame dos dados de seis lados, por favor.", "¿Me lanzas un dado de seis y otro de ocho?"
+    ],
+    "negated": [
+      "No, no me tires un dado de seis caras.", "¿Me echas ese dado de seis lados? Mejor no.",
+      "No quiero que me avientes tu dado de seis.", "Nunca tires el dado de seis lados.",
+      "Te encargo que no tires el dado de seis.", "Ahorita no ruedes un dado de seis caras.",
+      "Avienta mi dado de seis. No, mejor espera.", "Con ese dado de seis lados, no.",
+      "No vamos a hacer rodar tu dado de seis.", "Todavía no me lances un dado de seis.",
+      "Oye, no te avientes el dado de seis.", "¿Puedes no tirar ese dado de seis caras?",
+      "Yo no quiero rodar el dado de seis lados.", "Porfa, no hagas la tirada de seis.",
+      "De ninguna manera tires ese dado de seis lados.", "Tampoco me lances ese dado de seis caras."
+    ],
+    "outside": [
+      "Son las seis y el dado sigue perdido.", "En el dibujo sale un dado de seis lados.",
+      "¿Sabes de qué color es el dado de seis caras?", "Jugaron con un dado de seis.",
+      "Mi dado de seis no gira bien.", "Cuenta seis personas y cuatro sillas.",
+      "Me dijo que tirara un dado de seis.", "Si quieren, pueden lanzar el dado de seis.",
+      "La caja tiene seis dados.", "Dime cuántos puntos tiene ese dado.",
+      "¡No me cuentes un dato curioso!", "Préstame el dado que está junto a la mantequilla."
+    ]
+  }
+}

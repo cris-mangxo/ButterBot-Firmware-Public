@@ -116,15 +116,8 @@ def select(rows, fresh):
     return selected, dict(texts), dict(lexical_exact)
 
 
-def evaluate(archive, program, baseline, anchor, bank, fresh):
-    dataset, size, published = DATASETS["female"]
-    checksum = digest(archive)
-    if archive.stat().st_size != size or checksum not in (published, LOCAL_CV_SHA256):
-        raise ValueError("Common Voice difiere del archivo de catálogo y del diagnóstico fijado")
-    prefix, rows, counts = read_tables(archive)
-    clips, available, inventory = select(rows, fresh)
+def selected_wavs(archive, prefix, clips):
     needed = {prefix / "clips" / clip: category for clip, category in clips.items()}
-    samples = []
     with TemporaryDirectory(prefix="bb-public-audio-") as temporary:
         compressed = Path(temporary) / "control.mp3"
         wav = Path(temporary) / "control.wav"
@@ -141,13 +134,24 @@ def evaluate(archive, program, baseline, anchor, bank, fresh):
                     ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-n",
                      "-i", compressed, "-t", "4.1", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav],
                     check=True, capture_output=True, timeout=12)
-                samples.append({"category": needed.pop(path), "expected": 0,
-                                "decisions": compare(program, baseline, anchor, bank, wav)})
+                yield needed.pop(path), wav
                 wav.unlink()
                 if not needed:
                     break
     if needed:
         raise ValueError("Faltan clips del conjunto fijado")
+
+
+def evaluate(archive, program, baseline, anchor, bank, fresh):
+    dataset, size, published = DATASETS["female"]
+    checksum = digest(archive)
+    if archive.stat().st_size != size or checksum not in (published, LOCAL_CV_SHA256):
+        raise ValueError("Common Voice difiere del archivo de catálogo y del diagnóstico fijado")
+    prefix, rows, counts = read_tables(archive)
+    clips, available, inventory = select(rows, fresh)
+    samples = [{"category": category, "expected": 0,
+                "decisions": compare(program, baseline, anchor, bank, wav)}
+               for category, wav in selected_wavs(archive, prefix, clips)]
     return {"dataset_id": dataset, "archive_sha256": checksum, "catalog_sha256": published,
             "provisional": checksum != published, "table_counts": counts,
             "lexical_inventory": inventory, "available_by_group": available,
