@@ -1,0 +1,11 @@
+[
+  [1, "Pásame la mantequilla."],
+  [2, "Tú pasa la mantequilla."],
+  [3, "Aviéntate un chiste."],
+  [4, "Dime un dato curioso."],
+  [5, "¿Qué hora es?"],
+  [6, "Tira un dado de seis."],
+  [0, "No me pases la mantequilla."],
+  [0, "Abre la ventana de la cocina."],
+  [0, null]
+]

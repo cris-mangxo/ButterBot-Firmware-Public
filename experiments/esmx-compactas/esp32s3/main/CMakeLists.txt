@@ -1,0 +1,11 @@
+set(KWS_SOURCE "../../../../main/src/Audio/EsMxKws")
+if(KWS_WITH_MODEL)
+    if(NOT EXISTS "${PILOT_MODEL_DIR}/pilot_model.h")
+        message(FATAL_ERROR "Generate the synthetic pilot_model.h before building")
+    endif()
+    idf_component_register(SRCS "main.cpp" "${KWS_SOURCE}/logmel.cpp" "${KWS_SOURCE}/Compact.cpp"
+                           INCLUDE_DIRS "${KWS_SOURCE}" "${PILOT_MODEL_DIR}")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE KWS_WITH_MODEL)
+else()
+    idf_component_register(SRCS "main.cpp")
+endif()
