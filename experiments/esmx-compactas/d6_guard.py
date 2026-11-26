@@ -129,6 +129,24 @@ def evaluate_ald(samples, program, baseline, weights, folder, split, mode="guard
     return results
 
 
+def summarize_ald(rows):
+    categories = {}
+    for row in rows:
+        totals = categories.setdefault(row["category"], {
+            "trials": 0, "baseline_success": 0, "candidate_success": 0, "candidate_false_d6": 0,
+        })
+        expected = row["expected"]
+        baseline, candidate = row["baseline"], row["guard"]
+        totals["trials"] += 1
+        totals["baseline_success"] += baseline["label"] == expected
+        totals["candidate_success"] += candidate["label"] == expected
+        totals["candidate_false_d6"] += expected == 0 and candidate["label"] == 6
+        for decision in (baseline, candidate):
+            if decision["label"] == 6 and (decision.get("scenario"), decision.get("data")) != (7, 2):
+                raise ValueError("D6 debe usar el escenario y los datos originales")
+    return categories
+
+
 def fit_anchors(samples, program, baseline, folder, weights):
     prototypes = [feature(program, folder / (row["id"] + ".wav"))
                   for row in samples if row["split"] == "train"]
@@ -246,7 +264,8 @@ def main():
             else:
                 result = build(samples, args.program, audio, args.weights)
         else:
-            result = {"test": evaluate_ald(samples, args.program, args.baseline, args.weights, audio, "test", mode)}
+            rows = evaluate_ald(samples, args.program, args.baseline, args.weights, audio, "test", mode)
+            result = {"test": rows, "categories": summarize_ald(rows)}
         result.update({"fixture_sha256": digest(fixture), "ald_sha256": ALD_SHA256})
     print(json.dumps({"baseline_sha256": BASELINE_SHA256, "guard_sha256": digest(args.weights),
                       **result}, indent=2))

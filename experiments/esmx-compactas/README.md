@@ -60,7 +60,9 @@ Descargar los archivos desde las [fichas femenina](https://mozilladatacollective
 
 ## Verificación acotada de D6
 
-`d6_corpus.py` genera dos bancos Ald. El banco amplio usa construcciones distintas entre entrenamiento, ajuste y evaluación para un clasificador cuantizado de cuatro clases. El banco `--anchor` separa las tomas y velocidades de dos frases fijas, «Tira un dado de seis» y «Avienta un dado de seis lados». Usa dos firmas de turno completo y fija el límite a partir de la calibración. Ambos métodos conservan las decisiones de la base para mantequilla, chiste, dato y hora. Las rutas D6 se deciden en el verificador con el mismo mapeo al escenario original.
+`d6_corpus.py` genera dos bancos Ald. El banco amplio reserva construcciones nuevas para medir la detección de D6 y sus controles. Las cuatro órdenes previas son comprobaciones de regresión y sus textos y tomas a velocidad 1.0 también aparecen entre las altas de habla fuera de orden. El banco `--anchor` separa las tomas y velocidades de dos frases fijas, «Tira un dado de seis» y «Avienta un dado de seis lados». Calibración y prueba usan el mismo segundo de silencio como control del frontend. El banco usa dos firmas de turno completo y fija el límite a partir de la calibración. Ambos métodos conservan las decisiones de la base para mantequilla, chiste, dato y hora. Las rutas D6 se deciden en el verificador con el mismo mapeo al escenario original.
+
+**Resultado de laboratorio, 26 de noviembre de 2026.** Las dos frases fijas acertaron 3/4 tomas de la misma voz y texto a otras velocidades, y 0/8 órdenes con texto nuevo. Rechazaron 44/44 negaciones D6, 72/72 ejemplos de otros dados y 56/56 controles humanos de conversación. La versión cuantizada queda descartada. Activó D6 en 4/24 negaciones Ald y en 1/32 controles Common Voice. Las cuatro órdenes anteriores se conservaron. Ambos verificadores heredan el error de la base que activa «Dato curioso» al oír «No me digas un dato curioso». Common Voice se usó para medir rechazo de conversación con una copia local de SHA distinto del catálogo. Falta evaluar órdenes positivas y negativas cercanas en voces humanas. Los resultados se limitan al laboratorio, con el verificador fuera del firmware del producto.
 
 Desde la raíz del fork, en fish, con el binario `$lab/kws` anterior y el modelo compacto congelado en `$baseline`:
 
@@ -77,4 +79,15 @@ python3.12 -B experiments/esmx-compactas/d6_guard.py common-voice --anchor --new
   --weights "$anchor_dir/anchor.bin" --archive "$archivo_mozilla"
 ```
 
-Omitir `--anchor` para repetir la rama cuantizada con otro directorio de corpus y el Python que tiene NumPy instalado. `--anchor --broad` cruza el verificador de frases fijas con el banco amplio. Common Voice acepta aquí el archivo oficial o el SHA local conocido del diagnóstico, que se identifica como provisional. El corpus humano mide rechazo de habla general. Para enlazar el verificador en el banco ESP32-S3, generar `dice6_anchors.h` con `d6_guard.py header --anchor --header <ruta>` y los mismos argumentos de programa, base y pesos. Agregar `-D DICE6_ANCHOR_DIR=<directorio del encabezado>` al comando de compilación del banco.
+Omitir `--anchor` para repetir el ensayo cuantizado descartado con otro directorio de corpus y el Python que tiene NumPy instalado. `--anchor --broad` cruza el verificador de frases fijas con el banco amplio. Cada ejecución de `ald` imprime los conteos por categoría junto con las decisiones individuales. Common Voice acepta aquí el archivo oficial o el SHA local conocido del diagnóstico, que se identifica como provisional. Sin `--new-cohort` usa los hablantes 33–64 y con la opción usa los 65–88 de la selección ordenada.
+
+Para repetir la paridad, compilar el `kws` del [commit anterior](https://github.com/cris-mangxo/ButterBot-Firmware-Public/tree/f91f87b2d2f65bb0379df44a6b67a9cb560f9f82/experiments/esmx-compactas) siguiendo su README. Pasarlo como `$kws_reference` y apuntar `$broad_dir` al banco amplio generado sin `--anchor`.
+
+```fish
+python3.12 -B experiments/esmx-compactas/d6_verify.py --reference "$kws_reference" \
+  --program "$lab/kws" --baseline "$baseline" --anchor "$anchor_dir/anchor.bin" \
+  --corpus "$anchor_dir" --corpus "$broad_dir" --positive-wav "$anchor_dir/audio/train-0000.wav"
+python3.12 -B -m unittest discover -s experiments/esmx-compactas -p 'test_*.py'
+```
+
+Para enlazar el verificador en el banco ESP32-S3, generar `dice6_anchors.h` con `d6_guard.py header --anchor --header <ruta>` y los mismos argumentos de programa, base y pesos. Agregar `-D DICE6_ANCHOR_DIR=<directorio del encabezado>` al comando de compilación del banco.
