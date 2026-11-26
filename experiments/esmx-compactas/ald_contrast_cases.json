@@ -1,0 +1,40 @@
+{
+  "enroll": [
+    [5, "¿Me dices la hora?", 0.93],
+    [5, "¿Qué hora tenemos?", 1.07],
+    [6, "Tira un dado de seis lados.", 0.93],
+    [6, "Avienta un dado de seis.", 1.07],
+    [0, "No preguntes la hora.", 1.02],
+    [0, "Tira un dado de doce.", 0.98],
+    [0, "Avienta un dado de cuatro caras.", 1.07],
+    [0, "Vamos a llegar a las seis a la tienda.", 0.93]
+  ],
+  "evaluate": [
+    ["time-new-1", 5, "¿Qué hora es ahorita?", 1.04],
+    ["time-new-2", 5, "Dime la hora actual.", 0.92],
+    ["time-new-3", 5, "¿Me puedes dar la hora?", 1.10],
+    ["time-new-4", 5, "Quiero saber qué hora es.", 0.99],
+    ["time-new-5", 5, "A ver, ¿qué hora es?", 1.05],
+    ["d6-new-1", 6, "Quiero tirar un dado de seis.", 1.04],
+    ["d6-new-2", 6, "Lanza el dado de seis.", 0.92],
+    ["d6-new-3", 6, "Tira el dado de seis caras.", 1.10],
+    ["d6-new-4", 6, "Avienta un dado de seis lados.", 0.99],
+    ["d6-new-5", 6, "Échame un dado de seis.", 1.05],
+    ["regression-butter", 1, "Pásame la mantequilla.", 1.00],
+    ["regression-you-butter", 2, "Tú pasa la mantequilla.", 1.00],
+    ["regression-joke", 3, "Aviéntate un chiste.", 1.00],
+    ["regression-fact", 4, "Dime un dato curioso.", 1.00],
+    ["reject-negate-time", 0, "No quiero que me digas la hora.", 1.01],
+    ["reject-negate-d6", 0, "No lances el dado de seis.", 0.96],
+    ["reject-stop-d6", 0, "Mejor no tires un dado de seis.", 1.04],
+    ["reject-d4", 0, "Lanza un dado de cuatro lados.", 1.08],
+    ["reject-d8", 0, "Tírame un dado de ocho.", 0.94],
+    ["reject-d20", 0, "Avienta un dado de veinte.", 1.00],
+    ["reject-d100", 0, "Lanza el dado de cien caras.", 0.98],
+    ["reject-appointment", 0, "¿A qué hora es la cita?", 1.04],
+    ["reject-result", 0, "El dado cayó en un seis.", 1.04],
+    ["reject-multiple", 0, "Dime la hora y avienta el dado.", 0.96],
+    ["reject-conversation", 0, "Me acuerdo de que fue el martes.", 1.00],
+    ["reject-silence", 0, null, 1.00]
+  ]
+}

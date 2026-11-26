@@ -34,3 +34,25 @@ Una tanda en la Mac por persona que acepte participar. Posición inicial a unos 
 4. Los WAV y el manifiesto quedan en la carpeta privada del proyecto dentro de `Library/Application Support`. Para seguimiento, compartir solo el número de tomas, la partición y el seudónimo si hace falta. La recogida formal con el micrófono del robot se hará en sesiones aparte.
 
 Conservar los datos del hogar en almacenamiento privado. El piloto sintético tiene su propia ruta de generación. Un corpus humano público da voces de referencia sin pedir muestras del hogar y la verificación con participantes queda disponible si se decide personalizar.
+
+## Comparación Ald y Common Voice es-MX
+
+El corte del 26 de noviembre usa voces públicas y sintéticas. La voz del propietario queda excluida de los datos y de la síntesis. La guía de captura anterior se conserva como referencia histórica.
+
+`ald_round.py` sintetiza pares de alta y evaluación separados, con Ald fijado por SHA-256. Usa Python 3.12, el binario `kws` y las 16 plantillas congeladas de la primera ronda. Conserva sus orígenes, añade ocho plantillas y compara ambos modelos con los mismos turnos y umbrales. `ald_cases.json` añade ejemplos positivos. `ald_contrast_cases.json` reparte las ocho altas entre positivos y rechazos. Los tamaños, audios y modelos se guardan en un directorio de resultados nuevo, fuera del repositorio.
+
+```fish
+python3.12 -B experiments/esmx-compactas/ald_round.py \
+  --program "$lab/kws" --baseline "$lab/modelo/templates.bin" \
+  --piper-python "$piper_python" --ald "$ald_onnx" --out "$ald_out"
+```
+
+`common_voice.py` requiere un archivo es-MX 26.0 descargado de Mozilla Data Collective. Comprueba el tamaño y el SHA-256 publicados antes de leerlo. Usa exclusivamente `test.tsv`, toma un fragmento de hasta cuatro segundos por hablante y conserva solo conteos de rechazo y activaciones en su salida. La opción `--alternate` compara un tercer modelo en los mismos clips. Los filtros léxicos excluyen frases cercanas al repertorio para medir conversación fuera de comando. Para reconocer órdenes positivas en voces humanas se requiere un conjunto etiquetado distinto. El muestreador no extrae rutas del tar al sistema ni incorpora voces al modelo. Los IDs de hablantes y las transcripciones permanecen fuera del informe.
+
+```fish
+python3.12 -B experiments/esmx-compactas/common_voice.py \
+  --dataset female --archive "$archivo_mozilla" --program "$lab/kws" \
+  --baseline "$lab/modelo/templates.bin" --candidate "$ald_out/templates.bin"
+```
+
+Descargar los archivos desde las [fichas femenina](https://mozilladatacollective.com/datasets/cmr3zunmk00flnt07p7ai9p43) y [masculina](https://mozilladatacollective.com/datasets/cmr3jjevj0041nt07vb3sm35d). Mozilla pide autenticar el acceso y aceptar los términos. Mantener los archivos, las plantillas y los audios fuera de Git.

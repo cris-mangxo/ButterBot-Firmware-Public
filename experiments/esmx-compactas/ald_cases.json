@@ -1,0 +1,40 @@
+{
+  "enroll": [
+    [5, "¿Me dices la hora?", 0.93],
+    [5, "Dime qué hora es.", 1.02],
+    [5, "¿Qué hora tenemos?", 1.07],
+    [5, "Pásame la hora.", 0.98],
+    [6, "Lanza un dado de seis caras.", 1.02],
+    [6, "Tira un dado de seis lados.", 0.93],
+    [6, "Avienta un dado de seis.", 1.07],
+    [6, "Lanza un de seis.", 0.98]
+  ],
+  "evaluate": [
+    ["time-canonical", 5, "¿Qué hora es?", 1.00],
+    ["time-variant-1", 5, "Dime la hora.", 0.90],
+    ["time-variant-2", 5, "¿Me puedes decir la hora?", 1.11],
+    ["time-variant-3", 5, "¿Cuál es la hora actual?", 1.00],
+    ["time-variant-4", 5, "¿Qué hora marca el reloj?", 1.06],
+    ["d6-canonical", 6, "Tira un dado de seis.", 1.00],
+    ["d6-variant-1", 6, "Lánzame un dado de seis.", 0.90],
+    ["d6-variant-2", 6, "Tírame un dado de seis.", 1.11],
+    ["d6-variant-3", 6, "Avienta el dado de seis caras.", 1.00],
+    ["d6-variant-4", 6, "Lanza un dado de seis lados.", 1.06],
+    ["unchanged-butter", 1, "Pásame la mantequilla.", 1.00],
+    ["unchanged-you-butter", 2, "Tú pasa la mantequilla.", 1.00],
+    ["unchanged-joke", 3, "Aviéntate un chiste.", 1.00],
+    ["unchanged-fact", 4, "Dime un dato curioso.", 1.00],
+    ["reject-no-time", 0, "No me digas la hora.", 0.94],
+    ["reject-no-d6", 0, "No tires el dado de seis.", 1.04],
+    ["reject-cancel-d6", 0, "Cancela el dado de seis.", 1.00],
+    ["reject-d4", 0, "Tira un dado de cuatro.", 1.06],
+    ["reject-d8", 0, "Lanza un dado de ocho caras.", 0.94],
+    ["reject-d20", 0, "Tira un dado de veinte lados.", 1.00],
+    ["reject-d100", 0, "Avienta un dado de cien.", 1.00],
+    ["reject-time-of-store", 0, "¿A qué hora abre la tienda?", 1.02],
+    ["reject-read-dice", 0, "Ya salió seis en el dado.", 0.98],
+    ["reject-multiple", 0, "Dime la hora y tira un dado de seis.", 1.00],
+    ["reject-conversation", 0, "La mesa quedó junto a la puerta.", 1.00],
+    ["reject-silence", 0, null, 1.00]
+  ]
+}
