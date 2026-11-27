@@ -65,16 +65,21 @@ bool extractWordFeatures(bb::asr::LogMel& frontend, std::span<const int16_t> pcm
 
 std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t time, const WordBank& bank){
 	std::array<int8_t, WordHidden> first, hidden;
+	const int origin = static_cast<int>(time) - WordWindow / 2;
+	const int begin = std::max(0, -origin);
+	const int end = std::min(WordWindow, static_cast<int>(input.count) - origin);
+	// Match the bank's band-major order for contiguous dot products.
+	std::array<int8_t, Bands * WordWindow> window{};
+	for(int k = begin; k < end; ++k){
+		for(int band = 0; band < Bands; ++band){
+			window[band * WordWindow + k] = input.frames[origin + k][band];
+		}
+	}
 	for(int channel = 0; channel < WordHidden; ++channel){
 		int32_t sum = bank.inputBias[channel];
-		for(int k = 0; k < WordWindow; ++k){
-			const int frame = static_cast<int>(time) + k - WordWindow / 2;
-			if(frame < 0 || static_cast<size_t>(frame) >= input.count){
-				continue;
-			}
-			for(int band = 0; band < Bands; ++band){
-				sum += int32_t(input.frames[frame][band]) * bank.input[(channel * Bands + band) * WordWindow + k];
-			}
+		const auto* weights = bank.input.data() + channel * window.size();
+		for(size_t i = 0; i < window.size(); ++i){
+			sum += int32_t(window[i]) * weights[i];
 		}
 		first[channel] = relu(sum, bank.inputShift);
 	}
@@ -126,23 +131,40 @@ bool acceptsWordDice(const WordFeatures& input, const WordBank& bank){
 }
 
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,
-                             const WordBank& bank){
+                             const WordBank& bank, DiceConfirmation confirmation){
 	if(previous != Intent::Unknown || candidate != Intent::Dice6 || input.count > input.frames.size()){
 		return previous;
 	}
 	bool heardSix = false;
+	bool heardContext = false;
+	bool ordered = false;
+	size_t lastVerb = 0;
 	int preceding = Other;
 	for(size_t frame = 0; frame < input.count; ++frame){
 		const int current = token(wordLogits(input, frame, bank), bank);
 		if(current == preceding){
-			if(current >= Denial){
+			if(current == Denial || current == OtherNumber){
 				return Intent::Unknown;
 			}
-			heardSix |= current == Six;
+			if(current == Context){
+				if(confirmation == DiceConfirmation::SixOnly){
+					return Intent::Unknown;
+				}
+				heardContext = true;
+			}
+			if(current == Verb){
+				lastVerb = frame;
+			}
+			if(current == Six){
+				heardSix = true;
+				// Keep the two tokens distinct and bounded to the same phrase.
+				const size_t gap = frame - lastVerb;
+				ordered |= lastVerb != 0 && gap >= 7 && gap <= 70;
+			}
 		}
 		preceding = current;
 	}
-	return heardSix ? Intent::Dice6 : Intent::Unknown;
+	return heardSix && (!heardContext || ordered) ? Intent::Dice6 : Intent::Unknown;
 }
 
 Intent completeWordDice(bb::asr::LogMel& frontend, std::span<const int16_t> pcm,

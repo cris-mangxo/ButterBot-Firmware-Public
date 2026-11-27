@@ -7,7 +7,7 @@ import re
 import struct
 
 from pilot import read_pcm
-from public_orders import EXPANDED_FIXTURE, verified_cases
+from public_orders import EXPANDED_FIXTURE, ORDERED_FIXTURE, verified_cases
 
 
 def load(path):
@@ -58,9 +58,15 @@ def write(args):
         case = new_hit(rows, reference, candidate)
         selected[0] = ("adapted_hit" if args.adapted_hit else "supplement_hit", 6, folder / "audio" / (case["id"] + ".wav"))
     if args.public_dir:
-        fixture = EXPANDED_FIXTURE if args.expanded_public else None
-        selected += [(case["id"], case["expected"], wav)
-                     for case, wav in verified_cases(args.public_dir, fixture)]
+        fixture = ORDERED_FIXTURE if args.ordered_public else EXPANDED_FIXTURE if args.expanded_public else None
+        public = [(case["id"], case["expected"], wav)
+                  for case, wav in verified_cases(args.public_dir, fixture)]
+        if args.public_id:
+            identifiers = set(args.public_id)
+            if not identifiers <= {name for name, _, _ in public}:
+                raise ValueError("Un ID no pertenece al panel humano")
+            public = [row for row in public if row[0] in identifiers]
+        selected += public
     with args.header.open("x", encoding="utf-8") as output:
         output.write('#pragma once\n#include <cstdint>\n#include <span>\n')
         output.write('struct PcmCase { const char* name; int expected; std::span<const int16_t> samples; };\n')
@@ -82,13 +88,19 @@ def main():
     for name in ("test", "replay", "corpus", "legacy", "older-wide", "header"):
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--public-dir", type=Path)
-    parser.add_argument("--expanded-public", action="store_true")
+    panel = parser.add_mutually_exclusive_group()
+    panel.add_argument("--expanded-public", action="store_true")
+    panel.add_argument("--ordered-public", action="store_true")
+    parser.add_argument("--public-id", action="append", help="Include only the specified public cases")
     positive = parser.add_mutually_exclusive_group()
     positive.add_argument("--supplement-hit", action="store_true")
     positive.add_argument("--adapted-hit", action="store_true")
     positive.add_argument("--continuous-hit", action="store_true")
     positive.add_argument("--guard-control", type=Path)
-    write(parser.parse_args())
+    args = parser.parse_args()
+    if (args.expanded_public or args.ordered_public or args.public_id) and not args.public_dir:
+        parser.error("Seleccionar tomas humanas requiere --public-dir")
+    write(args)
 
 
 if __name__ == "__main__":

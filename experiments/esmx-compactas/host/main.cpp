@@ -67,7 +67,8 @@ int main(int argc, char** argv){
 	const bool wordPair = argc == 8 && std::string_view(argv[1]) == "word-pair";
 	const bool wordAdapt = argc == 9 && std::string_view(argv[1]) == "word-adapt";
 	const bool wordGuarded = argc == 10 && std::string_view(argv[1]) == "word-guarded";
-	const bool wordFull = wordGuarded || (argc == 10 && std::string_view(argv[1]) == "word-full");
+	const bool wordRescue = argc == 10 && std::string_view(argv[1]) == "word-rescue";
+	const bool wordFull = wordGuarded || wordRescue || (argc == 10 && std::string_view(argv[1]) == "word-full");
 	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
 	const bool wordScores = argc == 3 && std::string_view(argv[1]) == "word-scores";
 	const bool wordAccept = argc == 3 && std::string_view(argv[1]) == "word-accept";
@@ -205,7 +206,12 @@ int main(int argc, char** argv){
 				return 2;
 			}
 			const auto candidate = completeAcousticDice(signature, result.intent, intent, model);
-			intent = wordGuarded ? confirmContinuousDice(intent, candidate, wordFeatures, models.back()) : candidate;
+			if(wordGuarded || wordRescue){
+				const auto confirmation = wordRescue ? DiceConfirmation::OrderedRescue : DiceConfirmation::SixOnly;
+				intent = confirmContinuousDice(intent, candidate, wordFeatures, models.back(), confirmation);
+			}else{
+				intent = candidate;
+			}
 		}
 	}
 	const auto scenario = scenarioForIntent(intent);

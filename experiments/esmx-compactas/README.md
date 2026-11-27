@@ -300,3 +300,21 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders \
 Recompilar el programa anfitrión para incorporar `word-guarded`. El informe compara la CNN continua sola y con la confirmación adicional. Esta confirmación solo examina un D6 nuevo propuesto por la CNN. Exige evidencia sostenida de «seis» y rechaza si el banco de palabras detecta una negación, otro número o contexto. Las órdenes previas y el veto del clasificador original conservan su prioridad. En ESP32-S3 se activa únicamente con `-D CONTINUOUS_DICE_GUARD=ON` junto con `CONTINUOUS_DICE_DIR`. La configuración anterior sigue siendo la referencia.
 
 Para reproducir el panel nuevo en QEMU, usar `qemu_fixture.py --expanded-public --public-dir <directorio de los recortes>`. `--guard-control <wav>` usa un control local con etiqueta de rechazo y conserva las pruebas de negación, orden previa y veto de Dato curioso. La medición usó un falso positivo de Common Voice seleccionado después de observar la diferencia en la Mac. Se conserva como diagnóstico separado del panel nuevo. Mantener las grabaciones y los binarios de emulación fuera de Git.
+
+## Recuperación D6 con orden temporal
+
+El modo experimental `word-rescue` conserva la propuesta de la CNN y las decisiones anteriores. Ante una señal de contexto, requiere evidencia sostenida de verbo y «seis» en ese orden, separados entre 7 y 70 tramas de 20 ms. Una negación u otro número sostenidos siguen cancelando la propuesta. Las reglas del banco y el veto de Dato curioso se conservan.
+
+El clasificador de palabras copia una ventana acotada al orden de las bandas del banco para que los productos int8 sean contiguos. Respeta los ceros al inicio y al final. `host/bench_word_logits.cpp` permite comparar el mismo cálculo en dos revisiones con `-O2`, incluyendo ventanas cortas y extremos. Compilarlo en cada revisión con `autonomous/WordDice.cpp`, `main/src/Audio/EsMxKws/logmel.cpp` y las rutas de inclusión del clasificador. La huella de salida debe coincidir. La comparación en escritorio no estima la latencia física.
+
+Para preparar el [panel público](autonomous/public_orders_ordered.json), guardar cada fuente con su clave y extensión MP3 o WAV. Se distinguen las instrucciones continuas, los controles continuos y las cuatro composiciones de una negación explícita. Cada composición concatena la pronunciación de «no» de Lingua Libre a una instrucción humana con 70 ms de separación. Una de las instrucciones procede de una regresión conocida. El código protege los orígenes de este panel también al preparar el entrenamiento.
+
+```fish
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py --ordered \
+  --sources "$test_sources" --out "$v6/ordered-test"
+python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders \
+  $word_opts --extra "$v2/words-extra.bin" --adapted "$v3/words-mixed.bin" \
+  --continuous "$v5/expanded.bin" --rescue --ordered-public --corpus "$v6/ordered-test"
+```
+
+Para repetir las pruebas antiguas se agrega `--rescue` a los comandos de evaluación que usan `--continuous`. La columna `evaluated` excluye los clips fuera del máximo de cuatro segundos. En el banco Xtensa, habilitar `CONTINUOUS_DICE_GUARD=ON` y `CONTINUOUS_DICE_RESCUE=ON`. En el generador QEMU se puede elegir `--ordered-public` y repetir `--public-id` para ajustar los clips a la partición de laboratorio. El firmware del producto no incorpora este experimento.

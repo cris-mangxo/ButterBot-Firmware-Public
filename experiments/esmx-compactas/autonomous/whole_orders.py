@@ -9,7 +9,7 @@ import subprocess
 
 from ald_round import digest
 from pilot import read_pcm
-from public_orders import EXPANDED_FIXTURE as EXPANDED_HELDOUT
+from public_orders import HELDOUT_FIXTURES
 from public_orders import specification as heldout_specification
 
 FIXTURE = Path(__file__).with_name("whole_orders.json")
@@ -21,14 +21,16 @@ TEMPOS = {"train": (100, 92, 108), "dev": (100,)}
 def specification(fixture=None):
     fixture = fixture or FIXTURE
     spec = json.loads(fixture.read_text("utf-8"))
-    reserved = heldout_specification()["sources"] | heldout_specification(EXPANDED_HELDOUT)["sources"]
-    reserved_groups = {meta.get("speaker_group", name) for name, meta in reserved.items()}
-    reserved_assets = {value[key] for value in reserved.values() for key in ("enclosure", "sha256")}
+    reserved = [(name, meta) for panel in HELDOUT_FIXTURES
+                for name, meta in heldout_specification(panel)["sources"].items()]
+    reserved_names = {name for name, _ in reserved}
+    reserved_groups = {meta.get("speaker_group", name) for name, meta in reserved}
+    reserved_assets = {value[key] for _, value in reserved for key in ("enclosure", "sha256")}
     groups = {}
     for source, meta in spec["sources"].items():
         split, group = meta["split"], meta["speaker_group"]
         if (not re.fullmatch(r"[a-z][a-z0-9-]+", source) or split not in TEMPOS
-                or not group or source in reserved or group in reserved_groups
+                or not group or source in reserved_names or group in reserved_groups
                 or meta.get("format", "mp3") not in {"mp3", "m4a"}
                 or not re.fullmatch(r"[a-f0-9]{64}", meta["sha256"])
                 or any(meta[key] in reserved_assets for key in ("enclosure", "sha256"))):

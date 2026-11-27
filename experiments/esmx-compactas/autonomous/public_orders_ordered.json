@@ -1,0 +1,200 @@
+{
+  "sources": {
+    "indie": {
+      "speaker_group": "indie-and-dragons",
+      "publisher": "Indie & Dragons",
+      "page": "https://www.ivoox.com/indie-dragons-un-dadito-solo-1x01-audios-mp3_rf_145656121_1.html",
+      "enclosure": "https://www.ivoox.com/indie-dragons-un-dadito-solo-1x01_mf_145656121_feed_1.mp3",
+      "sha256": "215c85dc364d5b97bbca0503191aa022dfa19b6066a9d4a2cc708a7b07a5e9e0"
+    },
+    "warren": {
+      "speaker_group": "contemplarol",
+      "publisher": "Partidas de rol en el ContemplaRol",
+      "page": "https://www.ivoox.com/en/cthulhu-dark-la-desaparicion-linda-warren-audios-mp3_rf_58346466_1.html",
+      "enclosure": "https://www.ivoox.com/cthulhu-dark-la-desaparicion-linda-warren_mf_58346466_feed_1.mp3",
+      "sha256": "e0a1d94b115865de45ca4c7992f332c2125e6d240d3a2d226d9fd78e2d71be42"
+    },
+    "zelda": {
+      "speaker_group": "tirando-rol",
+      "publisher": "Tirando Rol",
+      "page": "https://podcasters.spotify.com/pod/show/tirandorol/episodes/Tirando-Rol---BONUS-La-Leyenda-de-Zelda-Parte-1-e3sbpnh",
+      "enclosure": "https://anchor.fm/s/100f3c838/podcast/play/129410225/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-14%2F436696776-44100-2-612a0b0fcf437.mp3",
+      "sha256": "bc00c16316407f2fbf87c51359d0a56a090ef173eec1d0ebe88e280bc74a3674"
+    },
+    "oneshots": {
+      "page": "https://www.ivoox.com/64-el-mas-lejano-todos-hombres-audios-mp3_rf_179814211_1.html",
+      "rss": "https://feeds.ivoox.com/feed_fg_f11629516_filtro_1.xml",
+      "enclosure": "https://www.ivoox.com/64-el-mas-lejano-todos-hombres_mf_179814211_feed_1.mp3",
+      "sha256": "5fb8c2cc1e94086df8934cab1a839b38b4411d44ff105290f0ae586ae92ca204",
+      "speaker_group": "oneshots",
+      "publisher": "OneShots"
+    },
+    "no-elxavovel": {
+      "format": "wav",
+      "speaker_group": "lingua-libre-elxavovel",
+      "publisher": "Lingua Libre",
+      "attribution": "Elxavovel",
+      "license": "CC BY 4.0",
+      "page": "https://commons.wikimedia.org/wiki/File:LL-Q1321_%28spa%29-Elxavovel-no.wav",
+      "enclosure": "https://upload.wikimedia.org/wikipedia/commons/0/01/LL-Q1321_%28spa%29-Elxavovel-no.wav",
+      "sha256": "ec4b161812b1eefcac98120d29e6bfc6819e6a5612fc56c5f0444dee5da697dc"
+    },
+    "no-guergana": {
+      "format": "wav",
+      "speaker_group": "lingua-libre-guergana",
+      "publisher": "Lingua Libre",
+      "attribution": "Guergana",
+      "license": "CC BY-SA 4.0",
+      "page": "https://commons.wikimedia.org/wiki/File:LL-Q1321_%28spa%29-Guergana-no.wav",
+      "enclosure": "https://upload.wikimedia.org/wikipedia/commons/3/34/LL-Q1321_%28spa%29-Guergana-no.wav",
+      "sha256": "ddf983f305531bc4440c263bb2ca9d1d8e57ceaccacd3e83c221315788b0fc0a"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-32",
+      "source": "zelda",
+      "start_ms": 1458110,
+      "end_ms": 1460670,
+      "category": "direct_d6_request",
+      "expected": 6
+    },
+    {
+      "id": "public-33",
+      "source": "indie",
+      "start_ms": 880680,
+      "end_ms": 882340,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-34",
+      "source": "indie",
+      "start_ms": 343000,
+      "end_ms": 344515,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-35",
+      "source": "indie",
+      "start_ms": 588075,
+      "end_ms": 589340,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-36",
+      "source": "warren",
+      "start_ms": 1582530,
+      "end_ms": 1583475,
+      "category": "instruction_clause_d6",
+      "expected": 6
+    },
+    {
+      "id": "public-37",
+      "source": "oneshots",
+      "start_ms": 178370,
+      "end_ms": 179780,
+      "category": "composed_single_d6_negation",
+      "expected": 0,
+      "comparison": "public-03",
+      "negation_prefix": {
+        "source": "no-elxavovel",
+        "start_ms": 225,
+        "end_ms": 585
+      }
+    },
+    {
+      "id": "public-38",
+      "source": "zelda",
+      "start_ms": 1458110,
+      "end_ms": 1460670,
+      "category": "composed_single_d6_negation",
+      "expected": 0,
+      "negation_prefix": {
+        "source": "no-guergana",
+        "start_ms": 230,
+        "end_ms": 495
+      },
+      "comparison": "public-32"
+    },
+    {
+      "id": "public-39",
+      "source": "indie",
+      "start_ms": 343000,
+      "end_ms": 344515,
+      "category": "composed_single_d6_negation",
+      "expected": 0,
+      "negation_prefix": {
+        "source": "no-elxavovel",
+        "start_ms": 225,
+        "end_ms": 585
+      },
+      "comparison": "public-34"
+    },
+    {
+      "id": "public-40",
+      "source": "indie",
+      "start_ms": 588075,
+      "end_ms": 589340,
+      "category": "composed_single_d6_negation",
+      "expected": 0,
+      "negation_prefix": {
+        "source": "no-guergana",
+        "start_ms": 230,
+        "end_ms": 495
+      },
+      "comparison": "public-35"
+    },
+    {
+      "id": "public-41",
+      "source": "zelda",
+      "start_ms": 2021060,
+      "end_ms": 2023020,
+      "category": "multiple_dice",
+      "expected": 0
+    },
+    {
+      "id": "public-42",
+      "source": "zelda",
+      "start_ms": 1995830,
+      "end_ms": 1997410,
+      "category": "corrective_mention_d6",
+      "expected": 0
+    },
+    {
+      "id": "public-43",
+      "source": "indie",
+      "start_ms": 1540250,
+      "end_ms": 1542090,
+      "category": "negated_dice_pool",
+      "expected": 0
+    },
+    {
+      "id": "public-44",
+      "source": "indie",
+      "start_ms": 1821400,
+      "end_ms": 1823030,
+      "category": "contextual_single_die_no_roll",
+      "expected": 0
+    },
+    {
+      "id": "public-45",
+      "source": "indie",
+      "start_ms": 342330,
+      "end_ms": 346075,
+      "category": "narrative_conditional_d6",
+      "expected": 0,
+      "comparison": "public-34"
+    },
+    {
+      "id": "public-46",
+      "source": "zelda",
+      "start_ms": 129500,
+      "end_ms": 133260,
+      "category": "narrative_additive_d6",
+      "expected": 0
+    }
+  ]
+}

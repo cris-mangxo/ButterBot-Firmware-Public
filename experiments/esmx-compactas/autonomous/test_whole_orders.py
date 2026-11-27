@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import whole_orders
-from public_orders import EXPANDED_FIXTURE, specification as reserved
+from public_orders import EXPANDED_FIXTURE, ORDERED_FIXTURE, specification as reserved
 
 
 class WholeOrderSplitTest(unittest.TestCase):
@@ -50,3 +50,13 @@ class WholeOrderSplitTest(unittest.TestCase):
             fixture.write_text(json.dumps(data), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "panel reservado"):
                 whole_orders.specification(fixture)
+
+    def test_composed_negation_sources_remain_reserved(self):
+        panel = reserved(ORDERED_FIXTURE)
+        prefixes = {case["negation_prefix"]["source"] for case in panel["cases"] if "negation_prefix" in case}
+        self.assertEqual(len(prefixes), 2)
+        for key in prefixes:
+            with self.subTest(prefix=key):
+                self.spec["sources"]["apaga"]["speaker_group"] = panel["sources"][key]["speaker_group"]
+                with self.assertRaisesRegex(ValueError, "panel reservado"):
+                    self.verify()
