@@ -52,3 +52,25 @@ El ejecutable en Mac recibe PCM16 mono a 16 kHz por entrada estándar y llama a 
 Mantequilla y Chiste siguen sin una muestra humana es-MX reservada apta. Queda por medir la espera al cancelar durante inferencia y confirmar en la pareja física la animación y el valor de D6 sin pregunta de cantidad. La revisión del código del mando muestra un constructor que acepta `RollAnim` como dato inicial y reconstruye la vista con `Result`.
 
 Una evaluación posterior debe reservar locutores antes del ajuste y conservar aparte los casos históricos consultados 03, 37 y 81. Los casos 88 y 89 permanecen reservados. El veto de «Dato curioso» sigue en el banco de frases y el perfil solo despacha las cuatro acciones enumeradas. [Frontend de audio de Espressif](https://docs.espressif.com/projects/esp-sr/en/latest/esp32s3/audio_front_end/README.html).
+
+## Repetición a través de la captura y comparación de un respaldo
+
+El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
+
+```sh
+bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
+python3 experiments/esmx-pilot/capture_replay.py "$lab/recognize" "$lab/capture" "$experiment_root"
+```
+
+El respaldo int8 de `fallback_lab.py` es un experimento de Mac. Usa la CNN y el formato binario ya probados en D6, con cuatro clases, y calibra los márgenes con voces sintéticas separadas. Los paneles públicos se abren después de fijar el banco. Su salida se compara solo cuando el reconocedor congelado se abstiene. La variante introdujo activaciones incorrectas y queda fuera del perfil de firmware.
+
+Con el Python 3.12 de entrenamiento con PyTorch 2.9.1 y NumPy 2.4.2, el entorno Piper de Ald, las voces de Mac de la ficha y los paneles locales previos:
+
+```sh
+"$training_python" experiments/esmx-pilot/fallback_lab.py \
+  --feature-tool "$kws" --reference "$lab/recognize" \
+  --experiment-root "$experiment_root" --ald "$ald" \
+  --piper-python "$piper_python" --output "$lab/fallback"
+```
+
+`kws` es el ejecutable de los [experimentos compactos](../esmx-compactas/README.md), con los modos `features` y `acoustic-scores`. El banco de 6 468 bytes, el registro previo a la prueba y los WAV del experimento se guardan localmente. La toma SpanishPod A0056 procede de Praxis Language y se usa para ajuste con licencia CC BY 3.0. [Ficha y licencia de la toma](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).

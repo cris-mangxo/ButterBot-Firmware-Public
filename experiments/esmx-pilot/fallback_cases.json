@@ -1,0 +1,75 @@
+{
+  "train": {
+    "butter": [
+      "Pásame la mantequilla.", "Pásame por favor la mantequilla.", "¿Me pasas la mantequilla?",
+      "¿Me podrías pasar la mantequilla?", "Quisiera que me pasaras la mantequilla.",
+      "Oye, pásame la mantequilla.", "Por favor, dame la mantequilla.", "¿Podrías darme la mantequilla?"
+    ],
+    "joke": [
+      "Cuéntame un chiste.", "Aviéntate un chiste.", "Échame un chiste.",
+      "Dime un chiste, por favor.", "¿Me puedes contar un chiste?", "Cuenta un chiste gracioso.",
+      "A ver, dime un chiste.", "Quiero escuchar un chiste."
+    ],
+    "time": [
+      "¿Qué hora es?", "¿Y qué hora es?", "¿Qué horas son?",
+      "Dime la hora actual.", "¿Me puedes decir la hora?", "¿Me das la hora?",
+      "Oye, ¿qué hora es ahorita?", "¿Cuál es la hora?"
+    ],
+    "reject": [
+      "No me pases la mantequilla.", "No quiero mantequilla.", "Tú pasa la mantequilla.",
+      "¿Dónde está la mantequilla?", "La mantequilla se derritió.", "Pásame el cuchillo de la mantequilla.",
+      "No cuentes el chiste.", "No me interesa oír chistes.", "Es el mismo chiste de siempre.",
+      "Ayer me contó un chiste.", "Dime un dato curioso.", "No me digas un dato curioso.",
+      "No me digas qué hora es.", "Dime a qué hora llega el camión.", "¿A qué hora es la cita?",
+      "Nos vemos a la misma hora.", "Tengo que esperar media hora.", "Te digo la hora en un rato.",
+      "Avienta un dado de seis.", "Tira un dado de seis caras.", "No tires el dado de seis.",
+      "Quiero un dado de doce.", "Tira dos dados de seis.", "Salió seis en el dado.",
+      "Tira un dado de veinte.", "Baila un rato.", "Hasta luego.", "Dime qué es esto.",
+      "Cuéntame una historia.", "¿Qué dijo la persona?", "¿Me dices cuánto cuesta?"
+    ]
+  },
+  "dev": {
+    "butter": [
+      "¿Me das la mantequilla?", "Acércame la mantequilla.", "Pasa para acá la mantequilla.",
+      "Oye, ¿me das la mantequilla porfa?"
+    ],
+    "joke": [
+      "A ver, échate un chiste.", "Cuéntanos un chiste divertido.", "Ya cuéntame un chiste.",
+      "Por favor, ¿me dices un chiste?"
+    ],
+    "time": [
+      "Oye, dime qué hora es.", "¿Sabes qué hora es ahorita?", "¿Podrías decirme la hora?",
+      "Quiero saber la hora."
+    ],
+    "reject": [
+      "Mejor ya no me pases la mantequilla.", "Se me acabó la mantequilla.",
+      "No me cuentes ese chiste.", "¿De qué trataba el chiste de ayer?", "No me cuentes un dato curioso.",
+      "¿A qué hora dijeron que empezaba?", "Todavía falta una hora.", "No quiero saber la hora.",
+      "Lanza un dado de seis lados.", "Mejor no tires un dado de seis.", "Hay que usar un dado de seis.",
+      "Tira un dado de cuatro caras.", "Rueda el dado de veinte.", "Avienta tres dados de seis.",
+      "Apágate un ratito.", "Aviéntate un paso de baile.", "Las seis caras del cubo."
+    ]
+  },
+  "test": {
+    "butter": [
+      "Oye, ¿tú me puedes pasar la mantequilla?", "¿Me acercas la mantequilla?",
+      "Porfa, pásame la mantequilla.", "Alcánzame la mantequilla de ahí."
+    ],
+    "joke": [
+      "Oye, ¿nos cuentas un chiste?", "Suelta un chiste para reírnos.",
+      "¿Te sabes algún chiste que me quieras contar?", "Échate un chiste rápido."
+    ],
+    "time": [
+      "A ver, compa, ¿qué horas son?", "¿Tienes la hora, porfa?",
+      "Por favor, dime la hora que es.", "¿Qué hora traes en el reloj?"
+    ],
+    "reject": [
+      "Deja la mantequilla donde estaba.", "Hoy no quiero que me pases la mantequilla.",
+      "No, cancela el chiste.", "Era un chiste, no era en serio.",
+      "No queremos datos curiosos.", "¿A qué hora salimos para allá?", "Ya es tarde para ver la hora.",
+      "Olvida la hora, ya la vi.", "Quiero tirar un dado de seis.", "Olvida lo del dado de seis, no lo tires.",
+      "No hagas la tirada de un dado de seis.", "Échame un dado de ocho.", "Tira ambos dados de seis.",
+      "La cara de seis no se usa aquí.", "Explícame cómo se juega.", "Pon una alarma para mañana."
+    ]
+  }
+}
