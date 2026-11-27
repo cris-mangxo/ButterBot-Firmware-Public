@@ -528,3 +528,22 @@ python3.12 -B "$experiment/public_orders.py" --esmx-table --sources "$sources" -
 Agrega el panel `esmx-table` a la comparación. La evaluación de un banco acústico nuevo con `public-orders` exige el informe de ajuste `--continuous-fit`. La huella del banco debe coincidir y la ficha explícita activa su exclusión de donantes. Para que la referencia histórica use la misma partición, agrega `--esmx-explicit-partition` a sus evaluaciones públicas. Usa `--rescue` en ambos brazos. La [ficha de la nueva mesa es-MX](autonomous/public_orders_esmx_table.json) contiene una orden de partida y una mención de la regla.
 
 Al reproducir la negación compuesta en ESP32-S3 emulado, pasa `--ordered-public --public-id public-37` a `qemu_fixture.py`. El candidato combinado activó esa negación. La referencia se mantiene como banco del laboratorio.
+
+## Confirmación D6 con un segundo banco acústico
+
+El modo de laboratorio conserva la confirmación del banco de referencia y verifica alternativas con el banco combinado. Una negación competitiva en la referencia impide usar la alternativa. La ruta suplementaria exige una propuesta acústica y dos cuadros consecutivos de «seis» coincidentes en los tres bancos léxicos. Se examina el turno completo porque una negación puede aparecer después de la propuesta. La coincidencia de negación en tres cuadros consecutivos bloquea la ruta suplementaria. Se preserva una secuencia completa reconocida por el léxico principal.
+
+Para reproducir la medición con el ejecutable C++ de este README, usa el banco combinado en `--continuous` y su informe en `--continuous-fit` al ejecutar `public-orders`. Añade `--rescue --consensus-reference "$evidence_root/autonomous-v5/expanded.bin"` para obtener las decisiones de `word_consensus`. Ejecuta la referencia por separado con `--rescue`, `expanded.bin` y `--esmx-explicit-partition` para comparar la misma selección pública. Los casos 03, 37 y 81 son regresiones consultadas durante el desarrollo. Los demás casos de los mismos programas y del prefijo humano de 37 tampoco se cuentan como reservados en esta ronda.
+
+Con la carpeta de fuentes que contiene `reroll-borderlands.m4a` y el directorio local de salida, prepara el control nuevo y el encabezado suplementario.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+mkdir -p "$lab/consensus-bank"
+python3.12 -B "$experiment/public_orders.py" --esmx-mention --sources "$sources" --out "$lab/mention-test"
+"$train_python" -B "$experiment/train.py" header --bank "$pooled_bank" \
+  --symbol PilotConsensusDice --header "$lab/consensus-bank/consensus_acoustic_dice.h"
+```
+
+En ESP-IDF usa la configuración de rescate. `CONTINUOUS_DICE_DIR` apunta al encabezado de referencia de `expanded.bin`. Agrega `-D "CONTINUOUS_DICE_CONSENSUS_DIR=$lab/consensus-bank"`. Genera el encabezado QEMU con las opciones anteriores y `--public-case DIR ID` para cada caso de 03, 37, 81 y 82. Genera una segunda imagen para 83 con `--esmx-mention-public`; los cinco clips públicos juntos exceden la partición de laboratorio al incrustar sus PCM. Usa solo `build` y QEMU.

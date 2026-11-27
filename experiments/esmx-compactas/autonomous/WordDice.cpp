@@ -181,6 +181,29 @@ bool acceptsContrastedDice(const WordFeatures& input, const WordBank& bank){
 	return matched;
 }
 
+bool confirmsSixAcrossBanks(const WordFeatures& input, const WordBank& primary, const WordBank& extra,
+                            const WordBank& adapted){
+	if(input.count > input.frames.size()){
+		return false;
+	}
+	constexpr int StableSixFrames = 2, StableDenialFrames = 3;
+	int sixRun = 0, denialRun = 0;
+	bool heardSix = false;
+	for(size_t frame = 0; frame < input.count; ++frame){
+		const int label = token(wordLogits(input, frame, adapted), adapted);
+		const bool agrees = (label == Denial || (label == Six && !heardSix)) &&
+		                    token(wordLogits(input, frame, primary), primary) == label &&
+		                    token(wordLogits(input, frame, extra), extra) == label;
+		sixRun = agrees && label == Six ? sixRun + 1 : 0;
+		denialRun = agrees && label == Denial ? denialRun + 1 : 0;
+		if(denialRun >= StableDenialFrames){
+			return false;
+		}
+		heardSix |= sixRun >= StableSixFrames;
+	}
+	return heardSix;
+}
+
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,
                              const WordBank& bank, DiceConfirmation confirmation){
 	if(previous != Intent::Unknown || candidate != Intent::Dice6 || input.count > input.frames.size()){

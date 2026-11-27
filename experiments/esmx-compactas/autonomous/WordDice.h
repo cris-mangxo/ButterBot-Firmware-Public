@@ -33,6 +33,8 @@ bool extractWordFeatures(bb::asr::LogMel& frontend, std::span<const int16_t> pcm
 std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t time, const WordBank& bank);
 bool acceptsWordDice(const WordFeatures& input, const WordBank& bank);
 bool acceptsContrastedDice(const WordFeatures& input, const WordBank& bank);
+bool confirmsSixAcrossBanks(const WordFeatures& input, const WordBank& primary, const WordBank& extra,
+                            const WordBank& adapted);
 enum class DiceConfirmation { SixOnly, OrderedRescue };
 
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,

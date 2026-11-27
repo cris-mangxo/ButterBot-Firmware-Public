@@ -73,14 +73,16 @@ DiceScores acousticDiceScores(const Signature& input, const AcousticDice& model)
 	return scores;
 }
 
+bool proposesDice6(const DiceScores& scores, const AcousticDice& model){
+	const auto alternative = std::max({scores[DiceOutside], scores[DiceOther], scores[DiceNegation]});
+	return scores[DiceRequest] >= model.minimumScore && scores[DiceRequest] - alternative >= model.minimumMargin;
+}
+
 Intent completeAcousticDice(const Signature& input, Intent baseline, Intent verified,
                            const AcousticDice& model){
 	if(baseline != Intent::Unknown || verified != Intent::Unknown){
 		return verified;
 	}
-	const auto scores = acousticDiceScores(input, model);
-	const auto alternative = std::max({scores[0], scores[2], scores[3]});
-	return scores[1] >= model.minimumScore && scores[1] - alternative >= model.minimumMargin
-	       ? Intent::Dice6 : Intent::Unknown;
+	return proposesDice6(acousticDiceScores(input, model), model) ? Intent::Dice6 : Intent::Unknown;
 }
 }

@@ -22,6 +22,9 @@
 #include "acoustic_dice.h"
 #ifdef KWS_WITH_CONTINUOUS_DICE_CONTRAST
 #include "DiceContrast.h"
+#elif defined(KWS_WITH_CONTINUOUS_DICE_CONSENSUS)
+#include "DiceConsensus.h"
+#include "consensus_acoustic_dice.h"
 #endif
 #endif
 #endif
@@ -63,6 +66,10 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 #ifdef KWS_WITH_CONTINUOUS_DICE_CONTRAST
 		label = static_cast<int>(completeContrastedDice(signature, result.intent, words, PilotAcousticDice,
 		                                               wordWorkspace, PilotWordAdapted));
+#elif defined(KWS_WITH_CONTINUOUS_DICE_CONSENSUS)
+		label = static_cast<int>(completeConsensusDice(signature, result.intent, words, PilotAcousticDice,
+		                                              PilotConsensusDice, wordWorkspace, PilotWordDice,
+		                                              PilotWordExtra, PilotWordAdapted));
 #else
 		const auto candidate = completeAcousticDice(signature, result.intent, words, PilotAcousticDice);
 #ifdef KWS_WITH_CONTINUOUS_DICE_GUARD

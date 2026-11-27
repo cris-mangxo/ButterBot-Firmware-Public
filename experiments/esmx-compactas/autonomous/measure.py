@@ -40,6 +40,8 @@ def trial(args, wav, category, expected, identifier=None):
         variants += ("word_rescue",)
     if args.contrast:
         variants += ("word_contrast",)
+    if args.consensus_reference:
+        variants += ("word_consensus",)
     data = {"category": category, "expected": expected, "overlong": long,
             "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
@@ -61,6 +63,8 @@ def trial(args, wav, category, expected, identifier=None):
             commands.append(("word_rescue", "word-rescue", banks))
         if args.contrast:
             commands.append(("word_contrast", "word-contrast", banks))
+        if args.consensus_reference:
+            commands.append(("word_consensus", "word-consensus", [*banks, args.consensus_reference]))
     for variant, mode, models in commands:
         command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
@@ -223,6 +227,8 @@ def main():
                         help="Verify training provenance and apply the corresponding public partition")
     parser.add_argument("--rescue", action="store_true")
     parser.add_argument("--contrast", action="store_true")
+    parser.add_argument("--consensus-reference", type=Path,
+                        help="Compare the supplementary consensus route with the fixed rescue reference")
     add_panel_options(parser, "-public")
     parser.add_argument("--esmx-explicit-partition", action="store_true",
                         help="Exclude programs reassigned to the explicit Mexican Spanish training set")
@@ -234,6 +240,8 @@ def main():
     if args.contrast and (not args.rescue or not args.adapted or digest(args.continuous) != CONTRAST_BANK_SHA256
                           or digest(args.adapted) != CONTRAST_WORD_SHA256):
         parser.error("--contrast requiere --rescue y los bancos fijados de voz continua y palabras")
+    if args.consensus_reference and (not args.rescue or digest(args.consensus_reference) != CONTRAST_BANK_SHA256):
+        parser.error("--consensus-reference requiere --rescue y el banco acústico de referencia fijado")
     if (args.public_fixture or args.esmx_explicit_partition) and args.operation != "public-orders":
         parser.error("Seleccionar un panel o una partición humana requiere public-orders")
     if args.adapted and not args.extra:
@@ -250,6 +258,8 @@ def main():
         provenance["word_adapt_extra"] = digest(args.adapted)
     if args.continuous:
         provenance["word_full_acoustic"] = digest(args.continuous)
+    if args.consensus_reference:
+        provenance["word_consensus_reference"] = CONTRAST_BANK_SHA256
     bank_sha256 = provenance.get("word_full_acoustic")
     explicit_partition = args.esmx_explicit_partition
     if (args.operation == "public-orders" and bank_sha256

@@ -26,8 +26,10 @@ struct AcousticDice {
 };
 
 using DiceScores = std::array<int32_t, DiceClasses>;
+enum DiceClass : size_t { DiceOutside, DiceRequest, DiceOther, DiceNegation };
 bool validAcousticDice(const AcousticDice& model);
 DiceScores acousticDiceScores(const Signature& input, const AcousticDice& model);
+bool proposesDice6(const DiceScores& scores, const AcousticDice& model);
 Intent completeAcousticDice(const Signature& input, Intent baseline, Intent verified,
                            const AcousticDice& model);
 }

@@ -2,6 +2,7 @@
 #include "Dice6Guard.h"
 #include "PhraseGate.h"
 #include "AcousticDice.h"
+#include "DiceConsensus.h"
 #include "DiceContrast.h"
 #include "WordDice.h"
 #include "Audio/EsMxKws/ScenarioForIntent.h"
@@ -70,7 +71,9 @@ int main(int argc, char** argv){
 	const bool wordGuarded = argc == 10 && std::string_view(argv[1]) == "word-guarded";
 	const bool wordRescue = argc == 10 && std::string_view(argv[1]) == "word-rescue";
 	const bool wordContrast = argc == 10 && std::string_view(argv[1]) == "word-contrast";
-	const bool wordFull = wordGuarded || wordRescue || wordContrast || (argc == 10 && std::string_view(argv[1]) == "word-full");
+	const bool wordConsensus = argc == 11 && std::string_view(argv[1]) == "word-consensus";
+	const bool wordFull = wordGuarded || wordRescue || wordContrast || wordConsensus ||
+	                      (argc == 10 && std::string_view(argv[1]) == "word-full");
 	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
 	const bool wordScores = argc == 3 && std::string_view(argv[1]) == "word-scores";
 	const bool wordAccept = argc == 3 && std::string_view(argv[1]) == "word-accept";
@@ -207,7 +210,14 @@ int main(int argc, char** argv){
 			if(!load(argv[9], model) || !validAcousticDice(model)){
 				return 2;
 			}
-			if(wordContrast){
+			if(wordConsensus){
+				AcousticDice reference;
+				if(!load(argv[10], reference) || !validAcousticDice(reference)){
+					return 2;
+				}
+				intent = completeConsensusDice(signature, result.intent, intent, reference, model,
+				                               wordFeatures, bank, models[0], models[1]);
+			}else if(wordContrast){
 				intent = completeContrastedDice(signature, result.intent, intent, model, wordFeatures, models.back());
 			}else if(wordGuarded || wordRescue){
 				const auto candidate = completeAcousticDice(signature, result.intent, intent, model);

@@ -1,0 +1,31 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "reroll-borderlands": {
+      "speaker_group": "reroll",
+      "publisher": "ReRoll",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.lovecraft.mx/post/susurros-innombrables-pita-cruz",
+      "page": "https://www.youtube.com/watch?v=P-14CEVZ3-w",
+      "enclosure": "https://www.youtube.com/watch?v=P-14CEVZ3-w",
+      "format": "m4a",
+      "sha256": "98237a1cf1155b04558181465d742a825a3fda5361517322e2d18cffd2ec0c56"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-83",
+      "source": "reroll-borderlands",
+      "start_ms": 564700,
+      "end_ms": 568620,
+      "expected": 0,
+      "category": "d6_rule_mention",
+      "context_ms": [
+        548000,
+        588000
+      ],
+      "summary": "La jugadora explica que subió la armadura de su personaje para que correspondiera a un dado de seis. La conversación repasa los puntos de personaje y sigue con otras características.",
+      "pcm_sha256": "c93b51f1e46fd919a511f7c11d87786f3a5090ee5e461060a4d4568c2a9a3ebd"
+    }
+  ]
+}

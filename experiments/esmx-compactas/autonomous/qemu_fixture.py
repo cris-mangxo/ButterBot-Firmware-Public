@@ -7,7 +7,7 @@ import re
 import struct
 
 from pilot import read_pcm
-from public_orders import add_panel_options, verified_cases
+from public_orders import HELDOUT_FIXTURES, add_panel_options, specification, verified_cases
 
 
 def load(path):
@@ -31,6 +31,17 @@ def new_hit(rows, reference, candidate):
     if not re.fullmatch(r"test-[0-9]{4}(?:-[0-9])?", case["id"]):
         raise ValueError("ID de audio Ald inválido")
     return case
+
+
+def public_case(folder, identifier):
+    fixtures = [fixture for fixture in HELDOUT_FIXTURES
+                if any(case["id"] == identifier for case in specification(fixture)["cases"])]
+    if len(fixtures) != 1:
+        raise ValueError(f"El ID debe pertenecer a un único panel público: {identifier}")
+    for row, wav in verified_cases(Path(folder), fixtures[0]):
+        if row["id"] == identifier:
+            return identifier, row["expected"], wav
+    raise ValueError(f"El panel local no contiene el caso público: {identifier}")
 
 
 def write(args):
@@ -66,6 +77,9 @@ def write(args):
                 raise ValueError("Un ID no pertenece al panel humano")
             public = [row for row in public if row[0] in identifiers]
         selected += public
+    selected += [public_case(folder, identifier) for folder, identifier in args.public_case]
+    if len({name for name, _, _ in selected}) != len(selected):
+        raise ValueError("El banco QEMU contiene un caso repetido")
     with args.header.open("x", encoding="utf-8") as output:
         output.write('#pragma once\n#include <cstdint>\n#include <span>\n')
         output.write('struct PcmCase { const char* name; int expected; std::span<const int16_t> samples; };\n')
@@ -89,6 +103,8 @@ def main():
     parser.add_argument("--public-dir", type=Path)
     add_panel_options(parser, "-public")
     parser.add_argument("--public-id", action="append", help="Include only the specified public cases")
+    parser.add_argument("--public-case", action="append", nargs=2, default=[], metavar=("DIR", "ID"),
+                        help="Include a specific verified case from any public fixture")
     positive = parser.add_mutually_exclusive_group()
     positive.add_argument("--supplement-hit", action="store_true")
     positive.add_argument("--adapted-hit", action="store_true")

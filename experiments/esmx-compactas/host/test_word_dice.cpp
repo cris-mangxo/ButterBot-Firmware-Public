@@ -1,5 +1,6 @@
 #include "WordDice.h"
 #include "DiceContrast.h"
+#include "DiceConsensus.h"
 
 #include <cstdlib>
 
@@ -31,6 +32,15 @@ void word(WordFeatures& input, size_t start, int label, size_t duration = 3){
 		input.frames[frame].fill(0);
 		input.frames[frame][label] = 32;
 	}
+}
+
+AcousticDice fakeAcoustic(DiceScores scores){
+	AcousticDice model{};
+	model.first.shift = model.second.shift = model.third.shift = 1;
+	model.minimumScore = 4;
+	model.minimumMargin = 6;
+	model.biases = scores;
+	return model;
 }
 }
 
@@ -110,6 +120,45 @@ int main(){
 	}
 	require(confirmContinuousDice(Intent::Unknown, Intent::Unknown, contrasted, model,
 	                              DiceConfirmation::OrderedRescue) == Intent::Unknown);
+
+	// The supplementary route requires two shared «seis» frames and checks
+	// negation before and after them over the entire turn.
+	WordFeatures agreed{};
+	agreed.count = 25;
+	word(agreed, 9, 3, 2);
+	require(confirmsSixAcrossBanks(agreed, model, model, model));
+	auto silentBank = model;
+	silentBank.output.fill(0);
+	require(!confirmsSixAcrossBanks(agreed, model, silentBank, model));
+	for(size_t start : {1, 20}){
+		auto denied = agreed;
+		word(denied, start, 4, 3);
+		require(!confirmsSixAcrossBanks(denied, model, model, model));
+		denied.frames[start + 2].fill(0);
+		require(confirmsSixAcrossBanks(denied, model, model, model));
+	}
+	const Signature empty{};
+	const auto outside = fakeAcoustic({9, 4, 1, -7});
+	const auto positive = fakeAcoustic({1, 11, 1, 0});
+	const auto closeNegation = fakeAcoustic({1, 8, 1, 5});
+	const auto negative = fakeAcoustic({1, 0, 1, 11});
+	const auto weakNegative = fakeAcoustic({1, 0, 1, 2});
+	const auto combined = [&](Intent baseline, Intent verified, const AcousticDice& reference,
+	                          const AcousticDice& candidate, const WordFeatures& words){
+		return completeConsensusDice(empty, baseline, verified, reference, candidate, words, model, model, model);
+	};
+	require(combined(Intent::Unknown, Intent::Unknown, outside, positive, agreed) == Intent::Dice6);
+	require(combined(Intent::Unknown, Intent::Unknown, closeNegation, positive, agreed) == Intent::Unknown);
+	require(!hasCompetingNegation({1, 11, 1, 5}, closeNegation));
+	require(!hasCompetingNegation({1, 1, 1, 1}, closeNegation));
+	require(hasCompetingNegation({9, 0, 1, 8}, closeNegation));
+	require(combined(Intent::Unknown, Intent::Unknown, positive, negative, agreed) == Intent::Dice6);
+	require(combined(Intent::Fact, Intent::Unknown, positive, positive, agreed) == Intent::Unknown);
+	require(combined(Intent::Unknown, Intent::Dice6, negative, negative, agreed) == Intent::Unknown);
+	require(combined(Intent::Unknown, Intent::Dice6, negative, weakNegative, agreed) == Intent::Dice6);
+	require(combined(Intent::Unknown, Intent::Dice6, negative, positive, agreed) == Intent::Dice6);
+	require(combined(Intent::Unknown, Intent::Dice6, positive, negative, agreed) == Intent::Dice6);
+	require(combined(Intent::Unknown, Intent::Dice6, negative, negative, signal) == Intent::Dice6);
 
 	contrasted = signal;
 	word(contrasted, 1, 2);

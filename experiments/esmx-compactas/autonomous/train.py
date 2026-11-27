@@ -283,13 +283,13 @@ def train_bank(args):
                       **({"continuous": provenance} if provenance else {})}, indent=2))
 
 
-def emit_header(bank, header):
+def emit_header(bank, header, symbol="PilotAcousticDice"):
     data = bank.read_bytes()
     if len(data) != BANK_BYTES:
         raise ValueError("Modelo binario inválido")
     with header.open("x", encoding="utf-8") as file:
         file.write('#pragma once\n#include "AcousticDice.h"\n#include <bit>\n')
-        file.write(f'inline constexpr auto PilotAcousticDice = '
+        file.write(f'inline constexpr auto {symbol} = '
                    f'std::bit_cast<EsMx::Kws::AcousticDice>(std::array<uint8_t, {BANK_BYTES}>{{\n')
         for start in range(0, len(data), 20):
             file.write("    " + ", ".join(map(str, data[start:start + 20])) + ",\n")
@@ -304,9 +304,13 @@ def main():
     parser.add_argument("--continuous", type=Path, action="append",
                         help="Use a verified continuous speech corpus. Repeat to combine corpora.")
     parser.add_argument("--prioritize-human", action="store_true")
+    parser.add_argument("--symbol", choices=("PilotAcousticDice", "PilotConsensusDice"),
+                        help="Identifier for the emitted C++ model")
     args = parser.parse_args()
     if args.prioritize_human and (args.operation != "fit" or not args.continuous):
         parser.error("--prioritize-human requiere fit y un corpus humano continuo")
+    if args.symbol and args.operation != "header":
+        parser.error("--symbol requiere header")
     if args.operation == "fit":
         if args.program is None or args.corpus is None:
             parser.error("Faltan --program y --corpus")
@@ -314,7 +318,7 @@ def main():
     else:
         if args.header is None:
             parser.error("Falta --header")
-        emit_header(args.bank, args.header)
+        emit_header(args.bank, args.header, args.symbol or "PilotAcousticDice")
 
 
 if __name__ == "__main__":
