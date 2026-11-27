@@ -576,3 +576,21 @@ python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
 ```
 
 Para medir, usa `public-orders` con `--esmx-full-turns-public --corpus "$lab/full-turns-panel"` y conserva los bancos, `--continuous-fit`, `--consensus-reference` y `--nominal` de la comparación anterior. La regla vigente se abstuvo en los cuatro recortes. Una alternativa de laboratorio que exigía acuerdo entre bancos y la secuencia «verbo, dado, seis» con una señal acústica más débil tampoco recuperó las dos órdenes. Quedó fuera del reconocedor.
+
+## Reentrenar el banco D6 con otras voces es-MX
+
+[La ficha de reentrenamiento](autonomous/whole_orders_esmx_retrain.json) agrega grabaciones de Puebla, Reto Bilingüe, Jackalope Studios y CLIDi Universidad La Salle México. Se usan instrucciones con un dado cúbico visible y controles de mención, otro dado y omisión de una tirada sin tipo confirmado. La Salle se reserva para calibración. El extractor rechaza grupos, URL o huellas que coincidan con el panel de `public-88` y `public-89`. Se conservan las exclusiones de donantes de los corpus históricos.
+
+Guarda los cuatro audios originales de la ficha con los nombres indicados y formato M4A 140. En el fork, combina el corpus nuevo con los tres ya extraídos. Deja `$expanded`, `$contextual` y `$explicit` apuntando a esos corpus, y `$evidence_root` al laboratorio histórico.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+python3.12 -B "$experiment/whole_orders.py" --esmx-retrain --sources "$sources" --out "$lab/train-reviewed"
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$expanded" \
+  --continuous "$contextual" --continuous "$explicit" --continuous "$lab/train-reviewed" \
+  --prioritize-human --bank "$lab/retrained.bin" > "$lab/fit-retrained.json"
+```
+
+Para probar un peso menor del corpus nuevo usa `--retrain-repeat 2` y otros nombres de salida. Los corpus históricos conservan ocho repeticiones. Congela cada banco y su informe antes de evaluar. En `public-orders` usa `--continuous-fit` de cada banco y conserva el banco de referencia de `--consensus-reference`. Compara `word_nominal` por caso sobre las mismas entradas y revisa la regresión, las órdenes reservadas y las falsas tiradas antes de decidir si sustituir un banco.

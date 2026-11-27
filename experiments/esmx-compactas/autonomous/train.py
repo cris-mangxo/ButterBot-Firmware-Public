@@ -218,23 +218,35 @@ def train_bank(args):
     dev_rows = []
     provenance = {}
     if args.continuous:
-        from whole_orders import pooled_manifests, read_manifest as continuous_manifest
+        from whole_orders import RETRAIN_ESMX_FIXTURE, pooled_manifests, read_manifest as continuous_manifest
         if len(args.continuous) == 1:
             folder, = args.continuous
             rows, provenance = continuous_manifest(folder)
             groups = [(folder, rows)]
         else:
             groups, provenance = pooled_manifests(args.continuous)
+        retrain_index = None
+        if args.retrain_repeat is not None:
+            fixture_hash = digest(RETRAIN_ESMX_FIXTURE)
+            matches = [i for i, corpus in enumerate(provenance.get("corpora", [provenance]))
+                       if corpus["fixture_sha256"] == fixture_hash]
+            if len(matches) != 1:
+                raise ValueError("--retrain-repeat requiere exactamente un corpus creado con --esmx-retrain")
+            retrain_index, = matches
         # Oversample the scarce human turns, with noise/time masking applied by fit().
+        # With an override, keep historical corpora at eight repeats each.
         human_train = []
-        for folder, rows in groups:
+        for index, (folder, rows) in enumerate(groups):
             human, skipped = collect(folder, rows, args.program)
             if skipped:
                 raise ValueError("Una toma humana quedó fuera del rango de entrada")
-            human_train.extend(human["train"])
+            repeat = 1
+            if retrain_index is not None:
+                repeat = args.retrain_repeat if index == retrain_index else 8
+            human_train.extend(human["train"] * repeat)
             human_dev.extend(human["dev"])
             dev_rows.extend(row for row in rows if row["split"] == "dev")
-        observed["train"].extend(human_train * 8)
+        observed["train"].extend(human_train if retrain_index is not None else human_train * 8)
         observed["dev"].extend(human_dev)
     sets = {}
     for split, values in observed.items():
@@ -257,6 +269,7 @@ def train_bank(args):
         human_truth = dev_truth[-len(human_dev):]
         provenance.update({
             "train_repeat_per_tempo": 8, "dev_turns": len(human_dev),
+            **({"retrain_repeat_per_tempo": args.retrain_repeat} if args.retrain_repeat is not None else {}),
             **({"priority": "human_development"} if priority else {}),
             "dev_positive_detected": int((decisions & (human_truth == 1)).sum()),
             "dev_false_activations": int((decisions & (human_truth != 1)).sum()),
@@ -304,11 +317,14 @@ def main():
     parser.add_argument("--continuous", type=Path, action="append",
                         help="Use a verified continuous speech corpus. Repeat to combine corpora.")
     parser.add_argument("--prioritize-human", action="store_true")
+    parser.add_argument("--retrain-repeat", type=int, help="Training repeats for the verified --esmx-retrain corpus")
     parser.add_argument("--symbol", choices=("PilotAcousticDice", "PilotConsensusDice"),
                         help="Identifier for the emitted C++ model")
     args = parser.parse_args()
     if args.prioritize_human and (args.operation != "fit" or not args.continuous):
         parser.error("--prioritize-human requiere fit y un corpus humano continuo")
+    if args.retrain_repeat is not None and (args.operation != "fit" or not args.continuous or args.retrain_repeat < 1):
+        parser.error("--retrain-repeat requiere fit, un corpus continuo y un entero positivo")
     if args.symbol and args.operation != "header":
         parser.error("--symbol requiere header")
     if args.operation == "fit":

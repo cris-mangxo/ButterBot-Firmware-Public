@@ -1,0 +1,167 @@
+{
+  "profile": "esmx-continuous-training-v1",
+  "sources": {
+    "puebla": {
+      "publisher": "MISS ALY MERINO",
+      "speaker_group": "miss-aly-merino",
+      "locale_evidence": "https://www.youtube.com/watch?v=lKjFL0J51rA",
+      "page": "https://www.youtube.com/watch?v=Sha00WKbVdY",
+      "format": "m4a",
+      "split": "train",
+      "locale_evidence_note": "El canal identifica su plantel como Jardín de Niños Carlos González Peña, Tecamachalco, Puebla.",
+      "locale": "es-MX",
+      "enclosure": "https://www.youtube.com/watch?v=Sha00WKbVdY",
+      "sha256": "e71f1d7e5e5942a54d8581a549f33c7389c372fb79eb0e6d66b4eb1037a00ec5"
+    },
+    "lasalle": {
+      "publisher": "CLIDi Universidad La Salle México",
+      "speaker_group": "clidi-la-salle-mexico",
+      "locale_evidence": "https://lasalle.mx/",
+      "page": "https://www.youtube.com/watch?v=JDsYbep1bgo",
+      "format": "m4a",
+      "split": "dev",
+      "locale": "es-MX",
+      "enclosure": "https://www.youtube.com/watch?v=JDsYbep1bgo",
+      "sha256": "fbb592b50df85b28877a084203755886ead607ae8a7e479358275469fc160972"
+    },
+    "jackalope": {
+      "publisher": "Jackalope Studios",
+      "speaker_group": "jackalope-studios",
+      "locale_evidence": "https://www.youtube.com/channel/UChbStXsmhT07TC3sgnPz2Wg/about",
+      "page": "https://www.youtube.com/watch?v=-jQluRQnLw8",
+      "format": "m4a",
+      "split": "train",
+      "locale_evidence_note": "El perfil público del canal indica México.",
+      "locale": "es-MX",
+      "enclosure": "https://www.youtube.com/watch?v=-jQluRQnLw8",
+      "sha256": "e0ea931e7c57ed702291b1fd919ad0acfeba96b239ce20cb8050d9527a57d014"
+    },
+    "reto": {
+      "publisher": "Reto Bilingüe",
+      "speaker_group": "reto-bilingue-minerva-ortega",
+      "locale_evidence": "https://www.retobilingue.com/acerca/",
+      "page": "https://www.youtube.com/watch?v=w4qryxzRICQ",
+      "format": "m4a",
+      "split": "train",
+      "locale": "es-MX",
+      "enclosure": "https://www.youtube.com/watch?v=w4qryxzRICQ",
+      "sha256": "8eed77c1d25779fc8ac9c314955d6f6a25b45bc4cc4335139a2b9efd6d05ba0a"
+    }
+  },
+  "cases": [
+    {
+      "id": "train-01",
+      "source": "puebla",
+      "start_ms": 85380,
+      "end_ms": 88320,
+      "category": "positive",
+      "context_ms": [
+        79200,
+        101000
+      ],
+      "summary": "La maestra pide un lanzamiento por turno. En el tablero muestra el dado cúbico y se avanza cuatro casillas.",
+      "pcm_sha256": "e7760eb87b297e4b8df2ab2e2f94758e288253a95a9e87be5b3d34c65ea0e784",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        93100,
+        95200
+      ]
+    },
+    {
+      "id": "train-02",
+      "source": "puebla",
+      "start_ms": 96980,
+      "end_ms": 100350,
+      "category": "outside",
+      "context_ms": [
+        91100,
+        104000
+      ],
+      "summary": "La maestra indica cuántas casillas avanza el primer jugador después de tirar.",
+      "pcm_sha256": "6672b62d1e6a3f708bcaf5a3931336b02910b7e768445eac5a42fe5ebc80d682"
+    },
+    {
+      "id": "train-03",
+      "source": "reto",
+      "start_ms": 180000,
+      "end_ms": 183860,
+      "category": "outside",
+      "context_ms": [
+        175600,
+        185000
+      ],
+      "summary": "Explica que el número obtenido indica las casillas para avanzar. No pide una tirada.",
+      "pcm_sha256": "e6465e7f51085c136309cea41485e5d75cc2726b92b50269a9aae3ce43cebac7"
+    },
+    {
+      "id": "train-04",
+      "source": "jackalope",
+      "start_ms": 55020,
+      "end_ms": 57440,
+      "category": "other_die",
+      "context_ms": [
+        49500,
+        59000
+      ],
+      "summary": "El narrador indica tirar un dado de veinte caras al explicar el sistema.",
+      "pcm_sha256": "e4840e3bf0320322e07607ad2b1047b4afca9d4acc56f296c798e9e466b2e1a3"
+    },
+    {
+      "id": "train-05",
+      "source": "jackalope",
+      "start_ms": 352650,
+      "end_ms": 356120,
+      "category": "outside",
+      "context_ms": [
+        345000,
+        361200
+      ],
+      "summary": "En la partida se explica qué es un D6, sin pedir que se tire.",
+      "pcm_sha256": "eb66b9fab38668cd4ea327bb979baed2750a4611fc15d7ee4f92254b402e7100"
+    },
+    {
+      "id": "train-06",
+      "source": "jackalope",
+      "start_ms": 2595970,
+      "end_ms": 2598630,
+      "category": "outside",
+      "context_ms": [
+        2590740,
+        2606000
+      ],
+      "summary": "El narrador omite una tirada por un hechizo y no nombra el tipo de dado. Se trata como control ajeno a una orden de D6.",
+      "pcm_sha256": "6912aaf8c3133e166d01f432e76c7405b61954bf2e1087364db491fd8c7a1a18"
+    },
+    {
+      "id": "dev-01",
+      "source": "lasalle",
+      "start_ms": 149560,
+      "end_ms": 152650,
+      "category": "positive",
+      "context_ms": [
+        136200,
+        160000
+      ],
+      "summary": "La instructora pide que cada jugador tire por turno. Muestra un dado cúbico en la mesa junto al tablero.",
+      "pcm_sha256": "0e03c1214e92fbcf015b6cdece6b834d6e895c8b65cc1acd4fb609baf26bd886",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        142300,
+        148500
+      ]
+    },
+    {
+      "id": "dev-02",
+      "source": "lasalle",
+      "start_ms": 138930,
+      "end_ms": 142760,
+      "category": "outside",
+      "context_ms": [
+        136200,
+        149000
+      ],
+      "summary": "La instructora presenta los materiales, con un dado y las fichas. No solicita tirar.",
+      "pcm_sha256": "1242476f76e8d7e11cbda9afbebe184f8017c158c3eeb187b1a1e3c85898f902"
+    }
+  ]
+}

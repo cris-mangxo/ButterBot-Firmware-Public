@@ -16,7 +16,8 @@ FIXTURE = Path(__file__).with_name("whole_orders.json")
 EXPANDED_FIXTURE = FIXTURE.with_name("whole_orders_expanded.json")
 ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx.json")
 EXPLICIT_ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx_explicit.json")
-TRAINING_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ESMX_FIXTURE, EXPLICIT_ESMX_FIXTURE)
+RETRAIN_ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx_retrain.json")
+TRAINING_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ESMX_FIXTURE, EXPLICIT_ESMX_FIXTURE, RETRAIN_ESMX_FIXTURE)
 REASSIGNED_RECORDINGS = {"fungi", "juganor"}
 # Hosts and guests shared with the archival episode.
 EXPLICIT_GUEST_GROUPS = frozenset({"condado-veinte"})
@@ -35,9 +36,10 @@ def specification(fixture=None):
     spec = json.loads(fixture.read_text("utf-8"))
     esmx = spec.get("profile") == ESMX_PROFILE
     explicit = fixture.resolve() == EXPLICIT_ESMX_FIXTURE.resolve()
+    retrain = fixture.resolve() == RETRAIN_ESMX_FIXTURE.resolve()
     archive = heldout_specification(DIRECT_ESMX_FIXTURE) if explicit else None
     imported = {case["id"]: case for case in archive["cases"]} if explicit else {}
-    if (explicit or fixture.resolve() == ESMX_FIXTURE.resolve()) and not esmx:
+    if (explicit or retrain or fixture.resolve() == ESMX_FIXTURE.resolve()) and not esmx:
         raise ValueError("Falta el perfil de entrenamiento es-MX")
     reserved = [(name, meta) for panel in HELDOUT_FIXTURES
                 for name, meta in heldout_specification(panel)["sources"].items()]
@@ -249,5 +251,6 @@ if __name__ == "__main__":
     panel.add_argument("--expanded", action="store_const", const=EXPANDED_FIXTURE, dest="fixture")
     panel.add_argument("--esmx", action="store_const", const=ESMX_FIXTURE, dest="fixture")
     panel.add_argument("--esmx-explicit", action="store_const", const=EXPLICIT_ESMX_FIXTURE, dest="fixture")
+    panel.add_argument("--esmx-retrain", action="store_const", const=RETRAIN_ESMX_FIXTURE, dest="fixture")
     args = parser.parse_args()
     build(args.sources, args.out, args.fixture)

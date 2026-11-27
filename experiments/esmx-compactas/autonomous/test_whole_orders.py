@@ -158,6 +158,23 @@ class WholeOrderSplitTest(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "panel reservado"):
                         self.verify()
 
+    def test_retraining_recipe_rejects_reserved_assets_in_train_and_calibration(self):
+        fixture = whole_orders.RETRAIN_ESMX_FIXTURE
+        original = whole_orders.specification(fixture)
+        protected = reserved(public_orders.FULL_TURNS_ESMX_FIXTURE)["sources"].values()
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / fixture.name
+            for name, source in original["sources"].items():
+                for heldout in protected:
+                    for key in ("speaker_group", "enclosure", "sha256"):
+                        with self.subTest(split=source["split"], source=name, key=key):
+                            altered = dict(original, sources=dict(original["sources"]))
+                            altered["sources"][name] = dict(source, **{key: heldout[key]})
+                            candidate.write_text(json.dumps(altered), encoding="utf-8")
+                            with patch.object(whole_orders, "RETRAIN_ESMX_FIXTURE", candidate):
+                                with self.assertRaisesRegex(ValueError, "panel reservado"):
+                                    whole_orders.specification(candidate)
+
     def test_native_training_rejects_reserved_voice_and_program_crossing(self):
         data = whole_orders.specification(whole_orders.ESMX_FIXTURE)
         development = data["sources"]["nayeli"]
