@@ -14,15 +14,22 @@ cd "$root"
 kws=main/src/Audio/EsMxKws
 experiments=experiments/esmx-compactas
 entry=(experiments/esmx-pilot/recognize.cpp)
+recognition=(main/src/Audio/EsMxPilot/Recognition.cpp)
 flags=(-std=c++20 -O2 -Wall -Wextra -Werror -DBB_ESMX_PILOT)
 if [[ ${3:-} == --capture ]]; then
     entry=(experiments/esmx-pilot/capture_replay.cpp "$kws/PilotCapture.cpp")
     entry+=(experiments/esmx-pilot/dispatch_probe.cpp main/src/Audio/EsMxPilot/Dispatch.cpp)
     flags+=(-pthread -Wno-unused-parameter -I experiments/esmx-pilot/capture_stubs -I experiments/esmx-pilot/dispatch_stubs
             -I experiments/esmx-commands/host -I components/ButterBot-Common/src -I components/CMF/src)
+    scratch="$(mktemp -d)"
+    trap 'rm -rf -- "$scratch"' EXIT
+    "${CXX:-c++}" "${flags[@]}" -Drecognize=recognizeKernel \
+        -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \
+        -c "${recognition[0]}" -o "$scratch/recognition.o"
+    recognition=(experiments/esmx-pilot/capture_pcm_probe.cpp "$scratch/recognition.o")
 fi
 ${CXX:-c++} "${flags[@]}" \
     -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \
-    "${entry[@]}" main/src/Audio/EsMxPilot/Recognition.cpp \
+    "${entry[@]}" "${recognition[@]}" \
     "$kws/Compact.cpp" "$kws/logmel.cpp" "$experiments/guard/PhraseGate.cpp" \
     "$experiments/autonomous/WordDice.cpp" "$experiments/autonomous/AcousticDice.cpp" -o "$output"

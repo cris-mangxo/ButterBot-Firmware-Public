@@ -53,6 +53,24 @@ Mantequilla y Chiste siguen sin una muestra humana es-MX reservada apta. Queda p
 
 Una evaluación posterior debe reservar locutores antes del ajuste y conservar aparte los casos históricos consultados 03, 37 y 81. Los casos 88 y 89 permanecen reservados. El veto de «Dato curioso» sigue en el banco de frases y el perfil solo despacha las cuatro acciones enumeradas. [Frontend de audio de Espressif](https://docs.espressif.com/projects/esp-sr/en/latest/esp32s3/audio_front_end/README.html).
 
+## Referencia de transcripción en Mac
+
+Este diagnóstico compara la inferencia compacta con dos modelos Whisper locales seguidos de una gramática cerrada y el selector de acciones del fabricante. Requiere las muestras locales selladas del piloto, Python 3.12, `whisper-cli` 1.9.6, los pesos fijados por el script y los encabezados generados en la construcción de escritorio. Los modelos permanecen en la Mac. La salida guarda decisiones, rutas y hashes. El audio capturado y las transcripciones que consume el diagnóstico se procesan en un directorio temporal.
+
+```sh
+bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/recognize"
+bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
+bash experiments/esmx-pilot/build_transcript_reference.sh "$lab/rule"
+python3.12 experiments/esmx-pilot/transcript_reference.py \
+  --whisper "$(command -v whisper-cli)" \
+  --small "$experiment_root/asr-d6/ggml-small-q5_1.bin" \
+  --turbo "$experiment_root/autonomous-v4/ggml-large-v3-turbo-q5_0.bin" \
+  --reference "$lab/rule" --recognizer "$lab/recognize" --capture "$lab/capture" \
+  --experiment-root "$experiment_root" > "$lab/reference.json"
+```
+
+En las tomas reservadas, la sonda compara el WAV suministrado con el PCM exacto de la inferencia en ambos brazos de captura simulada. Las modalidades `--pcm` y `--pcm-with-hangover` del ejecutable producen audio binario para el diagnóstico local. La prueba identifica el punto en que se abstiene cada ruta de escritorio. La captura del micrófono, el AFE, el movimiento y el altavoz físicos quedan fuera de la medición.
+
 ## Repetición a través de la captura y comparación de un respaldo
 
 El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. En el checkpoint anterior, la retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. En el checkpoint anterior, entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.

@@ -1,6 +1,7 @@
 #include "Audio/EsMxKws/PilotCapture.h"
 #include "esp_err.h"
 #include "dispatch_probe.h"
+#include "capture_pcm_probe.h"
 
 #include <algorithm>
 #include <array>
@@ -164,8 +165,9 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
 int main(int argc, char** argv) {
     const auto option = argc == 2 ? std::string_view(argv[1]) : std::string_view{};
     const bool interrupt = option == "--interrupted";
-    const bool nominalHold = option == "--nominal-hangover";
-    if (argc != 1 && !interrupt && !nominalHold) {
+    const bool pcmOnly = option == "--pcm" || option == "--pcm-with-hangover";
+    const bool nominalHold = option == "--nominal-hangover" || option == "--pcm-with-hangover";
+    if (argc != 1 && !interrupt && !nominalHold && !pcmOnly) {
         return 2;
     }
 
@@ -178,11 +180,22 @@ int main(int argc, char** argv) {
     }
 
     const auto inputSamples = bytes / sizeof(int16_t);
+    if (pcmOnly) {
+        enablePcmProbe();
+    }
     const auto result = replay(std::span(pcm.data(), inputSamples), interrupt,
                                nominalHold ? NominalAfeHoldMilliseconds : 0);
     if (!result.intent || result.reason.empty() || (interrupt && result.reason != "gap")) {
         std::cerr << "capture replay: no attributable terminal result\n";
         return 1;
+    }
+    if (pcmOnly) {
+        const auto observed = recordedPcm();
+        if (observed.empty()) {
+            return 3;
+        }
+        std::cout.write(reinterpret_cast<const char*>(observed.data()), observed.size_bytes());
+        return std::cout ? 0 : 1;
     }
     std::cout << "{\"observed\":" << static_cast<int>(*result.intent)
               << ",\"route\":\"" << probeDispatch(*result.intent) << "\""
