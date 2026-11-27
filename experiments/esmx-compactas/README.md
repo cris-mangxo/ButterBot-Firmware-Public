@@ -615,3 +615,19 @@ mkdir -p "$lab/backup-bank"
 La opción conserva como positivos únicamente las órdenes sintéticas y humanas que incluyen la frase «dado de seis». El informe identifica las tomas humanas incluidas y excluidas. Agrega `--backup "$lab/backup.bin" --backup-fit "$lab/fit-backup.json"` al ensayo con `--nominal`. Compara `word_nominal` y `word_backup` en las mismas entradas. Conserva `--continuous-fit` del banco vigente en `public-orders`. El evaluador cruza los grupos, programas y grabaciones de los donantes humanos y excluye los casos compartidos de ambos brazos.
 
 Para QEMU usa un directorio de compilación propio y añade `-D "CONTINUOUS_DICE_BACKUP_DIR=$lab/backup-bank"` con el modo ordenado activo. El comparador se compila con `-D CONTINUOUS_DICE_BACKUP_DIR=` para limpiar esa opción de la caché. Comprueba la marca exacta `WORD_D6_MODE ordered_die_backup` y coteja cada resultado con el anfitrión. La paridad y el acierto frente a la etiqueta se comprueban por separado. El modo queda optativo. Mantén audio, encabezados generados, pesos e imágenes localmente. Ejecuta la compilación y QEMU.
+
+### Segundo ajuste del respaldo
+
+[La ampliación del corpus](autonomous/whole_orders_esmx_backup_expanded.json) fija la huella de la ficha anterior. Agrega una petición de una tirada por persona de Tirando Rol, archivada como `public-32`. El grupo de esas voces ya estaba excluido de ambos brazos. ReRoll y Role Per Second, que aportan `public-88` y `public-89`, siguen reservados.
+
+Coloca también `zelda.mp3` en `$sources`. Usa un directorio de salida nuevo para el corpus, el banco y el informe.
+
+```fish
+python3.12 -B "$experiment/whole_orders.py" --esmx-backup-expanded \
+  --sources "$sources" --out "$lab/train-expanded"
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$lab/train-expanded" \
+  --explicit-backup --bank "$lab/backup-expanded.bin" > "$lab/fit-backup-expanded.json"
+```
+
+Al comparar con el respaldo anterior, verifica que ambas corridas tengan los mismos ID excluidos y evaluados por panel. Conserva la decisión por caso, además del total de aciertos. Los audios y binarios de la prueba quedan en el laboratorio.

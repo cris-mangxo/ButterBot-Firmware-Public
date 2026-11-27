@@ -5,7 +5,7 @@ import unittest
 
 from ald_round import digest
 from measure import is_reassigned, summarize, verify_backup_training
-from whole_orders import EXPLICIT_ESMX_FIXTURE
+from whole_orders import BACKUP_ESMX_FIXTURE, EXPLICIT_ESMX_FIXTURE
 
 
 class MeasureCountsTest(unittest.TestCase):
@@ -58,6 +58,16 @@ class BackupFitTest(unittest.TestCase):
         self.fit["continuous"]["included_human_positive_ids"].append("public-88")
         with self.assertRaisesRegex(ValueError, "no acredita"):
             self.verify(self.bank_sha)
+
+    def test_expanded_fit_requires_the_new_literal_example(self):
+        continuous = self.fit["continuous"]
+        continuous["fixture_sha256"] = digest(BACKUP_ESMX_FIXTURE)
+        with self.assertRaisesRegex(ValueError, "no acredita"):
+            self.verify(self.bank_sha)
+        continuous["included_human_positive_ids"].append("train-14")
+        groups, assets = self.verify(self.bank_sha)
+        self.assertIn("tirando-rol", groups)
+        self.assertIn("bc00c16316407f2fbf87c51359d0a56a090ef173eec1d0ebe88e280bc74a3674", assets)
 
     def test_rejects_pooled_fit(self):
         self.fit["continuous"]["corpora"] = [{"fixture_sha256": digest(EXPLICIT_ESMX_FIXTURE)}]

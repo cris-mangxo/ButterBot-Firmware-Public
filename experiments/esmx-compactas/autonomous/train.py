@@ -229,7 +229,7 @@ def train_bank(args):
     dev_rows = []
     provenance = {}
     if args.continuous:
-        from whole_orders import EXPLICIT_ESMX_FIXTURE, RETRAIN_ESMX_FIXTURE, pooled_manifests
+        from whole_orders import EXPLICIT_FIXTURES, RETRAIN_ESMX_FIXTURE, pooled_manifests
         from whole_orders import read_manifest as continuous_manifest
         if len(args.continuous) == 1:
             folder, = args.continuous
@@ -237,8 +237,8 @@ def train_bank(args):
             groups = [(folder, rows)]
         else:
             groups, provenance = pooled_manifests(args.continuous)
-        if args.explicit_backup and provenance.get("fixture_sha256") != digest(EXPLICIT_ESMX_FIXTURE):
-            raise ValueError("--explicit-backup requiere el corpus verificado de --esmx-explicit")
+        if args.explicit_backup and provenance.get("fixture_sha256") not in {digest(path) for path in EXPLICIT_FIXTURES}:
+            raise ValueError("--explicit-backup requiere una ficha de órdenes explícitas verificada")
         retrain_index = None
         if args.retrain_repeat is not None:
             fixture_hash = digest(RETRAIN_ESMX_FIXTURE)

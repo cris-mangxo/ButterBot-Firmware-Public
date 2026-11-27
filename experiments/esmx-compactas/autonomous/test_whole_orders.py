@@ -33,6 +33,47 @@ class WholeOrderSplitTest(unittest.TestCase):
         self.assertEqual(metadata["original_counts"], {"train": {"positive": 2}, "dev": {}})
         self.assertEqual(metadata["unique_tempo_variants"], 2)
 
+    def test_expanded_backup_preserves_base_and_orders(self):
+        original = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
+        expanded = whole_orders.specification(whole_orders.BACKUP_ESMX_FIXTURE)
+        self.assertEqual(expanded["cases"][:len(original["cases"])], original["cases"])
+        archive = next(case for case in expanded["cases"] if case.get("archive_id") == "public-32")
+        self.assertTrue(whole_orders.says_literal_d6(archive["spoken_form"]))
+        self.assertEqual(expanded["sources"][archive["source"]]["speaker_group"], "tirando-rol")
+
+    def test_expanded_backup_cannot_import_either_reserved_voice(self):
+        panel = reserved(public_orders.FULL_TURNS_ESMX_FIXTURE)
+        for heldout in panel["sources"].values():
+            data = json.loads(whole_orders.BACKUP_ESMX_FIXTURE.read_text())
+            data["sources"]["rogue"] = dict(heldout, split="train")
+            with tempfile.TemporaryDirectory() as folder:
+                fixture = Path(folder) / "backup.json"
+                fixture.write_text(json.dumps(data), encoding="utf-8")
+                with patch.object(whole_orders, "BACKUP_ESMX_FIXTURE", fixture):
+                    with self.assertRaisesRegex(ValueError, "panel reservado"):
+                        whole_orders.specification(fixture)
+
+    def test_expanded_backup_rejects_unregistered_episode_from_archival_group(self):
+        data = json.loads(whole_orders.BACKUP_ESMX_FIXTURE.read_text())
+        data["sources"]["fungi-followup"] = dict(data["sources"]["zelda"], sha256="c" * 64,
+                                                 page="example", enclosure="example")
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "backup.json"
+            fixture.write_text(json.dumps(data), encoding="utf-8")
+            with patch.object(whole_orders, "BACKUP_ESMX_FIXTURE", fixture):
+                with self.assertRaisesRegex(ValueError, "panel reservado"):
+                    whole_orders.specification(fixture)
+
+    def test_expanded_backup_rejects_moved_archival_clip(self):
+        data = json.loads(whole_orders.BACKUP_ESMX_FIXTURE.read_text())
+        data["cases"][0]["start_ms"] -= 10
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "backup.json"
+            fixture.write_text(json.dumps(data), encoding="utf-8")
+            with patch.object(whole_orders, "BACKUP_ESMX_FIXTURE", fixture):
+                with self.assertRaisesRegex(ValueError, "difiere de su caso archivado"):
+                    whole_orders.specification(fixture)
+
     def test_pooled_corpora_reject_group_crossing_between_manifests(self):
         source = {"speaker_group": "same-show", "sha256": "a" * 64, "enclosure": "media", "split": "train"}
         other = dict(source, split="dev", sha256="b" * 64, enclosure="another-episode")

@@ -1,0 +1,39 @@
+{
+  "profile": "esmx-continuous-training-v1",
+  "base_sha256": "61cca883cef665840e38357f54cbf75ed242edce056843c324a544dce3311c80",
+  "sources": {
+    "zelda": {
+      "speaker_group": "tirando-rol",
+      "publisher": "Tirando Rol",
+      "page": "https://podcasters.spotify.com/pod/show/tirandorol/episodes/Tirando-Rol---BONUS-La-Leyenda-de-Zelda-Parte-1-e3sbpnh",
+      "enclosure": "https://anchor.fm/s/100f3c838/podcast/play/129410225/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-14%2F436696776-44100-2-612a0b0fcf437.mp3",
+      "sha256": "bc00c16316407f2fbf87c51359d0a56a090ef173eec1d0ebe88e280bc74a3674",
+      "format": "mp3",
+      "locale": "es-MX",
+      "locale_evidence": "https://sesioncero.mx/grimorio/creadores-de-contenido-de-rol-en-mexico-que-debes-conocer",
+      "split": "train"
+    }
+  },
+  "cases": [
+    {
+      "id": "train-14",
+      "source": "zelda",
+      "start_ms": 1458110,
+      "end_ms": 1460670,
+      "category": "positive",
+      "archive_id": "public-32",
+      "die_basis": "explicit",
+      "spoken_form": "¿Pueden tirar un dado de seis, por favor?",
+      "die_evidence_ms": [
+        1458800,
+        1460250
+      ],
+      "summary": "El director pide a cada participante una tirada de un solo D6. Se oyen los resultados individuales.",
+      "context_ms": [
+        1453000,
+        1470000
+      ],
+      "pcm_sha256": "664dee5b6ffa5ae9d09cf434ef72bf318df50ea99b461bd81ec41fc8f7ba3db6"
+    }
+  ]
+}

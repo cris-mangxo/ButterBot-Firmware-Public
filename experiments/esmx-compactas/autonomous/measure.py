@@ -233,8 +233,10 @@ def explicit_training(fit_file, bank_sha256, fixture_sha256):
 
 def verify_backup_training(fit_file, bank_sha256):
     fit = read_fit(fit_file, bank_sha256).get("continuous")
-    fixture = whole_orders.EXPLICIT_ESMX_FIXTURE
-    if not isinstance(fit, dict) or fit.get("fixture_sha256") != digest(fixture) or "corpora" in fit:
+    if not isinstance(fit, dict) or "corpora" in fit:
+        raise ValueError("El respaldo requiere el corpus registrado de órdenes explícitas")
+    fixture = next((path for path in whole_orders.EXPLICIT_FIXTURES if digest(path) == fit.get("fixture_sha256")), None)
+    if fixture is None:
         raise ValueError("El respaldo requiere el corpus registrado de órdenes explícitas")
     train = whole_orders.specification(fixture)
     sources = train["sources"]
