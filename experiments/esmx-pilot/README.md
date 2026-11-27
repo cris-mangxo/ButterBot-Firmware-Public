@@ -55,14 +55,14 @@ Una evaluación posterior debe reservar locutores antes del ajuste y conservar a
 
 ## Repetición a través de la captura y comparación de un respaldo
 
-El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
+El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. La retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. Entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
 
 ```sh
 bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
 python3 experiments/esmx-pilot/capture_replay.py "$lab/recognize" "$lab/capture" "$experiment_root"
 ```
 
-El respaldo int8 de `fallback_lab.py` es un experimento de Mac. Usa la CNN y el formato binario ya probados en D6, con cuatro clases, y calibra los márgenes con voces sintéticas separadas. Los paneles públicos se abren después de fijar el banco. Su salida se compara solo cuando el reconocedor congelado se abstiene. La variante introdujo activaciones incorrectas y queda fuera del perfil de firmware.
+El respaldo int8 de `fallback_lab.py` es un experimento de Mac. Usa la CNN y el formato binario ya probados en D6, con cuatro clases, y calibra los márgenes con voces sintéticas separadas. Los paneles públicos se abren después de fijar el banco. Su salida se compara solo cuando el reconocedor congelado se abstiene. La variante rescató 5 órdenes sintéticas y añadió 10 activaciones incorrectas sobre voces sintéticas. En público activó Chiste en 37 y 64, dos controles, y Hora en 78, una orden D6. Ambas tomas reservadas de Hora quedaron en abstención. El panel público histórico carece de afirmaciones etiquetadas de Mantequilla, Chiste u Hora. El respaldo queda fuera del perfil de firmware.
 
 Con el Python 3.12 de entrenamiento con PyTorch 2.9.1 y NumPy 2.4.2, el entorno Piper de Ald, las voces de Mac de la ficha y los paneles locales previos:
 
@@ -73,4 +73,4 @@ Con el Python 3.12 de entrenamiento con PyTorch 2.9.1 y NumPy 2.4.2, el entorno 
   --piper-python "$piper_python" --output "$lab/fallback"
 ```
 
-`kws` es el ejecutable de los [experimentos compactos](../esmx-compactas/README.md), con los modos `features` y `acoustic-scores`. El banco de 6 468 bytes, el registro previo a la prueba y los WAV del experimento se guardan localmente. La toma SpanishPod A0056 procede de Praxis Language y se usa para ajuste con licencia CC BY 3.0. [Ficha y licencia de la toma](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).
+`kws` es el ejecutable de los [experimentos compactos](../esmx-compactas/README.md), con los modos `features` y `acoustic-scores`. Los pesos y parámetros de cuantización ocupan 6 468 bytes. Se guardan localmente con cabecera de laboratorio, fuera del formato de banco D6, junto con el registro previo a la prueba y los WAV. La toma SpanishPod A0056 procede de Praxis Language y se usa para ajuste con licencia CC BY 3.0. [Ficha y licencia de la toma](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).

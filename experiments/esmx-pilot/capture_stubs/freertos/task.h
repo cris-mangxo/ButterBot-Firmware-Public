@@ -19,6 +19,7 @@ struct Task {
 inline thread_local Task* currentTask;
 inline std::vector<std::unique_ptr<Task>> tasks;
 inline std::atomic<TickType_t> ticks{0};
+inline std::atomic<unsigned> notifications{0};
 inline bool refuseTask = false;
 }
 
@@ -43,6 +44,7 @@ inline int xTaskCreate(void (*entry)(void*), const char*, uint32_t, void* arg, i
 inline void xTaskNotifyGive(TaskHandle_t task) {
     std::lock_guard lock(task->mutex);
     task->notified = true;
+    ++CaptureStub::notifications;
     task->ready.notify_one();
 }
 

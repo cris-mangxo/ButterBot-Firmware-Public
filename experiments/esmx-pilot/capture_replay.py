@@ -11,7 +11,7 @@ import wave
 from replay import PUBLIC_PANELS, panel
 
 
-DEVELOPMENT_D6 = {"public-03", "public-37", "public-61", "public-81"}
+DEVELOPMENT_D6 = {"public-03", "public-37", "public-61", "public-78", "public-81"}
 RESERVED_D6 = {"public-88", "public-89"}
 ALIASES = {
     "butter": 1, "joke": 3, "time": 5, "d6": 6, "veto-d6": 0, "veto-fact": 0,
@@ -74,12 +74,19 @@ def run(raw, capture, base):
     rows = []
     for name, split, category, expected, wav, digest in recordings(base):
         pcm = pcm_from(wav, digest)
+        nominal = evaluate(capture, pcm, "--nominal-hangover")
         rows.append({"id": name, "split": split, "category": category, "expected": expected,
                      "raw": evaluate(raw, pcm), **evaluate(capture, pcm),
-                     "nominal_hold": evaluate(capture, pcm, "--nominal-hangover")["observed"]})
+                     "nominal_hold": nominal["observed"], "nominal_hold_reason": nominal["reason"],
+                     "nominal_hold_input_samples_sent": nominal["input_samples_sent"]})
     d6_pcm = pcm_from(base / "primer-candidato" / "synthetic" / "d6.wav")
     interruption = evaluate(capture, d6_pcm, "--interrupted")
-    return rows, interruption
+    silence_pcm = bytes(3200)
+    silence = {
+        "immediate": evaluate(capture, silence_pcm),
+        "nominal_hold": evaluate(capture, silence_pcm, "--nominal-hangover"),
+    }
+    return rows, interruption, silence
 
 
 def main():
@@ -88,25 +95,38 @@ def main():
     parser.add_argument("capture_recognizer", type=Path)
     parser.add_argument("experiment_root", type=Path)
     args = parser.parse_args()
-    rows, interruption = run(args.raw_recognizer.resolve(strict=True),
-                             args.capture_recognizer.resolve(strict=True), args.experiment_root)
+    rows, interruption, silence = run(args.raw_recognizer.resolve(strict=True),
+                                      args.capture_recognizer.resolve(strict=True), args.experiment_root)
     summary = {
         "capture": "production PilotCapture and recognizer with host FreeRTOS stubs",
         "input": "16 kHz mono PCM16, fixed 20 ms frames, RMS gate 180, up to 240 ms preroll",
         "nominal_hold": "same RMS gate with 1000 ms of simulated VAD hold; not ESP-SR output",
+        "reason_notes": {
+            "classified": "inference notification observed and completed result read at frozen ticks",
+            "overflow": "inferred from actual rejection of a valid frame beyond the sample cap",
+            "listen_deadline": "observed rejection after explicit clock advance for silent input",
+            "gap": "observed rejection after dropping a frame before the rest of an utterance",
+        },
         "cases": rows,
         "interrupted_synthetic_d6": interruption,
+        "silence_deadline_control": silence,
     }
     print(json.dumps(summary, indent=2))
 
     synthetic = {row["id"]: row for row in rows if row["split"] == "synthetic_aliases"}
-    if synthetic["d6"]["raw"] != ALIASES["d6"] or synthetic["d6"]["observed"] != ALIASES["d6"]:
-        parser.exit(1, "the positive D6 control did not establish the interrupted prefix\n")
-    if any(synthetic[name][mode] != 0 for name in ("veto-d6", "veto-fact")
-           for mode in ("observed", "nominal_hold")):
-        parser.exit(1, "a complete negated synthetic order activated\n")
-    if interruption["observed"] != 0 or not interruption["interrupted"]:
+    modes = (("observed", "reason"), ("nominal_hold", "nominal_hold_reason"))
+    d6 = synthetic["d6"]
+    if d6["raw"] != ALIASES["d6"] or any(
+            d6[decision] != ALIASES["d6"] or d6[reason] != "classified" for decision, reason in modes):
+        parser.exit(1, "the complete D6 recording did not establish the affirmative control\n")
+    if any(synthetic[name][decision] != 0 or synthetic[name][reason] != "classified"
+           for name in ("veto-d6", "veto-fact") for decision, reason in modes):
+        parser.exit(1, "a complete negated recording activated or skipped classification\n")
+    if (interruption["observed"] != 0 or interruption["reason"] != "gap"
+            or not 0 < interruption["input_samples_sent"] < interruption["input_samples"]):
         parser.exit(1, "the interrupted positive prefix was not safely discarded\n")
+    if any(case["reason"] != "listen_deadline" or case["observed"] != 0 for case in silence.values()):
+        parser.exit(1, "the silent control did not reach the listening deadline\n")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
@@ -21,6 +22,7 @@ from replay import evaluate, panel, PUBLIC_PANELS
 
 LABELS = {"reject": 0, "butter": 1, "joke": 3, "time": 5}
 LABEL_ORDER = tuple(LABELS.values())
+LAB_MAGIC = b"BBESMX-LAB1\0"
 SYNTHETIC_SPLITS = {
     "train": (("Paulina", 176), ("Eddy (Español (México))", 159), ("Sandy (Español (México))", 190)),
     "dev": (("Grandpa (Español (México))", 169), ("Shelley (Español (México))", 185)),
@@ -160,15 +162,22 @@ def main():
            if split == "dev" and data is not None]
     scores = integer_scores(np.array([data for data, _ in dev]), layers, weights, offsets)
     limits = calibrate(scores, np.array([label for _, label in dev]), unit)
-    bank = args.output / "fallback.bin"
-    bank.write_bytes(wire_bank(layers, weights, offsets, 0, 1))
+    wire = wire_bank(layers, weights, offsets, 0, 1)
+    bank = args.output / "fallback.lab"
+    bank.write_bytes(LAB_MAGIC + wire)
     config = {"bank_sha256": digest(bank), "fixture_sha256": digest(fixture),
               "train_adjustment_sha256": adjust_sha, "ald_model_sha256": ALD_SHA256, "limits": limits,
-              "seed": 20261127, "bank_bytes": bank.stat().st_size,
+              "seed": 20261127, "tensor_wire_bytes": len(wire), "lab_container_bytes": bank.stat().st_size,
+              "lab_container": "BBESMX-LAB1, not an AcousticDice bank",
               "calibration": "synthetic-dev only", "dev_count": len(dev), "train_count": len(train),
               "cpp_backend": digest(args.feature_tool), "recognizer": digest(args.reference)}
     (args.output / "frozen.json").write_text(json.dumps(config, indent=2) + "\n")
-    results = check_rows(args, prepared, limits, bank, (layers, weights, offsets))
+    # The C++ score tool validates the legacy acoustic wire size. Expose its
+    # temporary scoring payload only for the duration of this experiment.
+    with TemporaryDirectory(prefix="bb-esmx-lab-score-") as temporary:
+        score_payload = Path(temporary) / "score-input"
+        score_payload.write_bytes(wire)
+        results = check_rows(args, prepared, limits, score_payload, (layers, weights, offsets))
     missing = [key for _, _, key, _, data in prepared if data is None]
     print(json.dumps({"config": config, "excluded_unusable": missing, "rows": results}, indent=2))
 

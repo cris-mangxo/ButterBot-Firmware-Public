@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string_view>
 #include <thread>
@@ -17,6 +18,7 @@ constexpr size_t FrameSamples = bb::asr::kSampleRate * FrameMilliseconds / 1000;
 constexpr size_t PreRollSamples = 12 * FrameSamples;
 constexpr int RmsThreshold = 180;
 constexpr size_t NominalAfeHoldMilliseconds = 1000;
+constexpr TickType_t ListenDeadlineMilliseconds = 8000;
 
 bool voiced(std::span<const int16_t> samples) {
     uint64_t energy = 0;
@@ -33,10 +35,27 @@ afe_fetch_result_t frame(std::span<int16_t> samples, bool speech, std::span<int1
 
 struct ReplayResult {
     std::optional<Intent> intent;
+    std::string_view reason;
     size_t voicedFrames = 0;
     size_t preRoll = 0;
-    bool gapInjected = false;
+    size_t inputSent = 0;
 };
+
+std::optional<Intent> waitForInference(PilotCapture& capture) {
+    // Exercise the completed response with the simulated clock frozen. A
+    // timed-out host job is a failed experiment, never an acoustic abstention.
+    const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (std::chrono::steady_clock::now() < waitUntil) {
+        if (const auto result = capture.accept(nullptr)) {
+            return result;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    std::cerr << "capture replay: host inference timed out\n" << std::flush;
+    // PilotCapture's destructor joins the task. This standalone host process
+    // stops immediately if that task failed to finish within the observation.
+    std::_Exit(EXIT_FAILURE);
+}
 
 ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilliseconds) {
     PilotCapture capture;
@@ -46,17 +65,15 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
     }
 
     // Analyze the input once so the reported metrics are independent of when
-    // the worker thread makes the first result available.
+    // the worker thread makes its result available.
     std::array<bool, (EsMx::Kws::MaxSamples + FrameSamples - 1) / FrameSamples> active{};
     size_t firstVoice = samples.size();
-    size_t lastVoiceEnd = 0;
     for (size_t start = 0; start < samples.size(); start += FrameSamples) {
         const auto chunk = samples.subspan(start, std::min(FrameSamples, samples.size() - start));
         if (voiced(chunk)) {
             active[start / FrameSamples] = true;
             ++result.voicedFrames;
             firstVoice = std::min(firstVoice, start);
-            lastVoiceEnd = start + chunk.size();
         }
     }
 
@@ -71,51 +88,73 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
         return held;
     };
 
-    // Interrupt the positive control after its last voiced frame. Keep the
-    // turn open so the injected gap, rather than a silence timer, closes it.
-    const size_t inputEnd = interrupt ? lastVoiceEnd : samples.size();
-    for (size_t start = 0; start < inputEnd && !result.intent; start += FrameSamples) {
-        auto chunk = samples.subspan(start, std::min(FrameSamples, inputEnd - start));
-        const auto speech = interrupt || speechWithHold(active[start / FrameSamples], chunk.size());
+    const unsigned initialNotifications = CaptureStub::notifications.load();
+    // All supplied frames are valid and earlier than the listening deadline.
+    // Track bytes accepted before submission so an immediate Unknown at capacity
+    // can be attributed to overflow. The production API returns only an intent.
+    size_t bufferedSamples = 0;
+    bool collecting = false;
+    auto feed = [&](std::span<int16_t> samples, bool speech, std::span<int16_t> prefix = {}) {
+        const auto input = frame(samples, speech, prefix);
+        result.intent = capture.accept(&input);
+        if (CaptureStub::notifications.load() != initialNotifications) {
+            result.reason = "classified";
+            result.intent = waitForInference(capture);
+            return true;
+        }
+
+        collecting |= speech;
+        if (collecting) {
+            bufferedSamples += prefix.size() + samples.size();
+        }
+        if (result.intent == Intent::Unknown && bufferedSamples > EsMx::Kws::MaxSamples) {
+            result.reason = "overflow";
+        }
+        return result.intent.has_value();
+    };
+
+    // Cut the affirmative control after only half its voiced frames, to
+    // simulate a fetch gap in a real, incomplete spoken prefix.
+    const auto halfVoice = result.voicedFrames / 2;
+    size_t voiceSent = 0;
+    for (size_t start = 0; start < samples.size(); start += FrameSamples) {
+        auto chunk = samples.subspan(start, std::min(FrameSamples, samples.size() - start));
+        const bool measuredSpeech = active[start / FrameSamples];
+        const auto speech = speechWithHold(measuredSpeech, chunk.size());
         std::span<int16_t> prefix;
-        if (!interrupt && start == firstVoice) {
+        if (start == firstVoice) {
             result.preRoll = std::min(start, PreRollSamples);
             prefix = samples.subspan(start - result.preRoll, result.preRoll);
         }
-        auto input = frame(chunk, speech, prefix);
         CaptureStub::ticks = static_cast<TickType_t>(start / FrameSamples * FrameMilliseconds);
-        result.intent = capture.accept(&input);
-    }
-
-    if (interrupt && result.voicedFrames > 0 && !result.intent) {
-        result.gapInjected = true;
-        result.intent = capture.accept(nullptr);
-    } else {
-        std::array<int16_t, FrameSamples> silence{};
-        auto tail = frame(silence, false);
-        // Give the real capture time to close a spoken turn. For a clip that
-        // contains only silence, advance the simulated clock to its deadline.
-        if (result.voicedFrames == 0) {
-            CaptureStub::ticks += 8000;
-            result.intent = capture.accept(&tail);
+        result.inputSent = start + chunk.size();
+        if (feed(chunk, speech, prefix)) {
+            return result;
         }
-        for (size_t elapsed = 0; elapsed < holdMilliseconds + 400 && !result.intent;
-             elapsed += FrameMilliseconds) {
-            CaptureStub::ticks += FrameMilliseconds;
-            tail.vad_state = speechWithHold(false, silence.size()) ? VAD_SPEECH : VAD_SILENCE;
-            result.intent = capture.accept(&tail);
+        if (interrupt && measuredSpeech && ++voiceSent == halfVoice) {
+            result.intent = capture.accept(nullptr);
+            if (result.intent == Intent::Unknown && CaptureStub::notifications.load() == initialNotifications) {
+                result.reason = "gap";
+            }
+            return result;
         }
     }
 
-    // A host worker may still be classifying. Allow it to finish while halting
-    // the simulated audio clock. This does not measure ESP32 inference time.
-    const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (!result.intent && std::chrono::steady_clock::now() < waitUntil) {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-        result.intent = capture.accept(nullptr);
+    std::array<int16_t, FrameSamples> silence{};
+    if (result.voicedFrames == 0) {
+        const auto tail = frame(silence, false);
+        CaptureStub::ticks = ListenDeadlineMilliseconds;
+        result.intent = capture.accept(&tail);
+        if (result.intent == Intent::Unknown && CaptureStub::notifications.load() == initialNotifications) {
+            result.reason = "listen_deadline";
+        }
+        return result;
     }
-    if (result.intent && capture.accept(nullptr)) {
-        return {};
+    for (size_t elapsed = 0; elapsed < holdMilliseconds + 400; elapsed += FrameMilliseconds) {
+        CaptureStub::ticks += FrameMilliseconds;
+        if (feed(silence, speechWithHold(false, silence.size()))) {
+            break;
+        }
     }
     return result;
 }
@@ -137,14 +176,18 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    const auto result = replay(std::span(pcm.data(), bytes / sizeof(int16_t)), interrupt,
+    const auto inputSamples = bytes / sizeof(int16_t);
+    const auto result = replay(std::span(pcm.data(), inputSamples), interrupt,
                                nominalHold ? NominalAfeHoldMilliseconds : 0);
-    if (!result.intent || (interrupt && !result.gapInjected)) {
+    if (!result.intent || result.reason.empty() || (interrupt && result.reason != "gap")) {
+        std::cerr << "capture replay: no attributable terminal result\n";
         return 1;
     }
     std::cout << "{\"observed\":" << static_cast<int>(*result.intent)
+              << ",\"reason\":\"" << result.reason << "\""
               << ",\"voiced_frames\":" << result.voicedFrames
               << ",\"preroll_samples\":" << result.preRoll
-              << ",\"interrupted\":" << (result.gapInjected ? "true" : "false") << "}\n";
+              << ",\"input_samples\":" << inputSamples
+              << ",\"input_samples_sent\":" << result.inputSent << "}\n";
     return std::cout ? 0 : 1;
 }
