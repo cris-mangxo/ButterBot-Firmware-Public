@@ -491,3 +491,20 @@ for bank in "$evidence_root/autonomous-v5/expanded.bin" "$lab/esmx-continuous.bi
       "$evidence_root/autonomous-v2/words-extra.bin" "$evidence_root/autonomous-v3/words-mixed.bin" "$bank"
 end
 ```
+## Entrenamiento con la frase «dado de seis»
+
+[La ficha de entrenamiento explícito](autonomous/whole_orders_esmx_explicit.json) usa dos órdenes públicas es-MX que dicen «dado de seis» y ocho controles humanos. Tres tomas pasan del archivo de evaluación al entrenamiento de este ensayo. Se excluyen ambos programas y el programa del invitado de los dos brazos de la comparación, incluso cuando aportaron solo el prefijo de una toma compuesta. Los resultados archivados conservan su partición original.
+
+Con las variables de laboratorio del apartado anterior, ejecuta desde la raíz del fork.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+python3.12 -B "$experiment/whole_orders.py" --esmx-explicit --sources "$sources" --out "$lab/explicit-train"
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$lab/explicit-train" \
+  --bank "$lab/d6-explicit.bin" > "$lab/fit-explicit.json"
+python3.12 -B "$experiment/public_orders.py" --esmx-cancellation --sources "$sources" --out "$lab/omission-test"
+```
+
+En `comparar.fish`, conserva los dos brazos con `--rescue`. Usa `d6-explicit.bin` para el candidato y `expanded.bin` para la referencia. Agrega `--esmx-explicit-partition` a cada llamada `public-orders` de ambos brazos, también al evaluar bancos recién entrenados con esta ficha. El evaluador exige esa opción para el banco de este ensayo identificado por su SHA-256. Incluye los paneles `esmx-continuous` y `esmx-cancellation` con sus directorios y compara `word_rescue`. La [ficha de omisión](autonomous/public_orders_esmx_cancellation.json) separa el caso de la medición es-MX porque la variante regional no está acreditada. Para repetirlo en ESP32-S3 emulado, genera el encabezado del banco nuevo con `train.py header` y pasa `--esmx-cancellation-public` a `qemu_fixture.py`. Ejecuta únicamente la compilación y QEMU.

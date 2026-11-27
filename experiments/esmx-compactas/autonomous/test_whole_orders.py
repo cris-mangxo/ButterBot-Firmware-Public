@@ -149,6 +149,56 @@ class WholeOrderSplitTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "un solo D6"):
                 whole_orders.specification(fixture)
 
+    def test_explicit_transfers_preserve_archived_takes(self):
+        data = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
+        commands = [case for case in data["cases"]
+                    if case["id"].startswith("train-") and case["category"] == "positive"]
+        self.assertEqual({case["archive_id"] for case in commands}, {"public-71", "public-72"})
+        self.assertEqual({case["source"] for case in commands}, {"fungi", "juganor"})
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "explicit-training.json"
+            with patch.object(whole_orders, "EXPLICIT_ESMX_FIXTURE", fixture):
+                commands[0]["pcm_sha256"] = "0" * 64
+                fixture.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "difiere de su caso archivado"):
+                    whole_orders.specification(fixture)
+                commands[0]["pcm_sha256"] = next(
+                    case["pcm_sha256"] for case in reserved(public_orders.DIRECT_ESMX_FIXTURE)["cases"]
+                    if case["id"] == commands[0]["archive_id"]
+                )
+                control = next(case for case in data["cases"] if case.get("archive_id") == "public-74")
+                control["category"] = "outside"
+                fixture.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "Cambió la etiqueta"):
+                    whole_orders.specification(fixture)
+
+    def test_omission_keeps_the_decision_within_the_context(self):
+        data = reserved(public_orders.CANCELLATION_FIXTURE)
+        case, = data["cases"]
+        self.assertEqual(case["expected"], 0)
+        self.assertTrue(case["supplemental_control"])
+        case["die_evidence_ms"] = [0, 1]
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "panel.json"
+            fixture.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "omitir queda fuera del contexto"):
+                reserved(fixture)
+
+    def test_explicit_split_drops_reassigned_shows_and_composed_prefixes(self):
+        from measure import is_reassigned, reassigned_assets
+        data = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
+        groups = whole_orders.explicit_exclusions(data["sources"])
+        assets = reassigned_assets(groups)
+        sources = {"tirando-rol": {}, "reroll": {"speaker_group": "reroll"},
+                   "guest": {"speaker_group": "condado-veinte"},
+                   "publisher-only": {"publisher": "Tirando Rol"},
+                   "hash-only": {"sha256": data["sources"]["fungi"]["sha256"]}}
+        for name in ("tirando-rol", "guest", "publisher-only", "hash-only"):
+            self.assertTrue(is_reassigned({"source": name}, sources, groups, assets))
+        self.assertTrue(is_reassigned({"source": "reroll",
+                                       "negation_prefix": {"source": "tirando-rol"}}, sources, groups, assets))
+        self.assertFalse(is_reassigned({"source": "reroll"}, sources, groups, assets))
+
     def test_esmx_profile_requires_hash_after_renaming(self):
         panel = reserved(ESMX_FIXTURE)
         del panel["cases"][0]["pcm_sha256"]

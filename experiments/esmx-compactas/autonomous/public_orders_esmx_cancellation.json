@@ -1,0 +1,39 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "vetustas": {
+      "speaker_group": "partidas-vetustas",
+      "locale": "es",
+      "locale_evidence": "https://www.youtube.com/watch?v=86DmqcTq37w",
+      "page": "https://www.youtube.com/watch?v=86DmqcTq37w",
+      "enclosure": "https://www.youtube.com/watch?v=86DmqcTq37w",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "8a409c63f433b0be9a88a2b58b732eec3786342e75ff8565bb44ffd0097983b7",
+      "rules": "https://mausritter.com/assets/static/mausritter-gm-session-sheet.CEmzviOa.pdf"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-80",
+      "source": "vetustas",
+      "start_ms": 1687840,
+      "end_ms": 1691760,
+      "category": "contextual_d6_omission_without_substitution",
+      "expected": 0,
+      "supplemental_control": true,
+      "summary": "El director de Mausritter decide omitir la tirada de encuentro de viaje. Reitera la omisión y continúa al día siguiente sin tirar otro dado. El D6 se identifica mediante la regla de encuentros, fuera del audio.",
+      "context_ms": [
+        1669000,
+        1710000
+      ],
+      "die_evidence_ms": [
+        1687800,
+        1697000
+      ],
+      "die_evidence_kind": "context_plus_publisher_rules",
+      "die_evidence_note": "El intervalo señala la decisión de omitir el encuentro. El tipo de dado se obtiene de la hoja de reglas y queda fuera del audio.",
+      "pcm_sha256": "731619b8890353ea7f23585f8cbe118a07979ef77e65e1cbdc7c0487d334df52"
+    }
+  ]
+}

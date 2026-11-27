@@ -13,11 +13,13 @@ from d6_guard import LOCAL_CV_SHA256, guarded_score
 from phrases import too_long
 from phrases_human import group, read_tables, select, selected_wavs
 from pilot import MAX_COST, MIN_GAP, read_pcm, score
-from public_orders import FIXTURE as PUBLIC_FIXTURE, add_panel_options, verified_cases
+from public_orders import FIXTURE as PUBLIC_FIXTURE, HELDOUT_FIXTURES, add_panel_options, specification, verified_cases
+import whole_orders
 
 BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
 CONTRAST_BANK_SHA256 = "7d5a53c1c98f4c74d45ac6984e223c41dd8d79f5e61558a9b19cf2459a05c8d8"
 CONTRAST_WORD_SHA256 = "bc4dab7f7dcacfebc53d641712429c1e5c0d409fe9fab71becb43d768ecc801d"
+EXPLICIT_BANK_SHA256 = "53dc9e084b543190312e3a03fbe527b3a358fe8cb1ead3d154487ff079739f8f"
 FIXTURE = Path(__file__).with_name("fixture.json")
 VARIANTS = ("compact", "turn_cnn", "word_gate")
 
@@ -160,6 +162,33 @@ def real_trials(args):
     }
 
 
+def group_alias(value):
+    return canonical(value).replace(" ", "-")
+
+
+def source_identity(name, source):
+    return {group_alias(name), group_alias(source.get("speaker_group", name)),
+            group_alias(source.get("publisher", ""))}
+
+
+def reassigned_assets(groups):
+    assets = set()
+    for fixture in HELDOUT_FIXTURES:
+        for name, source in specification(fixture)["sources"].items():
+            if source_identity(name, source) & groups:
+                assets.update(source[key] for key in ("page", "enclosure", "sha256") if source.get(key))
+    return assets
+
+
+def is_reassigned(case, sources, groups, assets):
+    names = [case["source"]]
+    if "negation_prefix" in case:
+        names.append(case["negation_prefix"]["source"])
+    return any(source_identity(name, sources[name]) & groups
+               or any(sources[name].get(key) in assets for key in ("page", "enclosure", "sha256"))
+               for name in names)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("test", "fresh", "asr-holdout", "replay", "human", "public-orders"))
@@ -171,6 +200,8 @@ def main():
     parser.add_argument("--rescue", action="store_true")
     parser.add_argument("--contrast", action="store_true")
     add_panel_options(parser, "-public")
+    parser.add_argument("--esmx-explicit-partition", action="store_true",
+                        help="Exclude programs reassigned to the explicit Mexican Spanish training set")
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
@@ -179,8 +210,8 @@ def main():
     if args.contrast and (not args.rescue or not args.adapted or digest(args.continuous) != CONTRAST_BANK_SHA256
                           or digest(args.adapted) != CONTRAST_WORD_SHA256):
         parser.error("--contrast requiere --rescue y los bancos fijados de voz continua y palabras")
-    if args.public_fixture and args.operation != "public-orders":
-        parser.error("Seleccionar un panel humano requiere public-orders")
+    if (args.public_fixture or args.esmx_explicit_partition) and args.operation != "public-orders":
+        parser.error("Seleccionar un panel o una partición humana requiere public-orders")
     if args.adapted and not args.extra:
         parser.error("--adapted requiere --extra para conservar la referencia anterior")
     if args.continuous and not args.adapted:
@@ -195,6 +226,9 @@ def main():
         provenance["word_adapt_extra"] = digest(args.adapted)
     if args.continuous:
         provenance["word_full_acoustic"] = digest(args.continuous)
+    if (args.operation == "public-orders" and provenance.get("word_full_acoustic") == EXPLICIT_BANK_SHA256
+            and not args.esmx_explicit_partition):
+        parser.error("El banco fijado de órdenes explícitas requiere --esmx-explicit-partition")
     if args.operation == "human":
         rows, metadata = real_trials(args)
         report = metadata
@@ -202,11 +236,28 @@ def main():
         if args.corpus is None:
             parser.error("--corpus debe apuntar a los cortes públicos verificados")
         fixture = args.public_fixture or PUBLIC_FIXTURE
-        rows = [trial(args, wav, case["category"], case["expected"], case["id"])
-                for case, wav in verified_cases(args.corpus, fixture)]
+        excluded = []
+        groups = frozenset()
+        assets = set()
+        if args.esmx_explicit_partition:
+            train = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
+            groups = whole_orders.explicit_exclusions(train["sources"])
+            assets = reassigned_assets(groups)
+        sources = specification(fixture)["sources"]
+        rows = []
+        for case, wav in verified_cases(args.corpus, fixture):
+            if is_reassigned(case, sources, groups, assets):
+                excluded.append(case["id"])
+                continue
+            rows.append(trial(args, wav, case["category"], case["expected"], case["id"]))
         if any(row["overlong"] for row in rows):
             raise ValueError("Una orden pública supera el límite del turno")
         report = {"public_fixture_sha256": digest(fixture), "cases": rows}
+        if args.esmx_explicit_partition:
+            report["training_partition"] = {
+                "fixture_sha256": digest(whole_orders.EXPLICIT_ESMX_FIXTURE),
+                "excluded_groups": sorted(groups), "excluded_ids": excluded,
+            }
     else:
         parent = FIXTURE.parent.parent
         fixture = {"test": FIXTURE, "fresh": FIXTURE.with_name("fresh_suite.json"),

@@ -9,23 +9,35 @@ import subprocess
 
 from ald_round import canonical, digest
 from pilot import read_pcm
-from public_orders import HELDOUT_FIXTURES, valid_interval, verify_pcm
+from public_orders import DIRECT_ESMX_FIXTURE, HELDOUT_FIXTURES, valid_interval, verify_pcm
 from public_orders import specification as heldout_specification
 
 FIXTURE = Path(__file__).with_name("whole_orders.json")
 EXPANDED_FIXTURE = FIXTURE.with_name("whole_orders_expanded.json")
 ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx.json")
-TRAINING_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ESMX_FIXTURE)
+EXPLICIT_ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx_explicit.json")
+TRAINING_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ESMX_FIXTURE, EXPLICIT_ESMX_FIXTURE)
+REASSIGNED_RECORDINGS = {"fungi", "juganor"}
+# Hosts and guests shared with the archival episode.
+EXPLICIT_GUEST_GROUPS = frozenset({"condado-veinte"})
+ARCHIVED_LABELS = {"explicit_single_d6_order": "positive", "multiple_d6": "other_die"}
 ESMX_PROFILE = "esmx-continuous-training-v1"
 LABELS = {"outside": 0, "positive": 1, "other_die": 2, "negated": 3}
 TEMPOS = {"train": (100, 92, 108), "dev": (100,)}
+
+
+def explicit_exclusions(sources):
+    return EXPLICIT_GUEST_GROUPS | {sources[name]["speaker_group"] for name in REASSIGNED_RECORDINGS}
 
 
 def specification(fixture=None):
     fixture = fixture or FIXTURE
     spec = json.loads(fixture.read_text("utf-8"))
     esmx = spec.get("profile") == ESMX_PROFILE
-    if fixture.resolve() == ESMX_FIXTURE.resolve() and not esmx:
+    explicit = fixture.resolve() == EXPLICIT_ESMX_FIXTURE.resolve()
+    archive = heldout_specification(DIRECT_ESMX_FIXTURE) if explicit else None
+    imported = {case["id"]: case for case in archive["cases"]} if explicit else {}
+    if (explicit or fixture.resolve() == ESMX_FIXTURE.resolve()) and not esmx:
         raise ValueError("Falta el perfil de entrenamiento es-MX")
     reserved = [(name, meta) for panel in HELDOUT_FIXTURES
                 for name, meta in heldout_specification(panel)["sources"].items()]
@@ -35,11 +47,16 @@ def specification(fixture=None):
     groups, publishers = {}, {}
     for source, meta in spec["sources"].items():
         split, group = meta["split"], meta["speaker_group"]
+        overlaps = (source in reserved_names or group in reserved_groups
+                    or any(meta[key] in reserved_assets for key in ("enclosure", "sha256")))
+        reassigned = explicit and source in REASSIGNED_RECORDINGS and split == "train" and all(
+            meta.get(key) == archive["sources"][source].get(key)
+            for key in ("speaker_group", "locale", "page", "enclosure", "sha256", "format")
+        )
         if (not re.fullmatch(r"[a-z][a-z0-9-]+", source) or split not in TEMPOS
-                or not group or source in reserved_names or group in reserved_groups
+                or not group or (overlaps and not reassigned)
                 or meta.get("format", "mp3") not in {"mp3", "m4a", "webm"}
-                or not re.fullmatch(r"[a-f0-9]{64}", meta["sha256"])
-                or any(meta[key] in reserved_assets for key in ("enclosure", "sha256"))):
+                or not re.fullmatch(r"[a-f0-9]{64}", meta["sha256"])):
             raise ValueError("La fuente no es válida o pertenece al panel reservado")
         if esmx:
             publisher = canonical(meta.get("publisher", ""))
@@ -72,6 +89,17 @@ def specification(fixture=None):
                         or not valid_interval(evidence) or not context[0] <= evidence[0] < evidence[1] <= context[1]
                         or (case["die_basis"] == "explicit" and not start <= evidence[0] < evidence[1] <= end)):
                     raise ValueError("No se acredita que la orden pida un solo D6")
+        if explicit and case["source"] in REASSIGNED_RECORDINGS:
+            original = imported.get(case.get("archive_id"))
+            if original is None or any(case[key] != original[key] for key in
+                                       ("source", "start_ms", "end_ms", "pcm_sha256")):
+                raise ValueError("La toma reasignada difiere de su caso archivado")
+            if category != ARCHIVED_LABELS.get(original["category"]):
+                raise ValueError("Cambió la etiqueta de la toma reasignada")
+        if explicit and split == "train" and category == "positive" and (
+                case.get("die_basis") != "explicit"
+                or not re.search(r"\bdado de seis\b", canonical(case.get("spoken_form", "")))):
+            raise ValueError("La orden de entrenamiento debe decir dado de seis")
         ranges = time_ranges.setdefault(case["source"], [])
         if any(start < earlier_end and earlier_start < end for earlier_start, earlier_end in ranges):
             raise ValueError("Los recortes de una grabación se superponen")
@@ -146,6 +174,8 @@ def read_manifest(folder):
             raise ValueError("Cambió una toma continua")
     return manifest["samples"], {
         "fixture_sha256": digest(fixture), "manifest_sha256": digest(path),
+        **({"public_excluded_groups": sorted(explicit_exclusions(spec["sources"]))}
+           if fixture == EXPLICIT_ESMX_FIXTURE else {}),
         "speaker_groups": {split: sorted({source["speaker_group"] for source in spec["sources"].values()
                                          if source["split"] == split}) for split in TEMPOS},
         **({"positive_by_die_basis": {
@@ -165,5 +195,6 @@ if __name__ == "__main__":
     panel = parser.add_mutually_exclusive_group()
     panel.add_argument("--expanded", action="store_const", const=EXPANDED_FIXTURE, dest="fixture")
     panel.add_argument("--esmx", action="store_const", const=ESMX_FIXTURE, dest="fixture")
+    panel.add_argument("--esmx-explicit", action="store_const", const=EXPLICIT_ESMX_FIXTURE, dest="fixture")
     args = parser.parse_args()
     build(args.sources, args.out, args.fixture)

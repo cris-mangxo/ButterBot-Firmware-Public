@@ -18,13 +18,14 @@ NATURAL_FIXTURE = FIXTURE.with_name("public_orders_natural.json")
 ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx.json")
 DIRECT_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_direct.json")
 CONTINUOUS_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_continuous.json")
+CANCELLATION_FIXTURE = FIXTURE.with_name("public_orders_esmx_cancellation.json")
 HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE,
-                    ESMX_FIXTURE, DIRECT_ESMX_FIXTURE, CONTINUOUS_ESMX_FIXTURE)
+                    ESMX_FIXTURE, DIRECT_ESMX_FIXTURE, CONTINUOUS_ESMX_FIXTURE, CANCELLATION_FIXTURE)
 STRICT_ESMX_PROFILE = "esmx-orders-with-controls-v1"
 ESMX_POSITIVES = {"explicit_single_d6_order", "contextual_single_d6_order"}
 ESMX_CONTEXTUAL = {"contextual_single_d6_order", "contextual_single_d6_cancel",
                    "contextual_single_d6_turn_skip", "contextual_single_d6_reroll_exception",
-                   "spontaneous_contextual_die_switch"}
+                   "spontaneous_contextual_die_switch", "contextual_d6_omission_without_substitution"}
 NEGATION_GAP_MS = 70
 
 
@@ -38,7 +39,8 @@ def specification(fixture=None):
     data = json.loads(fixture.read_text("utf-8"))
     esmx = data.get("profile") == STRICT_ESMX_PROFILE
     fixture_path = fixture.resolve()
-    if fixture_path in {ESMX_FIXTURE.resolve(), DIRECT_ESMX_FIXTURE.resolve(), CONTINUOUS_ESMX_FIXTURE.resolve()} and not esmx:
+    if fixture_path in {ESMX_FIXTURE.resolve(), DIRECT_ESMX_FIXTURE.resolve(),
+                        CONTINUOUS_ESMX_FIXTURE.resolve(), CANCELLATION_FIXTURE.resolve()} and not esmx:
         raise ValueError("Falta el perfil del panel es-MX")
     pcm_required = esmx or fixture_path == NATURAL_FIXTURE.resolve()
     declared = set()
@@ -73,9 +75,13 @@ def specification(fixture=None):
                 raise ValueError("El panel es-MX requiere tomas continuas y controles externos marcados")
         if esmx and case["category"] in ESMX_CONTEXTUAL:
             context = case.get("context_ms")
+            evidence = case.get("die_evidence_ms")
             if (not valid_interval(context) or not context[0] <= start < end <= context[1]
-                    or not valid_interval(case.get("die_evidence_ms"))):
+                    or not valid_interval(evidence)):
                 raise ValueError("Falta el contexto de la toma o del tipo de dado")
+            if (case["category"] == "contextual_d6_omission_without_substitution"
+                    and not context[0] <= evidence[0] < evidence[1] <= context[1]):
+                raise ValueError("La decisión de omitir queda fuera del contexto")
         if "negation_prefix" in case:
             prefix = case["negation_prefix"]
             first, last = prefix["start_ms"], prefix["end_ms"]
@@ -166,7 +172,8 @@ def add_panel_options(parser, suffix=""):
     panel = parser.add_mutually_exclusive_group()
     for name, fixture in (("expanded", EXPANDED_FIXTURE), ("ordered", ORDERED_FIXTURE),
                           ("natural", NATURAL_FIXTURE), ("esmx", ESMX_FIXTURE),
-                          ("esmx-direct", DIRECT_ESMX_FIXTURE), ("esmx-continuous", CONTINUOUS_ESMX_FIXTURE)):
+                          ("esmx-direct", DIRECT_ESMX_FIXTURE), ("esmx-continuous", CONTINUOUS_ESMX_FIXTURE),
+                          ("esmx-cancellation", CANCELLATION_FIXTURE)):
         panel.add_argument(f"--{name}{suffix}", action="store_const", const=fixture, dest="public_fixture")
 
 
