@@ -318,3 +318,18 @@ python3.12 -B experiments/esmx-compactas/autonomous/measure.py public-orders \
 ```
 
 Para repetir las pruebas antiguas se agrega `--rescue` a los comandos de evaluación que usan `--continuous`. La columna `evaluated` excluye los clips fuera del máximo de cuatro segundos. En el banco Xtensa, habilitar `CONTINUOUS_DICE_GUARD=ON` y `CONTINUOUS_DICE_RESCUE=ON`. En el generador QEMU se puede elegir `--ordered-public` y repetir `--public-id` para ajustar los clips a la partición de laboratorio. El firmware del producto no incorpora este experimento.
+
+## Rescate por confusión con otro dado
+
+El modo de laboratorio `word-contrast` conserva `word-rescue` y añade una comprobación cuando la CNN pone otro dado por delante de D6 por un margen acotado. Exige lectura estable del verbo, «dado» y «seis», y recorre el turno completo para aplicar los vetos de negación, otro número o contexto ajeno. Los tiempos parten de la primera confirmación estable de «seis». Los márgenes corresponden al banco continuo expandido y al banco de palabras adaptado de los pasos anteriores. El evaluador comprueba ambos SHA-256 con `--contrast`. La ruta de producción sigue fuera del experimento.
+
+Para reproducir el panel reservado, guardar los MP3 originales con los nombres de fuente de [la ficha](autonomous/public_orders_natural.json) y ejecutar:
+
+```fish
+python3 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --natural --sources "$public_sources" --out "$v7/natural-test"
+```
+
+En el comando de `measure.py public-orders` anterior, agregar `--contrast` y sustituir `--ordered-public` y su corpus por `--natural-public --corpus "$v7/natural-test"`. El entrenamiento rechaza los grupos y episodios de este panel. Una variante inicial recuperó un acierto de desarrollo. Al exigir los vetos léxicos, se vuelve a rechazar ese caso y la variante revisada conserva los resultados de la referencia. Las dos órdenes reservadas quedan sin reconocer. El conjunto contiene un rechazo contextual de un dado opcional, una negación genérica y otros controles continuos.
+
+En el banco Xtensa agregar `-D CONTINUOUS_DICE_CONTRAST=ON` a la configuración de rescate. Para elegir el panel reservado en `qemu_fixture.py`, usar `--natural-public` y repetir `--public-id` para ajustar los PCM al espacio de la aplicación de laboratorio. `WORD_D6_CASE` compara resultado esperado y observado, y `WORD_D6_DONE` es el número de casos con diferencia. El audio, el banco de pesos y la imagen que contiene los PCM se quedan en el laboratorio.

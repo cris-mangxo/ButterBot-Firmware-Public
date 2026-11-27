@@ -5,7 +5,8 @@ import unittest
 from unittest.mock import patch
 
 import whole_orders
-from public_orders import EXPANDED_FIXTURE, ORDERED_FIXTURE, specification as reserved
+import public_orders
+from public_orders import FIXTURE, EXPANDED_FIXTURE, NATURAL_FIXTURE, ORDERED_FIXTURE, specification as reserved, verify_unique_ids
 
 
 class WholeOrderSplitTest(unittest.TestCase):
@@ -60,3 +61,35 @@ class WholeOrderSplitTest(unittest.TestCase):
                 self.spec["sources"]["apaga"]["speaker_group"] = panel["sources"][key]["speaker_group"]
                 with self.assertRaisesRegex(ValueError, "panel reservado"):
                     self.verify()
+
+    def test_natural_panel_group_and_episode_remain_reserved(self):
+        for source in reserved(NATURAL_FIXTURE)["sources"].values():
+            for key in ("speaker_group", "enclosure", "sha256"):
+                with self.subTest(source=source["speaker_group"], key=key):
+                    meta = self.spec["sources"]["apaga"]
+                    previous, meta[key] = meta[key], source[key]
+                    try:
+                        with self.assertRaisesRegex(ValueError, "panel reservado"):
+                            self.verify()
+                    finally:
+                        meta[key] = previous
+
+    def test_reused_id_from_another_panel_is_rejected(self):
+        verify_unique_ids()
+        panel = reserved(NATURAL_FIXTURE)
+        panel["cases"][0]["id"] = reserved(FIXTURE)["cases"][0]["id"]
+        with tempfile.TemporaryDirectory() as directory:
+            other = Path(directory) / "other-panel.json"
+            other.write_text(json.dumps(panel), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "ID repetido"):
+                verify_unique_ids((FIXTURE, other))
+
+    def test_natural_panel_requires_digest_per_clip(self):
+        panel = reserved(NATURAL_FIXTURE)
+        del panel["cases"][0]["pcm_sha256"]
+        with tempfile.TemporaryDirectory() as directory:
+            copy = Path(directory) / "natural-copy.json"
+            copy.write_text(json.dumps(panel), encoding="utf-8")
+            with patch.object(public_orders, "NATURAL_FIXTURE", copy):
+                with self.assertRaisesRegex(ValueError, "Falta la huella PCM"):
+                    reserved(copy)

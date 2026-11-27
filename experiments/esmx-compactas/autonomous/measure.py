@@ -14,9 +14,11 @@ from phrases import too_long
 from phrases_human import group, read_tables, select, selected_wavs
 from pilot import MAX_COST, MIN_GAP, read_pcm, score
 from public_orders import EXPANDED_FIXTURE as EXPANDED_PUBLIC
-from public_orders import FIXTURE as PUBLIC_FIXTURE, ORDERED_FIXTURE as ORDERED_PUBLIC, verified_cases
+from public_orders import FIXTURE as PUBLIC_FIXTURE, NATURAL_FIXTURE, ORDERED_FIXTURE as ORDERED_PUBLIC, verified_cases
 
 BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
+CONTRAST_BANK_SHA256 = "7d5a53c1c98f4c74d45ac6984e223c41dd8d79f5e61558a9b19cf2459a05c8d8"
+CONTRAST_WORD_SHA256 = "bc4dab7f7dcacfebc53d641712429c1e5c0d409fe9fab71becb43d768ecc801d"
 FIXTURE = Path(__file__).with_name("fixture.json")
 VARIANTS = ("compact", "turn_cnn", "word_gate")
 
@@ -28,6 +30,8 @@ def trial(args, wav, category, expected, identifier=None):
         variants += ("word_full", "word_guarded")
     if args.rescue:
         variants += ("word_rescue",)
+    if args.contrast:
+        variants += ("word_contrast",)
     data = {"category": category, "expected": expected, "overlong": long,
             "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
@@ -47,6 +51,8 @@ def trial(args, wav, category, expected, identifier=None):
         commands.extend([("word_full", "word-full", banks), ("word_guarded", "word-guarded", banks)])
         if args.rescue:
             commands.append(("word_rescue", "word-rescue", banks))
+        if args.contrast:
+            commands.append(("word_contrast", "word-contrast", banks))
     for variant, mode, models in commands:
         command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
@@ -75,6 +81,8 @@ def trial(args, wav, category, expected, identifier=None):
         if args.rescue and ((decisions["word_guarded"] and decisions["word_rescue"] != decisions["word_guarded"])
                             or (decisions["word_rescue"] and decisions["word_rescue"] != decisions["word_full"])):
             raise ValueError("El rescate perdió una decisión anterior o añadió una tirada sin propuesta")
+        if args.contrast and decisions["word_rescue"] and decisions["word_contrast"] != decisions["word_rescue"]:
+            raise ValueError("El contraste perdió una decisión de rescate")
     return data
 
 
@@ -162,15 +170,20 @@ def main():
     parser.add_argument("--adapted", type=Path)
     parser.add_argument("--continuous", type=Path)
     parser.add_argument("--rescue", action="store_true")
+    parser.add_argument("--contrast", action="store_true")
     panel = parser.add_mutually_exclusive_group()
     panel.add_argument("--expanded-public", action="store_true")
     panel.add_argument("--ordered-public", action="store_true")
+    panel.add_argument("--natural-public", action="store_true")
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
     if args.rescue and not args.continuous:
         parser.error("--rescue requiere --continuous")
-    if (args.expanded_public or args.ordered_public) and args.operation != "public-orders":
+    if args.contrast and (not args.rescue or not args.adapted or digest(args.continuous) != CONTRAST_BANK_SHA256
+                          or digest(args.adapted) != CONTRAST_WORD_SHA256):
+        parser.error("--contrast requiere --rescue y los bancos fijados de voz continua y palabras")
+    if (args.expanded_public or args.ordered_public or args.natural_public) and args.operation != "public-orders":
         parser.error("Seleccionar un panel humano requiere public-orders")
     if args.adapted and not args.extra:
         parser.error("--adapted requiere --extra para conservar la referencia anterior")
@@ -192,7 +205,8 @@ def main():
     elif args.operation == "public-orders":
         if args.corpus is None:
             parser.error("--corpus debe apuntar a los cortes públicos verificados")
-        fixture = ORDERED_PUBLIC if args.ordered_public else EXPANDED_PUBLIC if args.expanded_public else PUBLIC_FIXTURE
+        fixture = (NATURAL_FIXTURE if args.natural_public else ORDERED_PUBLIC if args.ordered_public
+                   else EXPANDED_PUBLIC if args.expanded_public else PUBLIC_FIXTURE)
         rows = [trial(args, wav, case["category"], case["expected"], case["id"])
                 for case, wav in verified_cases(args.corpus, fixture)]
         if any(row["overlong"] for row in rows):

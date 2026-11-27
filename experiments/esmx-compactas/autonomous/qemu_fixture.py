@@ -7,7 +7,7 @@ import re
 import struct
 
 from pilot import read_pcm
-from public_orders import EXPANDED_FIXTURE, ORDERED_FIXTURE, verified_cases
+from public_orders import EXPANDED_FIXTURE, NATURAL_FIXTURE, ORDERED_FIXTURE, verified_cases
 
 
 def load(path):
@@ -58,7 +58,8 @@ def write(args):
         case = new_hit(rows, reference, candidate)
         selected[0] = ("adapted_hit" if args.adapted_hit else "supplement_hit", 6, folder / "audio" / (case["id"] + ".wav"))
     if args.public_dir:
-        fixture = ORDERED_FIXTURE if args.ordered_public else EXPANDED_FIXTURE if args.expanded_public else None
+        fixture = (NATURAL_FIXTURE if args.natural_public else ORDERED_FIXTURE if args.ordered_public
+                   else EXPANDED_FIXTURE if args.expanded_public else None)
         public = [(case["id"], case["expected"], wav)
                   for case, wav in verified_cases(args.public_dir, fixture)]
         if args.public_id:
@@ -91,6 +92,7 @@ def main():
     panel = parser.add_mutually_exclusive_group()
     panel.add_argument("--expanded-public", action="store_true")
     panel.add_argument("--ordered-public", action="store_true")
+    panel.add_argument("--natural-public", action="store_true")
     parser.add_argument("--public-id", action="append", help="Include only the specified public cases")
     positive = parser.add_mutually_exclusive_group()
     positive.add_argument("--supplement-hit", action="store_true")
@@ -98,7 +100,7 @@ def main():
     positive.add_argument("--continuous-hit", action="store_true")
     positive.add_argument("--guard-control", type=Path)
     args = parser.parse_args()
-    if (args.expanded_public or args.ordered_public or args.public_id) and not args.public_dir:
+    if (args.expanded_public or args.ordered_public or args.natural_public or args.public_id) and not args.public_dir:
         parser.error("Seleccionar tomas humanas requiere --public-dir")
     write(args)
 

@@ -1,4 +1,5 @@
 #include "WordDice.h"
+#include "DiceContrast.h"
 
 #include <cstdlib>
 
@@ -93,6 +94,15 @@ int main(){
 		require((rescue(boundary) == Intent::Dice6) == (gap == 7 || gap == 70));
 	}
 
+	// Continued evidence for the same too-early «seis» is not a new
+	// onset and must not eventually move into the admissible interval.
+	WordFeatures prolonged{};
+	prolonged.count = 27;
+	word(prolonged, 1, 1, 2);
+	word(prolonged, 5, 3, 13);
+	word(prolonged, 22, 6, 2);
+	require(rescue(prolonged) == Intent::Unknown);
+
 	for(int veto : {4, 5}){
 		auto vetoed = contrasted;
 		word(vetoed, 4, veto);
@@ -104,6 +114,63 @@ int main(){
 	contrasted = signal;
 	word(contrasted, 1, 2);
 	require(!acceptsWordDice(contrasted, model));
+
+	// Scale the fixture logits to the fixed contrast margins.
+	auto strong = model;
+	for(auto& weight : strong.output){
+		weight *= 32;
+	}
+	require(!acceptsContrastedDice(signal, model));
+	WordFeatures validContrast{};
+	validContrast.count = 30;
+	word(validContrast, 1, 1, 2);
+	word(validContrast, 9, 2, 2);
+	word(validContrast, 17, 3, 2);
+	require(acceptsContrastedDice(validContrast, strong));
+	for(int veto : {4, 5, 6}){
+		auto vetoed = validContrast;
+		word(vetoed, 23, veto, 2);
+		require(!acceptsContrastedDice(vetoed, strong));
+	}
+	auto denied = validContrast;
+	word(denied, 23, 4, 2);
+	auto missingDie = validContrast;
+	word(missingDie, 9, 0, 2);
+	require(!acceptsContrastedDice(missingDie, strong));
+	auto reversed = validContrast;
+	word(reversed, 9, 3, 2);
+	word(reversed, 17, 2, 2);
+	require(!acceptsContrastedDice(reversed, strong));
+	WordFeatures prematureSix{};
+	prematureSix.count = 30;
+	word(prematureSix, 1, 1, 2);
+	word(prematureSix, 7, 3, 12);
+	for(size_t frame : {7, 8}){
+		prematureSix.frames[frame][3] = 72;
+		prematureSix.frames[frame][2] = 32;
+	}
+	// A single run starting too early can't enter the valid window later.
+	require(!acceptsContrastedDice(prematureSix, strong));
+	auto dieBeforeVerb = validContrast;
+	word(dieBeforeVerb, 1, 2, 2);
+	word(dieBeforeVerb, 9, 1, 2);
+	require(!acceptsContrastedDice(dieBeforeVerb, strong));
+
+	AcousticDice acoustic{};
+	acoustic.first.shift = acoustic.second.shift = acoustic.third.shift = 1;
+	acoustic.biases = {0, 8000, 9000, 0};
+	acoustic.minimumScore = 7900;
+	acoustic.minimumMargin = 5000;
+	const Signature signature{};
+	require(completeAcousticDice(signature, Intent::Unknown, Intent::Unknown, acoustic) == Intent::Unknown);
+	require(completeContrastedDice(signature, Intent::Unknown, Intent::Unknown, acoustic, validContrast, strong) == Intent::Dice6);
+	require(completeContrastedDice(signature, Intent::Unknown, Intent::Unknown, acoustic, denied, strong) == Intent::Unknown);
+	require(completeContrastedDice(signature, Intent::Fact, Intent::Unknown, acoustic, validContrast, strong) == Intent::Unknown);
+	require(completeContrastedDice(signature, Intent::Time, Intent::Time, acoustic, validContrast, strong) == Intent::Time);
+	// Keep the established path when the model already ranks D6 first
+	// but cannot confirm it against the other classes.
+	acoustic.biases[2] = 7000;
+	require(completeContrastedDice(signature, Intent::Unknown, Intent::Unknown, acoustic, validContrast, strong) == Intent::Unknown);
 
 	bb::asr::LogMel frontend{};
 	const std::array<const WordBank*, 2> supplements{&model, &model};

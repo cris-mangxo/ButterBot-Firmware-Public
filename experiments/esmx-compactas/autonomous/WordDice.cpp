@@ -130,6 +130,50 @@ bool acceptsWordDice(const WordFeatures& input, const WordBank& bank){
 	return stage == order.size();
 }
 
+bool acceptsContrastedDice(const WordFeatures& input, const WordBank& bank){
+	constexpr int VerbLimit = 90;
+	constexpr int DieDelay = 2, DieLimit = 50;
+	constexpr std::array<int32_t, 4> WordMargins{0, 500, 900, 1600};
+	if(input.count < 2 || input.count > input.frames.size()){
+		return false;
+	}
+	int verb = -1, die = -1, pairedVerb = -1;
+	int preceding = Other;
+	int run = 0;
+	bool matched = false;
+	for(int frame = 0; frame < static_cast<int>(input.count); ++frame){
+		const auto scores = wordLogits(input, frame, bank);
+		const auto best = std::max_element(scores.begin(), scores.end());
+		const int winner = static_cast<int>(best - scores.begin());
+		int32_t runnerUp = -MaxBias * 2;
+		for(int label = Other; label < WordLabels; ++label){
+			if(label != winner){
+				runnerUp = std::max(runnerUp, scores[label]);
+			}
+		}
+		const int32_t margin = winner < Denial ? WordMargins[winner] : bank.vetoMargin;
+		const int current = *best - runnerUp >= margin ? winner : Other;
+		run = current == preceding ? run + 1 : 1;
+		preceding = current;
+		if(run != 2){
+			continue;
+		}
+		if(current >= Denial){
+			return false;
+		}
+		if(current == Verb){
+			verb = frame;
+		}else if(current == Die && verb >= 0 && frame - verb < VerbLimit){
+			die = frame;
+			pairedVerb = verb;
+		}else if(current == Six && die >= 0){
+			const int sinceDie = frame - die;
+			matched |= sinceDie >= DieDelay && sinceDie <= DieLimit && frame - pairedVerb <= VerbLimit;
+		}
+	}
+	return matched;
+}
+
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,
                              const WordBank& bank, DiceConfirmation confirmation){
 	if(previous != Intent::Unknown || candidate != Intent::Dice6 || input.count > input.frames.size()){
@@ -140,29 +184,32 @@ Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatur
 	bool ordered = false;
 	size_t lastVerb = 0;
 	int preceding = Other;
+	int run = 0;
 	for(size_t frame = 0; frame < input.count; ++frame){
 		const int current = token(wordLogits(input, frame, bank), bank);
-		if(current == preceding){
-			if(current == Denial || current == OtherNumber){
+		run = current == preceding ? run + 1 : 1;
+		preceding = current;
+		if(run != 2){
+			continue;
+		}
+		if(current == Denial || current == OtherNumber){
+			return Intent::Unknown;
+		}
+		if(current == Context){
+			if(confirmation == DiceConfirmation::SixOnly){
 				return Intent::Unknown;
 			}
-			if(current == Context){
-				if(confirmation == DiceConfirmation::SixOnly){
-					return Intent::Unknown;
-				}
-				heardContext = true;
-			}
-			if(current == Verb){
-				lastVerb = frame;
-			}
-			if(current == Six){
-				heardSix = true;
-				// Keep the two tokens distinct and bounded to the same phrase.
-				const size_t gap = frame - lastVerb;
-				ordered |= lastVerb != 0 && gap >= 7 && gap <= 70;
-			}
+			heardContext = true;
 		}
-		preceding = current;
+		if(current == Verb){
+			lastVerb = frame;
+		}
+		if(current == Six){
+			heardSix = true;
+			// Compare the first stable frames of the runs.
+			const size_t gap = frame - lastVerb;
+			ordered |= lastVerb != 0 && gap >= 7 && gap <= 70;
+		}
 	}
 	return heardSix && (!heardContext || ordered) ? Intent::Dice6 : Intent::Unknown;
 }

@@ -20,6 +20,9 @@
 #include "word_adapted.h"
 #ifdef KWS_WITH_CONTINUOUS_DICE
 #include "acoustic_dice.h"
+#ifdef KWS_WITH_CONTINUOUS_DICE_CONTRAST
+#include "DiceContrast.h"
+#endif
 #endif
 #endif
 static constexpr const WordBank* WordSupplements[]{
@@ -57,6 +60,10 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 		const auto words = completeWordDice(frontend, pcm, result.intent, verified,
 		                                    PilotWordDice, wordWorkspace, WordSupplements);
 #ifdef KWS_WITH_CONTINUOUS_DICE
+#ifdef KWS_WITH_CONTINUOUS_DICE_CONTRAST
+		label = static_cast<int>(completeContrastedDice(signature, result.intent, words, PilotAcousticDice,
+		                                               wordWorkspace, PilotWordAdapted));
+#else
 		const auto candidate = completeAcousticDice(signature, result.intent, words, PilotAcousticDice);
 #ifdef KWS_WITH_CONTINUOUS_DICE_GUARD
 #ifdef KWS_WITH_CONTINUOUS_DICE_RESCUE
@@ -67,6 +74,7 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 		label = static_cast<int>(confirmContinuousDice(words, candidate, wordWorkspace, PilotWordAdapted, confirmation));
 #else
 		label = static_cast<int>(candidate);
+#endif
 #endif
 #else
 		label = static_cast<int>(words);

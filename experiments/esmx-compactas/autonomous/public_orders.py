@@ -1,6 +1,7 @@
 """Cut fixed continuous human utterances from local copies of public RSS audio."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -13,12 +14,14 @@ from pilot import read_pcm
 FIXTURE = Path(__file__).with_name("public_orders.json")
 EXPANDED_FIXTURE = FIXTURE.with_name("public_orders_expanded.json")
 ORDERED_FIXTURE = FIXTURE.with_name("public_orders_ordered.json")
-HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE)
+NATURAL_FIXTURE = FIXTURE.with_name("public_orders_natural.json")
+HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE)
 NEGATION_GAP_MS = 70
 
 
 def specification(fixture=None):
-    data = json.loads((fixture or FIXTURE).read_text("utf-8"))
+    fixture = fixture or FIXTURE
+    data = json.loads(fixture.read_text("utf-8"))
     declared = set()
     for name, source in data["sources"].items():
         if (not re.fullmatch(r"[a-z]+(?:-[a-z]+)*", name)
@@ -32,6 +35,11 @@ def specification(fixture=None):
                 or case["source"] not in data["sources"] or case["expected"] not in (0, 6)
                 or start < 0 or not 0 < end - start <= 4000):
             raise ValueError("Caso humano inválido")
+        pcm_hash = case.get("pcm_sha256")
+        if fixture == NATURAL_FIXTURE and pcm_hash is None:
+            raise ValueError("Falta la huella PCM del panel natural")
+        if pcm_hash is not None and not re.fullmatch(r"[a-f0-9]{64}", pcm_hash):
+            raise ValueError("Huella PCM inválida")
         if "negation_prefix" in case:
             prefix = case["negation_prefix"]
             first, last = prefix["start_ms"], prefix["end_ms"]
@@ -46,6 +54,20 @@ def specification(fixture=None):
     return data
 
 
+def verify_unique_ids(fixtures=HELDOUT_FIXTURES):
+    seen = set()
+    for fixture in fixtures:
+        ids = {case["id"] for case in specification(fixture)["cases"]}
+        if seen & ids:
+            raise ValueError("ID repetido entre paneles humanos")
+        seen.update(ids)
+
+
+def verify_pcm(wav, case):
+    actual = hashlib.sha256(read_pcm(wav)).hexdigest()
+    if "pcm_sha256" in case and actual != case["pcm_sha256"]:
+        raise ValueError("El PCM del recorte no coincide con la referencia")
+
 
 def cut(path, start, end, output=None):
     sink = output if output is not None else "pipe:1"
@@ -59,6 +81,7 @@ def cut(path, start, end, output=None):
 
 def extract(sources, out, fixture_path=None):
     fixture_path = fixture_path or FIXTURE
+    verify_unique_ids()
     fixture = specification(fixture_path)
     paths = {key: sources / f'{key}.{source.get("format", "mp3")}'
              for key, source in fixture["sources"].items()}
@@ -80,7 +103,7 @@ def extract(sources, out, fixture_path=None):
             with wave.open(str(wav), "wb") as audio:
                 audio.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
                 audio.writeframes(negation + bytes(32 * NEGATION_GAP_MS) + positive)
-        read_pcm(wav)
+        verify_pcm(wav, case)
         rows.append(dict(case, wav_sha256=digest(wav)))
     (out / "manifest.json").write_text(json.dumps({
         "public_fixture_sha256": digest(fixture_path), "cases": rows,
@@ -89,6 +112,7 @@ def extract(sources, out, fixture_path=None):
 
 def verified_cases(folder, fixture_path=None):
     fixture_path = fixture_path or FIXTURE
+    verify_unique_ids()
     evidence = json.loads((folder / "manifest.json").read_text("utf-8"))
     if evidence["public_fixture_sha256"] != digest(fixture_path):
         raise ValueError("El corpus humano difiere de la anotación fijada")
@@ -98,6 +122,7 @@ def verified_cases(folder, fixture_path=None):
         wav = folder / (reference["id"] + ".wav")
         if digest(wav) != case["wav_sha256"]:
             raise ValueError("Cambió la toma pública")
+        verify_pcm(wav, case)
         yield case, wav
 
 
@@ -108,8 +133,10 @@ def main():
     panel = parser.add_mutually_exclusive_group()
     panel.add_argument("--expanded", action="store_true")
     panel.add_argument("--ordered", action="store_true")
+    panel.add_argument("--natural", action="store_true")
     args = parser.parse_args()
-    fixture = ORDERED_FIXTURE if args.ordered else EXPANDED_FIXTURE if args.expanded else FIXTURE
+    fixture = (NATURAL_FIXTURE if args.natural else ORDERED_FIXTURE if args.ordered
+               else EXPANDED_FIXTURE if args.expanded else FIXTURE)
     extract(args.sources, args.out, fixture)
 
 

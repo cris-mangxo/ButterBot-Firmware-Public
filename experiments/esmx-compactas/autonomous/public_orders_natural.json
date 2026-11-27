@@ -1,0 +1,106 @@
+{
+  "sources": {
+    "rollcast": {
+      "sha256": "a7fbc079fe353273f4bd49513c9a627a12b1d8e142b7d2ca029e2821b4295fc5",
+      "page": "https://www.ivoox.com/roll-for-your-life-review-roll-audios-mp3_rf_179273918_1.html",
+      "enclosure": "https://www.ivoox.com/roll-for-your-life-review-roll_mf_179273918_feed_1.mp3",
+      "speaker_group": "roll-cast"
+    },
+    "camino": {
+      "sha256": "df3b7fddfb8c1ea4c1bd6bc899fda7a83eda223961dc3a9aa580a4a0c6100388",
+      "page": "https://www.ivoox.com/cthulhu-dark-el-largo-camino-a-casa-audios-mp3_rf_55830549_1.html",
+      "enclosure": "https://www.ivoox.com/cthulhu-dark-el-largo-camino-a-casa_mf_55830549_feed_1.mp3",
+      "speaker_group": "la-trama-y-el-tejedor"
+    },
+    "mansalva": {
+      "sha256": "26a2a75e79dd7d21525e2c740f0f553e65028d3df9937742af021ac6a22073ac",
+      "page": "https://www.ivoox.com/en/chupito-rol-02-peloton-wird-pepe-audios-mp3_rf_82165128_1.html",
+      "enclosure": "https://www.ivoox.com/chupito-rol-02-peloton-wird-pepe_mf_82165128_feed_1.mp3",
+      "speaker_group": "mansalva-de-rol"
+    },
+    "iniciativa": {
+      "sha256": "a30da269f3905559d9011ae7de9f80fd30af079bdd74026ad0c02c3cbbc3c5b5",
+      "page": "https://www.ivoox.com/18-averiguando-intenciones-trophy-dark-audios-mp3_rf_103910734_1.html",
+      "enclosure": "https://www.ivoox.com/18-averiguando-intenciones-trophy-dark_mf_103910734_feed_1.mp3",
+      "speaker_group": "tirando-iniciativa"
+    },
+    "haguruma": {
+      "sha256": "e12607fea8d83e40f41bd00d00d823d5b1edfbea566a2d0ef2e07eae4d98731e",
+      "page": "https://www.ivoox.com/entrevista-a-sarabel-ramos-autora-renacimiento-haguruma-audios-mp3_rf_119298608_1.html",
+      "enclosure": "https://www.ivoox.com/entrevista-a-sarabel-ramos-autora-renacimiento-haguruma_mf_119298608_feed_1.mp3",
+      "speaker_group": "sirio-sesenra"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-52",
+      "source": "rollcast",
+      "start_ms": 427240,
+      "end_ms": 429040,
+      "category": "instruction_single_d6",
+      "expected": 6,
+      "pcm_sha256": "f04dc6fd84ceb3035dc6abdda6e9067f3085870567be921e312dbe0d89b89cff",
+      "summary": "Instrucción de tirar un D6 por categoría; contexto de un manual leído en voz alta."
+    },
+    {
+      "id": "public-53",
+      "source": "camino",
+      "start_ms": 2092530,
+      "end_ms": 2093870,
+      "category": "instruction_single_die_contextual",
+      "expected": 6,
+      "pcm_sha256": "c3c33b8841f306585f48d3bb353ed1eb29ff36ecc7ba1e4fab9d192a5cdd5501",
+      "summary": "Orden de efectuar una tirada de un dado; el juego establece el tipo de dado."
+    },
+    {
+      "id": "public-54",
+      "source": "mansalva",
+      "start_ms": 3309660,
+      "end_ms": 3313460,
+      "category": "declined_one_optional_d6_contextual",
+      "expected": 0,
+      "pcm_sha256": "f7aad41a7e0c889aa254c6fb827c93a8b539eb3eac5b49690fd923a1941e10aa",
+      "summary": "Declina usar el dado oscuro opcional por falta de riesgo para la mente; la tirada principal sigue."
+    },
+    {
+      "id": "public-55",
+      "source": "mansalva",
+      "start_ms": 3314400,
+      "end_ms": 3316310,
+      "category": "multiple_d6",
+      "expected": 0,
+      "pcm_sha256": "147bd1d6eef57df11a3c42d908fa18c34c8409df70a4543ffeca7f67c3c469e5",
+      "summary": "Anuncia que tira dos dados de seis."
+    },
+    {
+      "id": "public-56",
+      "source": "iniciativa",
+      "start_ms": 2026260,
+      "end_ms": 2029180,
+      "category": "negated_unspecified_roll",
+      "expected": 0,
+      "pcm_sha256": "0a241e1a6be7363ec47d2ff4410e2cfc3ca24f3caad2321b912e2989bed1c31f",
+      "summary": "Explica que se omite una tirada si no es necesaria; no menciona caras ni cantidad."
+    },
+    {
+      "id": "public-57",
+      "source": "haguruma",
+      "start_ms": 805750,
+      "end_ms": 808490,
+      "category": "d6_mention_without_roll",
+      "expected": 0,
+      "pcm_sha256": "031b79473d1dd0a9fba80f5f056c8c4dac3ea5e55a8aa4b1b6eea8b1f84e3808",
+      "summary": "Propone usar un D6 para crear una aventura; no pide una tirada."
+    },
+    {
+      "id": "public-58",
+      "source": "haguruma",
+      "start_ms": 292060,
+      "end_ms": 296050,
+      "category": "multiple_dice_including_d6",
+      "expected": 0,
+      "pcm_sha256": "1b45cc693d3af0c75030b2bd4e8f6c8cf4fa2df051633a6eabbb2a81960aa72f",
+      "summary": "Describe el lanzamiento de un dado de habilidad más un dado salvaje de seis."
+    }
+  ]
+}
