@@ -357,6 +357,16 @@ AudioFrontend::~AudioFrontend(){
 	unloadModel();
 }
 
+#ifdef BB_ESMX_PILOT
+bool AudioFrontend::startPilotSpeech(){
+	if(currentMode != Mode::Off || !afe_handle || !afe_data || !pilotCapture.start()){
+		return false;
+	}
+	setMode(Mode::PilotSpeech);
+	return true;
+}
+#endif
+
 void AudioFrontend::setMode(Mode mode){
 	const Mode previousMode = currentMode.load();
 	if(mode == previousMode) return;
@@ -366,7 +376,16 @@ void AudioFrontend::setMode(Mode mode){
 		return;
 	}
 
-	if((previousMode == Mode::Speech || previousMode == Mode::Audio) && mode != Mode::Speech && mode != Mode::Audio){
+	bool wasListening = previousMode == Mode::Speech || previousMode == Mode::Audio;
+	bool willListen = mode == Mode::Speech || mode == Mode::Audio;
+#ifdef BB_ESMX_PILOT
+	if(previousMode == Mode::PilotSpeech && mode != Mode::Off){
+		return;
+	}
+	wasListening |= previousMode == Mode::PilotSpeech;
+	willListen |= mode == Mode::PilotSpeech;
+#endif
+	if(wasListening && !willListen){
 		if(ServiceLocator::LEDControlInstance){
 			ServiceLocator::LEDControlInstance->stopListen();
 		}
@@ -396,6 +415,13 @@ void AudioFrontend::setMode(Mode mode){
 			lastRawTranscript.clear();
 			break;
 
+#ifdef BB_ESMX_PILOT
+		case Mode::PilotSpeech:
+			if(ServiceLocator::LEDControlInstance){
+				ServiceLocator::LEDControlInstance->startListen();
+			}
+			break;
+#endif
 		case Mode::VAD:
 			// Force the first fetch in VAD mode to broadcast the current state.
 			lastVADState.store(-1);
@@ -406,6 +432,11 @@ void AudioFrontend::setMode(Mode mode){
 			// their next loop iteration; once both AtGate bits are set, no work is in flight.
 			xEventGroupClearBits(taskGate, RunBit);
 			xEventGroupWaitBits(taskGate, FeedAtGate | ProcAtGate, pdFALSE, pdTRUE, portMAX_DELAY);
+#ifdef BB_ESMX_PILOT
+			if(previousMode == Mode::PilotSpeech){
+				pilotCapture.stop();
+			}
+#endif
 			break;
 	}
 
@@ -506,7 +537,11 @@ void AudioFrontend::waitAtGate(EventBits_t atGateBit){
 	xEventGroupClearBits(taskGate, atGateBit);
 }
 
+#ifdef BB_ESMX_PILOT
+void AudioFrontend::loadModel(bool withMultiNet){
+#else
 void AudioFrontend::loadModel(){
+#endif
 	if(afe_handle){
 		CMF_LOG(AudioFrontend, LogLevel::Error, "Model already loaded!");
 		return;
@@ -552,6 +587,12 @@ void AudioFrontend::loadModel(){
 	afe_handle = esp_afe_handle_from_config(afe_config);
 	afe_data = afe_handle->create_from_config(afe_config);
 
+#ifdef BB_ESMX_PILOT
+	if(!withMultiNet || !afe_data){
+		return;
+	}
+#endif
+
 	//Multinet (speech recognition)
 	char* mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_ENGLISH);
 	CMF_LOG(AudioFrontend, LogLevel::Info, "multinet:%s", mn_name);
@@ -588,7 +629,13 @@ void AudioFrontend::unloadModel(){
 
 	uint32_t startTime = millis();
 
+#ifdef BB_ESMX_PILOT
+	if(multinet_data){
+		ESP_ERROR_CHECK(esp_mn_commands_free());
+	}
+#else
 	ESP_ERROR_CHECK(esp_mn_commands_free());
+#endif
 
 	if(multinet_handle && multinet_data){
 		multinet_handle->destroy(multinet_data);
@@ -601,6 +648,10 @@ void AudioFrontend::unloadModel(){
 		afe_handle = nullptr;
 		afe_data = nullptr;
 	}
+#ifdef BB_ESMX_PILOT
+	// Clear the handle even if AFE creation returned no state.
+	afe_handle = nullptr;
+#endif
 
 	if(afe_config){
 		afe_config_free(afe_config);
@@ -640,6 +691,16 @@ void AudioFrontend::procTaskFunc(){
 		CMF_LOG(AudioFrontend, LogLevel::Error, "Model not loaded in proc task");
 		return;
 	}
+
+#ifdef BB_ESMX_PILOT
+	if(currentMode == Mode::PilotSpeech){
+		const auto* frame = afe_handle->fetch_with_delay(afe_data, pdMS_TO_TICKS(100));
+		if(const auto intent = pilotCapture.accept(frame)){
+			onPilotIntent.broadcast(*intent);
+		}
+		return;
+	}
+#endif
 
 	afe_fetch_result_t* res = afe_handle->fetch(afe_data);
 

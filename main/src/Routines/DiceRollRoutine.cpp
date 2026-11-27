@@ -19,6 +19,10 @@
 #include "Services/Audio/FileAudioSource.h"
 #include "Services/Com.h"
 
+#ifdef BB_ESMX_PILOT
+#include "Audio/EsMxPilot/Voice.h"
+#endif
+
 DEFINE_LOG(DiceRollRoutine)
 
 struct CountEntry {
@@ -164,9 +168,12 @@ static void handleNoInput(Audio* audio, const char* label, Phrase timeoutPhrase,
 	}
 }
 
-static void rollAndReport(Audio* audio, Com* com, AudioFrontend* af, AACAudioGenerator* aacGen, uint8_t count, DiceRollData::DiceType diceType){
-	af->setMode(AudioFrontend::Mode::Off);
-	af->unloadModel();
+static void rollAndReport(Audio* audio, Com* com, AudioFrontend* af, AACAudioGenerator* aacGen,
+                          uint8_t count, DiceRollData::DiceType diceType, [[maybe_unused]] bool esMxD6 = false){
+	if(af != nullptr){
+		af->setMode(AudioFrontend::Mode::Off);
+		af->unloadModel();
+	}
 
 	const uint8_t sides = diceTypeSides(diceType);
 	uint32_t total = 0;
@@ -178,9 +185,14 @@ static void rollAndReport(Audio* audio, Com* com, AudioFrontend* af, AACAudioGen
 	const uint16_t result = static_cast<uint16_t>(total);
 	CMF_LOG(DiceRollRoutine, LogLevel::Info, "Roll: %dd%d = %d", count, sides, result);
 
-	char rollText[64];
-	snprintf(rollText, sizeof(rollText), "%dd%d roll", count, sides);
-	speakText(audio, rollText);
+#ifdef BB_ESMX_PILOT
+	if(!esMxD6 || !EsMx::Pilot::playDiceIntro(*audio))
+#endif
+	{
+		char rollText[64];
+		snprintf(rollText, sizeof(rollText), "%dd%d roll", count, sides);
+		speakText(audio, rollText);
+	}
 
 	sendState(com, DiceRollData::Phase::RollAnim, diceType, count, 0);
 
@@ -198,10 +210,15 @@ static void rollAndReport(Audio* audio, Com* com, AudioFrontend* af, AACAudioGen
 
 	sendState(com, DiceRollData::Phase::Result, diceType, count, result);
 
-	char resultText[16];
-	snprintf(resultText, sizeof(resultText), "%d", result);
-	CMF_LOG(DiceRollRoutine, LogLevel::Info, "Speaking result: '%s'", resultText);
-	speakText(audio, resultText);
+#ifdef BB_ESMX_PILOT
+	if(!esMxD6 || !EsMx::Pilot::playDiceResult(*audio, result))
+#endif
+	{
+		char resultText[16];
+		snprintf(resultText, sizeof(resultText), "%d", result);
+		CMF_LOG(DiceRollRoutine, LogLevel::Info, "Speaking result: '%s'", resultText);
+		speakText(audio, resultText);
+	}
 
 	CMF_LOG(DiceRollRoutine, LogLevel::Info, "--- Dice roll done ---");
 }
@@ -288,6 +305,23 @@ DiceRollD4Routine::DiceRollD4Routine(BBStateMachine* sm) : DiceRollRoutine(sm){
 DiceRollD6Routine::DiceRollD6Routine(BBStateMachine* sm) : DiceRollRoutine(sm){
 	knownDiceType = DiceRollData::DiceType::D6;
 }
+
+#ifdef BB_ESMX_PILOT
+Routine::TickingState DiceRollEsMxD6Routine::tick(float){
+	const Application* app = ApplicationStatics::getApplication();
+	auto* audio = app->getService<Audio>();
+	auto* com = app->getService<Com>();
+	auto* aacGen = app->getService<AACAudioGenerator>();
+	if(!audio || !ServiceLocator::SpeechAudioGenInstance || !ServiceLocator::SpeechGenInstance || !com){
+		CMF_LOG(DiceRollRoutine, LogLevel::Error, "Missing required service(s) for es-MX D6");
+		return TickingState::Done;
+	}
+
+	// ListenState has already closed its capture; this one-die preset needs no MultiNet turn.
+	rollAndReport(audio, com, nullptr, aacGen, 1, DiceRollData::DiceType::D6, true);
+	return TickingState::Done;
+}
+#endif
 
 DiceRollD8Routine::DiceRollD8Routine(BBStateMachine* sm) : DiceRollRoutine(sm){
 	knownDiceType = DiceRollData::DiceType::D8;

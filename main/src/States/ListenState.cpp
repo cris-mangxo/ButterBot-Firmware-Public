@@ -30,9 +30,14 @@
 #include "Services/IRStorage.h"
 #include "Routines/IRActionRoutine.h"
 #include "ScenarioRoutineMappings.h"
+#ifdef BB_ESMX_PILOT
+#include "Audio/EsMxPilot/Dispatch.h"
+#include "Audio/EsMxPilot/Voice.h"
+#endif
 
 DEFINE_LOG(ListenState)
 
+#ifndef BB_ESMX_PILOT
 static void playPhraseBlocking(const Application* app, Phrase phrase){
     if(app == nullptr){
         return;
@@ -58,7 +63,9 @@ static void playPhraseBlocking(const Application* app, Phrase phrase){
     audio->waitEnd(portMAX_DELAY);
 }
 
+#endif
 static const char* TAG = "ListenState";
+#ifndef BB_ESMX_PILOT
 
 namespace {
     constexpr uint32_t IntroWindowMs = 2500;
@@ -182,6 +189,7 @@ namespace {
 
 }
 
+#endif
 std::vector<AudioFrontend::Phrase> ListenState::phrases;
 
 void ListenState::preallocate(){
@@ -193,7 +201,9 @@ ListenState::ListenState(BBStateMachine* sm) : State(sm){
 
     const Application* app = ApplicationStatics::getApplication();
 
+#ifndef BB_ESMX_PILOT
     buildAndPlayIntro(app);
+#endif
 
     auto buttonInput = app->getService<ISRButtonInput>();
     if(buttonInput == nullptr){
@@ -227,6 +237,13 @@ ListenState::ListenState(BBStateMachine* sm) : State(sm){
         return;
     }
 
+#ifdef BB_ESMX_PILOT
+    audioFrontend->loadModel(false);
+    if(Audio* audio = app->getService<Audio>(); audio && EsMx::Pilot::playListening(*audio)){
+        sm->bindState(audioFrontend->onPilotIntent, this, &ListenState::onPilotIntent);
+        pilotStartupFailed = !audioFrontend->startPilotSpeech();
+    }
+#else
 	audioFrontend->loadModel();
 
     audioFrontend->setMode(AudioFrontend::Mode::Off);
@@ -253,6 +270,7 @@ ListenState::ListenState(BBStateMachine* sm) : State(sm){
         sm->bindState(audioFrontend->onPhrase, this, &ListenState::onPhrase);
         audioFrontend->setMode(AudioFrontend::Mode::Speech);
     }
+#endif
 }
 
 ListenState::~ListenState(){
@@ -264,9 +282,45 @@ ListenState::~ListenState(){
     }
 
     if(timedOut){
+#ifdef BB_ESMX_PILOT
+        if(Audio* audio = app->getService<Audio>()){
+            EsMx::Pilot::playUnrecognized(*audio);
+        }
+#else
         playPhraseBlocking(app, Phrase::ListeningTimeout);
+#endif
     }
 }
+
+#ifdef BB_ESMX_PILOT
+void ListenState::tick(float){
+    if(pilotStartupFailed){
+        pilotStartupFailed = false;
+        onPilotIntent(EsMx::Kws::Intent::Unknown);
+    }
+}
+
+void ListenState::onPilotIntent(EsMx::Kws::Intent intent){
+    // CMF queues the event on the state machine thread. A pending user transition wins.
+    if(sm->isTransitionPending()){
+        return;
+    }
+
+    const RoutineFactory factory = EsMx::Pilot::routineForIntent(intent);
+    if(factory && ServiceLocator::ScenarioRoutineServiceInstance){
+        ServiceLocator::ScenarioRoutineServiceInstance->setRoutineFactory(factory);
+        sm->transitionTo<ScenarioState>();
+        return;
+    }
+
+    if(com){
+        ListenData listenData{.phase = ListenData::Phase::NotUnderstand};
+        com->sendData(BB::State::Listen, BB::Action::Listen{}, listenData);
+    }
+    timedOut = true;
+    sm->transitionTo<IdleState>();
+}
+#endif
 
 void ListenState::onRC(){
     sm->transitionTo<RCState>();
@@ -336,12 +390,23 @@ void ListenState::onCommand(Ctrl::Command cmd) {
 }
 
 void ListenState::aborted(){
+#ifdef BB_ESMX_PILOT
+    const auto* app = ApplicationStatics::getApplication();
+    if(auto* frontend = app->getService<AudioFrontend>()){
+        frontend->setMode(AudioFrontend::Mode::Off);
+    }
+    if(auto* audio = app->getService<Audio>()){
+        audio->stop();
+        EsMx::Pilot::playCancelled(*audio);
+    }
+#else
 	if(ServiceLocator::ScenarioRoutineServiceInstance){
 		if(Audio* audio = ApplicationStatics::getApplication()->getService<Audio>()){
 			audio->stop();
 			audio->play(ServiceLocator::SpeechAudioGenInstance.get(), std::make_unique<SpeechAudioSource>(SpeechGen::InputType::Text, Phrases::map(Phrase::ListenAbort, Phrases::get(Phrase::ListenAbort))));
 		}
 	}
+#endif
 
     if(com == nullptr){
         return;

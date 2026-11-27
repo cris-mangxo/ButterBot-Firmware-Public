@@ -18,6 +18,9 @@
 #include "esp_mn_iface.h"
 #include "model_path.h"
 #include "Services/LEDControl.h"
+#ifdef BB_ESMX_PILOT
+#include "EsMxKws/PilotCapture.h"
+#endif
 
 class AudioFrontend : public Object {
 	GENERATED_BODY(AudioFrontend, Object, void);
@@ -27,7 +30,10 @@ public:
 	~AudioFrontend() override;
 
 	enum class Mode : uint8_t {
-		Audio, Wake, Speech, VAD, Off
+		Audio, Wake, Speech, VAD, Off,
+#ifdef BB_ESMX_PILOT
+		PilotSpeech,
+#endif
 	};
 
 	void setMode(Mode mode);
@@ -88,6 +94,13 @@ public:
 	DECLARE_EVENT(PhraseEvent, AudioFrontend, bool, int, std::string, float)
 	PhraseEvent onPhrase = PhraseEvent(this);
 
+#ifdef BB_ESMX_PILOT
+	// Starts one es-MX turn with the AFE loaded and its tasks parked.
+	bool startPilotSpeech();
+	DECLARE_EVENT(PilotIntentEvent, AudioFrontend, EsMx::Kws::Intent)
+	PilotIntentEvent onPilotIntent = PilotIntentEvent(this);
+#endif
+
 	/**
 	 * bool active - true when voice activity is ongoing, false when no voice activity.
 	 * Fires only on changes; the first fetch after entering Mode::VAD always fires
@@ -96,7 +109,11 @@ public:
 	DECLARE_EVENT(VADEvent, AudioFrontend, bool)
 	VADEvent onVAD = VADEvent(this);
 
+#ifdef BB_ESMX_PILOT
+	void loadModel(bool withMultiNet = true);
+#else
 	void loadModel();
+#endif
 	void unloadModel();
 
 private:
@@ -126,6 +143,10 @@ private:
 	void processSpeech(afe_fetch_result_t* res);
 
 	void processVAD(afe_fetch_result_t* res);
+
+#ifdef BB_ESMX_PILOT
+	EsMx::Pilot::PilotCapture pilotCapture;
+#endif
 
 	// Last vad_state observed in Mode::VAD that was broadcast on onVAD.
 	// -1 is a sentinel meaning "nothing fired yet"; used to force the first

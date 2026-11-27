@@ -6,6 +6,7 @@
 #include <Phrases.h>
 #include <cstdio>
 #include <Util/ServiceLocator.h>
+#include "Audio/EsMxPilot/Voice.h"
 #include "Audio/SpeechAudioGen.h"
 #include "Audio/SpeechAudioSource.h"
 #include "Audio/SpeechGen.h"
@@ -36,6 +37,12 @@ Routine::TickingState CurrentTimeRoutine::tick(float deltaTime){
         data.status = CurrentTimeData::Status::NoTime;
         data.currentTime = {};
         com->sendData(BB::State::Scenario, BB::Action::Scenario::CurrentTime, data);
+
+#ifdef BB_ESMX_PILOT
+        if(EsMx::Pilot::playClockUnset(*audio, id)){
+            return TickingState::Done;
+        }
+#endif
 
         auto source = std::make_unique<SpeechAudioSource>(SpeechGen::InputType::Text, Phrases::map(Phrase::CurrentTimeNotConfigured, id));
         audio->play(ServiceLocator::SpeechAudioGenInstance.get(), std::move(source));
@@ -68,6 +75,12 @@ Routine::TickingState CurrentTimeRoutine::tick(float deltaTime){
     data.status = CurrentTimeData::Status::ShowTime;
     data.currentTime = now;
     com->sendData(BB::State::Scenario, BB::Action::Scenario::CurrentTime, data);
+
+#ifdef BB_ESMX_PILOT
+    if(EsMx::Pilot::playClockTime(*audio, hour24, minute)){
+        return TickingState::Done;
+    }
+#endif
 
     auto source = std::make_unique<SpeechAudioSource>(SpeechGen::InputType::Text, std::string(buf));
     audio->play(ServiceLocator::SpeechAudioGenInstance.get(), std::move(source));

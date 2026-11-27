@@ -30,6 +30,14 @@ public:
     explicit DiceRollD6Routine(BBStateMachine* sm);
 };
 
+#ifdef BB_ESMX_PILOT
+class DiceRollEsMxD6Routine : public Routine {
+public:
+    using Routine::Routine;
+    TickingState tick(float deltaTime) override;
+};
+#endif
+
 class DiceRollD8Routine : public DiceRollRoutine {
 public:
     explicit DiceRollD8Routine(BBStateMachine* sm);

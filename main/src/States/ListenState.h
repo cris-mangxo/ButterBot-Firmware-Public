@@ -13,11 +13,18 @@ public:
     virtual ~ListenState() override;
 
     static void preallocate();
+#ifdef BB_ESMX_PILOT
+    void tick(float deltaTime) override;
+#endif
 
 private:
-    Com* com;
+    Com* com = nullptr;
 
     bool timedOut = false;
+#ifdef BB_ESMX_PILOT
+    bool pilotStartupFailed = true;
+    void onPilotIntent(EsMx::Kws::Intent intent);
+#endif
 
     void onRC();
     void onPhrase(bool recognized, int index, const std::string& transcript, float confidence);

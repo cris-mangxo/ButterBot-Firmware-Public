@@ -6,6 +6,7 @@
 #include <Phrases.h>
 #include <cstdlib>
 #include <Util/ServiceLocator.h>
+#include "Audio/EsMxPilot/Voice.h"
 #include "Audio/SpeechAudioGen.h"
 #include "Audio/SpeechAudioSource.h"
 #include "Audio/SpeechGen.h"
@@ -23,7 +24,11 @@ Routine::TickingState PassTheButterRoutine::tick(float deltaTime){
         abort();
     }
 
+#ifdef BB_ESMX_PILOT
+    const int16_t id = EsMx::Pilot::butterVoiceId(Phrases::get(Phrase::PassTheButter));
+#else
     const int16_t id = Phrases::get(Phrase::PassTheButter);
+#endif
     if(id < 0){
         CMF_LOG(PassTheButterRoutine, LogLevel::Warning, "Phrases::get returned no phrase id");
         return TickingState::Done;
@@ -32,6 +37,12 @@ Routine::TickingState PassTheButterRoutine::tick(float deltaTime){
     PassTheButterData passTheButterData{};
     passTheButterData.id = id;
     com->sendData(BB::State::Scenario, BB::Action::Scenario::PassTheButter, passTheButterData);
+
+#ifdef BB_ESMX_PILOT
+    if(EsMx::Pilot::playButter(*audio, id)){
+        return TickingState::Done;
+    }
+#endif
 
     auto source = std::make_unique<SpeechAudioSource>(SpeechGen::InputType::Text, Phrases::map(Phrase::PassTheButter, id));
     audio->play(ServiceLocator::SpeechAudioGenInstance.get(), std::move(source));
