@@ -579,9 +579,9 @@ Para medir, usa `public-orders` con `--esmx-full-turns-public --corpus "$lab/ful
 
 ## Reentrenar el banco D6 con otras voces es-MX
 
-[La ficha de reentrenamiento](autonomous/whole_orders_esmx_retrain.json) agrega grabaciones de Puebla, Reto Bilingüe, Jackalope Studios y CLIDi Universidad La Salle México. Se usan instrucciones con un dado cúbico visible y controles de mención, otro dado y omisión de una tirada sin tipo confirmado. La Salle se reserva para calibración. El extractor rechaza grupos, URL o huellas que coincidan con el panel de `public-88` y `public-89`. Se conservan las exclusiones de donantes de los corpus históricos.
+[La ficha de reentrenamiento](autonomous/whole_orders_esmx_retrain.json) agrega grabaciones de Puebla, Reto Bilingüe, Jackalope Studios y CLIDi Universidad La Salle México. Se usan instrucciones con un dado cúbico visible y controles de mención, otro dado y omisión de una tirada sin tipo confirmado. La Salle se reserva para calibración. El extractor rechaza grupos, URL o huellas que coincidan con cualquiera de los paneles públicos reservados, incluido el de `public-88` y `public-89`. Se conservan las exclusiones de donantes de los corpus históricos.
 
-Guarda los cuatro audios originales de la ficha con los nombres indicados y formato M4A 140. En el fork, combina el corpus nuevo con los tres ya extraídos. Deja `$expanded`, `$contextual` y `$explicit` apuntando a esos corpus, y `$evidence_root` al laboratorio histórico.
+Guarda los audios originales de la ficha como `puebla.m4a`, `reto.m4a`, `jackalope.m4a` y `lasalle.m4a`, con el formato M4A 140. En el fork, combina el corpus nuevo con los tres ya extraídos. Deja `$expanded`, `$contextual` y `$explicit` apuntando a esos corpus, y `$evidence_root` al laboratorio histórico.
 
 ```fish
 set -x PYTHONPATH experiments/esmx-compactas
