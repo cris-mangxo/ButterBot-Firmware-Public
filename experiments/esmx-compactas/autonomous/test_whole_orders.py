@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 import whole_orders
 import public_orders
-from public_orders import FIXTURE, EXPANDED_FIXTURE, NATURAL_FIXTURE, ORDERED_FIXTURE, specification as reserved, verify_unique_ids
+from public_orders import ESMX_FIXTURE, EXPANDED_FIXTURE, FIXTURE, HELDOUT_FIXTURES, NATURAL_FIXTURE, ORDERED_FIXTURE
+from public_orders import specification as reserved, verify_unique_ids
 
 
 class WholeOrderSplitTest(unittest.TestCase):
@@ -93,3 +94,53 @@ class WholeOrderSplitTest(unittest.TestCase):
             with patch.object(public_orders, "NATURAL_FIXTURE", copy):
                 with self.assertRaisesRegex(ValueError, "Falta la huella PCM"):
                     reserved(copy)
+
+    def test_esmx_sources_are_disjoint_and_reserved_by_group_url_and_hash(self):
+        sources = reserved(ESMX_FIXTURE)["sources"]
+        others = [(name, meta) for fixture in HELDOUT_FIXTURES if fixture != ESMX_FIXTURE
+                  for name, meta in reserved(fixture)["sources"].items()]
+        groups = {meta.get("speaker_group", name) for name, meta in others}
+        assets = {meta[key] for _, meta in others for key in ("enclosure", "sha256")}
+        for source in sources.values():
+            self.assertNotIn(source["speaker_group"], groups)
+            for key in ("enclosure", "sha256"):
+                self.assertNotIn(source[key], assets)
+            for key in ("speaker_group", "enclosure", "sha256"):
+                with self.subTest(source=source["speaker_group"], key=key):
+                    meta = self.spec["sources"]["apaga"]
+                    previous, meta[key] = meta[key], source[key]
+                    try:
+                        with self.assertRaisesRegex(ValueError, "panel reservado"):
+                            self.verify()
+                    finally:
+                        meta[key] = previous
+
+    def test_esmx_profile_requires_hash_after_renaming(self):
+        panel = reserved(ESMX_FIXTURE)
+        del panel["cases"][0]["pcm_sha256"]
+        with tempfile.TemporaryDirectory() as directory:
+            copy = Path(directory) / "renamed.json"
+            copy.write_text(json.dumps(panel), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Falta la huella PCM"):
+                reserved(copy)
+
+    def test_esmx_cancellation_requires_valid_intervals(self):
+        panel = reserved(ESMX_FIXTURE)
+        case = next(row for row in panel["cases"] if row["category"] == "contextual_single_d6_cancel")
+        case["context_ms"] = [case["start_ms"] + 100, case["end_ms"]]
+        with tempfile.TemporaryDirectory() as directory:
+            copy = Path(directory) / "renamed.json"
+            copy.write_text(json.dumps(panel), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "contexto de la toma"):
+                reserved(copy)
+
+    def test_secondary_controls_cannot_be_counted_as_esmx_orders(self):
+        panel = reserved(ESMX_FIXTURE)
+        case = next(row for row in panel["cases"] if row.get("supplemental_control"))
+        case["expected"] = 6
+        case["category"] = "explicit_single_d6_order"
+        with tempfile.TemporaryDirectory() as directory:
+            copy = Path(directory) / "renamed.json"
+            copy.write_text(json.dumps(panel), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "controles externos marcados"):
+                reserved(copy)

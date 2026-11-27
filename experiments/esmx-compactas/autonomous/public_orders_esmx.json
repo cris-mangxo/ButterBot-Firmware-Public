@@ -1,0 +1,218 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "dragones": {
+      "speaker_group": "se-nos-cayo-la-campana",
+      "locale": "es-MX",
+      "locale_evidence": "https://media.rss.com/se-nos-cayo-la-campana/feed.xml",
+      "page": "https://rss.com/podcasts/se-nos-cayo-la-campana/3060181",
+      "enclosure": "https://content.rss.com/episodes/397076/3060181/se-nos-cayo-la-campana/2026_08_11_02_42_54_9b8a46e4-004b-431d-803d-20f51ed75bec.mp3",
+      "sha256": "ae9fa28c934da64d8fbdacda7746fe1a030b43eeed98fadb8c6c1df06058962c"
+    },
+    "marin": {
+      "speaker_group": "dano-marin",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/watch?v=o2mXxW7SyvM",
+      "page": "https://www.youtube.com/watch?v=o2mXxW7SyvM",
+      "enclosure": "https://www.youtube.com/watch?v=o2mXxW7SyvM",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "08c6a95dd319372bf76bf6d4f9eeb2a8a9eb057120049c502e44389570e3ad9b"
+    },
+    "sepdados": {
+      "speaker_group": "aprende-en-casa-sep",
+      "locale": "es-MX",
+      "locale_evidence": "https://nemd.aprende.gob.mx/contenido/recurso/14898/",
+      "page": "https://nemd.aprende.gob.mx/contenido/recurso/14898/",
+      "enclosure": "https://nemdigitalstorage.blob.core.windows.net/nem-main/aec-video/II/primaria/1/semana_5/martes/2209_mat_1_lsm.mp4",
+      "format": "mp4",
+      "sha256": "2dc824613d2bf2e9b7b9d8f4f6bdd03d2abc9bd97db757a4b2fc7a73f0e174e3"
+    },
+    "oca-ray": {
+      "speaker_group": "powderray",
+      "locale": "es",
+      "locale_evidence": "https://www.youtube.com/watch?v=Y4CHWk9T_fc",
+      "page": "https://www.youtube.com/watch?v=Y4CHWk9T_fc",
+      "enclosure": "https://www.youtube.com/watch?v=Y4CHWk9T_fc",
+      "format": "webm",
+      "youtube_audio_format": "251-1",
+      "sha256": "ee95eb25505898499c17ce2b5fec22246af099183106f4805867f884558e2a0d"
+    },
+    "rescates": {
+      "speaker_group": "condado-veinte",
+      "locale": "es-MX",
+      "locale_evidence": "https://sesioncero.mx/grimorio/creadores-de-contenido-de-rol-en-mexico-que-debes-conocer",
+      "page": "https://news.sonoromedia.com/2024/08/12/condado-20/",
+      "enclosure": "https://www.podtrac.com/pts/redirect.mp3/pdst.fm/e/dts.podtrac.com/redirect.mp3/traffic.megaphone.fm/SONORO3974383726.mp3?updated=1720665174",
+      "sha256": "0531275f0a6436ec6c6ef4f61993121e8b69c7fa0a30711dc58c7c7aa75c6ed9"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-61",
+      "source": "dragones",
+      "start_ms": 1053150,
+      "end_ms": 1055840,
+      "expected": 6,
+      "category": "explicit_single_d6_order",
+      "summary": "Pide lanzar el de seis que corresponde a la inspiración bárdica. En el turno se anuncia que se usará un único D6 y se da un resultado de ese dado.",
+      "context_ms": [
+        1049000,
+        1061000
+      ],
+      "pcm_sha256": "f561bae0ccbbaefce0c165bdcf1b72635b89564b6493bf33f4247df6c7d60ccf",
+      "die_evidence_ms": [
+        1049000,
+        1061000
+      ]
+    },
+    {
+      "id": "public-62",
+      "source": "sepdados",
+      "start_ms": 362080,
+      "end_ms": 364300,
+      "expected": 6,
+      "category": "contextual_single_d6_order",
+      "summary": "Quien dirige la demostración invita a lanzar un dado. Se había contado que cada cubo tiene seis caras. Las dos personas hacen sus lanzamientos en turnos separados.",
+      "context_ms": [
+        225000,
+        369000
+      ],
+      "pcm_sha256": "5a4935568e66ce281ebe4ce47d32f93e946fb25c4e8893f4d080a763dd2242c0",
+      "die_evidence_ms": [
+        225000,
+        253000
+      ]
+    },
+    {
+      "id": "public-63",
+      "source": "marin",
+      "start_ms": 69450,
+      "end_ms": 73230,
+      "expected": 6,
+      "category": "contextual_single_d6_order",
+      "summary": "Indica que cada participante lance una vez el dado común para decidir quién empieza. La variante mostrada usa un dado del uno al seis.",
+      "context_ms": [
+        61500,
+        96000
+      ],
+      "pcm_sha256": "c125a8128efc82a8fc86c50e5b54460939bddb3dbc108d769cd66190b07285b4",
+      "die_evidence_ms": [
+        61500,
+        96000
+      ]
+    },
+    {
+      "id": "public-64",
+      "source": "marin",
+      "start_ms": 728620,
+      "end_ms": 731980,
+      "expected": 0,
+      "category": "contextual_single_d6_cancel",
+      "summary": "Representación hablada de la cancelación de una tirada de repetición al quedar ladeado el dado. El narrador niega repetirla y cede el turno al compañero.",
+      "context_ms": [
+        703000,
+        733000
+      ],
+      "pcm_sha256": "ce55d4b1dcd5fd0cb8607d52c21849285cb779ae5ecdd145131841f7e4c6354c",
+      "die_evidence_ms": [
+        61500,
+        96000
+      ]
+    },
+    {
+      "id": "public-65",
+      "source": "marin",
+      "start_ms": 710060,
+      "end_ms": 714060,
+      "expected": 0,
+      "category": "contextual_single_d6_turn_skip",
+      "summary": "El conductor explica que si el dado del tablero cae fuera se pierde el turno. Es otra condición de la misma regla y la pronuncia la misma voz.",
+      "context_ms": [
+        698000,
+        719000
+      ],
+      "pcm_sha256": "8b5f2a0f0e1ce479a7f564b239c1c4a173a61761d732da01514c6174ed2dd6a5",
+      "die_evidence_ms": [
+        61500,
+        96000
+      ]
+    },
+    {
+      "id": "public-66",
+      "source": "rescates",
+      "start_ms": 128420,
+      "end_ms": 132240,
+      "expected": 0,
+      "category": "other_die",
+      "summary": "Aclara cómo se resuelve un crítico con un dado de ocho y ocho puntos fijos.",
+      "context_ms": [
+        121000,
+        134000
+      ],
+      "pcm_sha256": "5d80c48d74783f07d9f0158c7ac15df68d5c9de5d6692692a3b2a10a8877038c"
+    },
+    {
+      "id": "public-67",
+      "source": "sepdados",
+      "start_ms": 225070,
+      "end_ms": 227540,
+      "expected": 0,
+      "category": "take_die_without_roll",
+      "summary": "Le pide a su compañero tomar el dado para observarlo, antes de comenzar las tiradas.",
+      "context_ms": [
+        216000,
+        253000
+      ],
+      "pcm_sha256": "15caff891d4c0eacb095a23a6fd291f3e91ea14dfb613c2a86e8092314ff53e2"
+    },
+    {
+      "id": "public-68",
+      "source": "sepdados",
+      "start_ms": 354850,
+      "end_ms": 356240,
+      "expected": 0,
+      "category": "single_d6_announced",
+      "summary": "En este corte se anuncia en primera persona que un participante va a lanzar el dado que tiene en la mano.",
+      "context_ms": [
+        345000,
+        367000
+      ],
+      "pcm_sha256": "cd0333fc43f401fe405e374931c50579330f30368921ccd5671b2b69c5a9199f"
+    },
+    {
+      "id": "public-69",
+      "source": "dragones",
+      "start_ms": 1889780,
+      "end_ms": 1893350,
+      "expected": 0,
+      "category": "other_die_cancel",
+      "summary": "Se omite una comprobación de habilidad de Dungeons & Dragons en el camposanto. Es una negación real de una tirada de habilidad.",
+      "context_ms": [
+        1878000,
+        1907000
+      ],
+      "pcm_sha256": "25ed67a61ea58c08b7df7cee201f8e8f5c47fafca9e3f95907dab95c96109184"
+    },
+    {
+      "id": "public-70",
+      "source": "oca-ray",
+      "start_ms": 244470,
+      "end_ms": 247965,
+      "expected": 0,
+      "category": "contextual_single_d6_reroll_exception",
+      "summary": "Excepción explicada en La oca. En la última casilla se omite la repetición que la regla concede en otras casillas. El narrador fija su variante de un dado y la distingue de la de dos.",
+      "context_ms": [
+        73200,
+        249000
+      ],
+      "pcm_sha256": "deb954e53bfddc9352b81db13aa7452a8092caee6cb3bafff9aa274ee7fb94a0",
+      "die_evidence_ms": [
+        73440,
+        91320
+      ],
+      "supplemental_control": true,
+      "die_evidence_note": "La lista audiovisual de componentes a 01:27 representa un dado cúbico único con seis puntos en la cara visible."
+    }
+  ]
+}

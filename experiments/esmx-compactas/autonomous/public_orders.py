@@ -15,19 +15,37 @@ FIXTURE = Path(__file__).with_name("public_orders.json")
 EXPANDED_FIXTURE = FIXTURE.with_name("public_orders_expanded.json")
 ORDERED_FIXTURE = FIXTURE.with_name("public_orders_ordered.json")
 NATURAL_FIXTURE = FIXTURE.with_name("public_orders_natural.json")
-HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE)
+ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx.json")
+HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE, ESMX_FIXTURE)
+STRICT_ESMX_PROFILE = "esmx-orders-with-controls-v1"
+ESMX_POSITIVES = {"explicit_single_d6_order", "contextual_single_d6_order"}
+ESMX_CONTEXTUAL = {"contextual_single_d6_order", "contextual_single_d6_cancel",
+                   "contextual_single_d6_turn_skip", "contextual_single_d6_reroll_exception"}
 NEGATION_GAP_MS = 70
+
+
+def valid_interval(value):
+    return (isinstance(value, list) and len(value) == 2 and all(type(point) is int for point in value)
+            and 0 <= value[0] < value[1])
 
 
 def specification(fixture=None):
     fixture = fixture or FIXTURE
     data = json.loads(fixture.read_text("utf-8"))
+    esmx = data.get("profile") == STRICT_ESMX_PROFILE
+    fixture_path = fixture.resolve()
+    if fixture_path == ESMX_FIXTURE.resolve() and not esmx:
+        raise ValueError("Falta el perfil del panel es-MX")
+    pcm_required = esmx or fixture_path == NATURAL_FIXTURE.resolve()
     declared = set()
     for name, source in data["sources"].items():
         if (not re.fullmatch(r"[a-z]+(?:-[a-z]+)*", name)
                 or not re.fullmatch(r"[a-f0-9]{64}", source["sha256"])
-                or source.get("format", "mp3") not in {"mp3", "wav"}):
+                or source.get("format", "mp3") not in {"mp3", "wav", "m4a", "mp4", "webm"}):
             raise ValueError("Fuente pública inválida")
+        if esmx and (not source.get("speaker_group") or source.get("locale") not in {"es-MX", "es-ES", "es"}
+                     or not source.get("locale_evidence")):
+            raise ValueError("Falta procedencia del habla pública")
     for case in data["cases"]:
         name = case["id"]
         start, end = case["start_ms"], case["end_ms"]
@@ -36,10 +54,24 @@ def specification(fixture=None):
                 or start < 0 or not 0 < end - start <= 4000):
             raise ValueError("Caso humano inválido")
         pcm_hash = case.get("pcm_sha256")
-        if fixture == NATURAL_FIXTURE and pcm_hash is None:
+        if pcm_required and pcm_hash is None:
             raise ValueError("Falta la huella PCM del panel natural")
         if pcm_hash is not None and not re.fullmatch(r"[a-f0-9]{64}", pcm_hash):
             raise ValueError("Huella PCM inválida")
+        if esmx:
+            locale = data["sources"][case["source"]]["locale"]
+            secondary_control = case.get("supplemental_control", False)
+            if (not case.get("summary") or "negation_prefix" in case
+                    or (case["expected"] == 6) != (case["category"] in ESMX_POSITIVES)
+                    or type(secondary_control) is not bool
+                    or secondary_control != (locale != "es-MX")
+                    or (secondary_control and case["expected"] != 0)):
+                raise ValueError("El panel es-MX requiere tomas continuas y controles externos marcados")
+        if esmx and case["category"] in ESMX_CONTEXTUAL:
+            context = case.get("context_ms")
+            if (not valid_interval(context) or not context[0] <= start < end <= context[1]
+                    or not valid_interval(case.get("die_evidence_ms"))):
+                raise ValueError("Falta el contexto de la toma o del tipo de dado")
         if "negation_prefix" in case:
             prefix = case["negation_prefix"]
             first, last = prefix["start_ms"], prefix["end_ms"]
@@ -126,18 +158,20 @@ def verified_cases(folder, fixture_path=None):
         yield case, wav
 
 
+def add_panel_options(parser, suffix=""):
+    panel = parser.add_mutually_exclusive_group()
+    for name, fixture in (("expanded", EXPANDED_FIXTURE), ("ordered", ORDERED_FIXTURE),
+                          ("natural", NATURAL_FIXTURE), ("esmx", ESMX_FIXTURE)):
+        panel.add_argument(f"--{name}{suffix}", action="store_const", const=fixture, dest="public_fixture")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    panel = parser.add_mutually_exclusive_group()
-    panel.add_argument("--expanded", action="store_true")
-    panel.add_argument("--ordered", action="store_true")
-    panel.add_argument("--natural", action="store_true")
+    add_panel_options(parser)
     args = parser.parse_args()
-    fixture = (NATURAL_FIXTURE if args.natural else ORDERED_FIXTURE if args.ordered
-               else EXPANDED_FIXTURE if args.expanded else FIXTURE)
-    extract(args.sources, args.out, fixture)
+    extract(args.sources, args.out, args.public_fixture)
 
 
 if __name__ == "__main__":

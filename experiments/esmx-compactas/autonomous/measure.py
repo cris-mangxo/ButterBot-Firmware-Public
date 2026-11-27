@@ -13,8 +13,7 @@ from d6_guard import LOCAL_CV_SHA256, guarded_score
 from phrases import too_long
 from phrases_human import group, read_tables, select, selected_wavs
 from pilot import MAX_COST, MIN_GAP, read_pcm, score
-from public_orders import EXPANDED_FIXTURE as EXPANDED_PUBLIC
-from public_orders import FIXTURE as PUBLIC_FIXTURE, NATURAL_FIXTURE, ORDERED_FIXTURE as ORDERED_PUBLIC, verified_cases
+from public_orders import FIXTURE as PUBLIC_FIXTURE, add_panel_options, verified_cases
 
 BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
 CONTRAST_BANK_SHA256 = "7d5a53c1c98f4c74d45ac6984e223c41dd8d79f5e61558a9b19cf2459a05c8d8"
@@ -171,10 +170,7 @@ def main():
     parser.add_argument("--continuous", type=Path)
     parser.add_argument("--rescue", action="store_true")
     parser.add_argument("--contrast", action="store_true")
-    panel = parser.add_mutually_exclusive_group()
-    panel.add_argument("--expanded-public", action="store_true")
-    panel.add_argument("--ordered-public", action="store_true")
-    panel.add_argument("--natural-public", action="store_true")
+    add_panel_options(parser, "-public")
     for name in ("corpus", "older-wide", "archive"):
         parser.add_argument(f"--{name}", type=Path)
     args = parser.parse_args()
@@ -183,7 +179,7 @@ def main():
     if args.contrast and (not args.rescue or not args.adapted or digest(args.continuous) != CONTRAST_BANK_SHA256
                           or digest(args.adapted) != CONTRAST_WORD_SHA256):
         parser.error("--contrast requiere --rescue y los bancos fijados de voz continua y palabras")
-    if (args.expanded_public or args.ordered_public or args.natural_public) and args.operation != "public-orders":
+    if args.public_fixture and args.operation != "public-orders":
         parser.error("Seleccionar un panel humano requiere public-orders")
     if args.adapted and not args.extra:
         parser.error("--adapted requiere --extra para conservar la referencia anterior")
@@ -205,8 +201,7 @@ def main():
     elif args.operation == "public-orders":
         if args.corpus is None:
             parser.error("--corpus debe apuntar a los cortes públicos verificados")
-        fixture = (NATURAL_FIXTURE if args.natural_public else ORDERED_PUBLIC if args.ordered_public
-                   else EXPANDED_PUBLIC if args.expanded_public else PUBLIC_FIXTURE)
+        fixture = args.public_fixture or PUBLIC_FIXTURE
         rows = [trial(args, wav, case["category"], case["expected"], case["id"])
                 for case, wav in verified_cases(args.corpus, fixture)]
         if any(row["overlong"] for row in rows):

@@ -333,3 +333,16 @@ python3 -B experiments/esmx-compactas/autonomous/public_orders.py \
 En el comando de `measure.py public-orders` anterior, agregar `--contrast` y sustituir `--ordered-public` y su corpus por `--natural-public --corpus "$v7/natural-test"`. El entrenamiento rechaza los grupos y episodios de este panel. Una variante inicial recuperó un acierto de desarrollo. Al exigir los vetos léxicos, se vuelve a rechazar ese caso y la variante revisada conserva los resultados de la referencia. Las dos órdenes reservadas quedan sin reconocer. El conjunto contiene un rechazo contextual de un dado opcional, una negación genérica y otros controles continuos.
 
 En el banco Xtensa agregar `-D CONTINUOUS_DICE_CONTRAST=ON` a la configuración de rescate. Para elegir el panel reservado en `qemu_fixture.py`, usar `--natural-public` y repetir `--public-id` para ajustar los PCM al espacio de la aplicación de laboratorio. `WORD_D6_CASE` compara resultado esperado y observado, y `WORD_D6_DONE` es el número de casos con diferencia. El audio, el banco de pesos y la imagen que contiene los PCM se quedan en el laboratorio.
+
+## Panel de órdenes es-MX y cancelaciones continuas
+
+El [panel](autonomous/public_orders_esmx.json) fija el episodio y el PCM de cada toma, el intervalo que establece el dado y la procedencia del habla. Las fuentes se reservan por programa, URL y SHA-256. Los ejemplos con un D6 identificable por las reglas conservan su categoría contextual. La prueba usa la compilación publicada en `a425206` y sus mismos bancos.
+
+Guarda las fuentes con los nombres del panel. Los episodios y la lección se descargan de sus fuentes indicadas. Para las entradas de YouTube, usa el formato anotado en `youtube_audio_format`, por ejemplo `yt-dlp -f 140 -o marin.m4a <URL>`. Genera los recortes localmente con FFmpeg.
+
+```fish
+python3 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --esmx --sources "$public_sources" --out "$v8/esmx-public"
+```
+
+En el comando de `measure.py public-orders` anterior, usa `--esmx-public --corpus "$v8/esmx-public"` con `--rescue --contrast`. En el generador de QEMU, usa `--esmx-public` y selecciona los casos de interés con `--public-id`. La cancelación de una repetición representada en una demostración es `public-64`. La ampliación, anotada después de la primera medición, agrega `public-70` como control de una regla en español de variante sin certificar. Las tres órdenes es-MX quedaron sin reconocer, una explícita y dos contextuales. Las rutas con confirmación rechazaron los siete controles. La red sin confirmación propuso D6 en `public-70`. Common Voice es-MX se registra como copia local provisional. El ensayo de referencia de QEMU usa el modo `CONTINUOUS_DICE_RESCUE`. `word_full` sirve como control de la red sin confirmación léxica. Las grabaciones y los binarios de laboratorio quedan locales.
