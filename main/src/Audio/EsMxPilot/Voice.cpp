@@ -14,19 +14,17 @@
 #include <Statics/ApplicationStatics.h>
 
 #include "Audio/MemoryAudioSource.h"
-#include "voice_data.h"
+#include "ClockSpeech.h"
 
 namespace EsMx::Pilot {
 namespace {
 
-using Clip = std::span<const uint8_t>;
+using Clip = VoiceClip;
 using namespace VoiceData;
 
-static_assert(std::size(Numbers) == 33);
-static_assert(std::size(CompoundDecades) == 3);
 static_assert(std::size(DiceFaces) == 6);
 
-bool play(Audio& audio, std::initializer_list<Clip> clips){
+bool play(Audio& audio, std::span<const Clip> clips){
     auto* generator = ApplicationStatics::getApplication()->getService<AACAudioGenerator>();
     if(generator == nullptr){
         return false;
@@ -51,6 +49,10 @@ bool play(Audio& audio, std::initializer_list<Clip> clips){
     audio.play(generator, std::make_unique<MemoryAudioSource>(std::move(stream)));
     audio.waitEnd(portMAX_DELAY);
     return true;
+}
+
+bool play(Audio& audio, std::initializer_list<Clip> clips){
+    return play(audio, std::span(clips.begin(), clips.size()));
 }
 
 bool indexed(Audio& audio, std::span<const Clip> clips, int16_t index){
@@ -83,27 +85,7 @@ bool playClockUnset(Audio& audio, int16_t id){
 }
 
 bool playClockTime(Audio& audio, unsigned hour24, unsigned minute){
-    if(hour24 >= 24 || minute >= 60){
-        return false;
-    }
-    const unsigned hour12 = (hour24 + 11) % 12 + 1;
-    const Clip period = hour24 == 0 || hour24 >= 19 ? ClockNight
-        : hour24 < 12 ? ClockMorning
-        : hour24 == 12 ? ClockNoon : ClockAfternoon;
-    const Clip hourIntro = hour12 == 1 ? ClockOne : ClockPlural;
-    const Clip hourNumber = hour12 == 1 ? Clip{} : Numbers[hour12];
-
-    if(minute == 0){
-        return play(audio, { hourIntro, hourNumber, period, ClockOnTime });
-    }
-    if(minute < 30){
-        return play(audio, { hourIntro, hourNumber, ClockWith, Numbers[minute], period });
-    }
-    const unsigned decade = minute / 10 - 3;
-    if(minute % 10 == 0){
-        return play(audio, { hourIntro, hourNumber, ClockWith, Numbers[30 + decade], period });
-    }
-    return play(audio, { hourIntro, hourNumber, ClockWith, CompoundDecades[decade], Numbers[minute % 10], period });
+    return play(audio, clockSpeech(hour24, minute));
 }
 
 bool playDiceIntro(Audio& audio){

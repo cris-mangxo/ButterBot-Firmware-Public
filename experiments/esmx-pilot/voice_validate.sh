@@ -18,6 +18,6 @@ for file in "$helix/"*.c; do
     objects+=("$object")
 done
 
-"${CXX:-c++}" -std=c++20 -DESP_PLATFORM -O2 -I"$helix" -I"$1" \
+"${CXX:-c++}" -std=c++20 -DESP_PLATFORM -O2 -I"$helix" -I"$1" -I"$root/main/src" \
     "$root/experiments/esmx-pilot/voice_validate.cpp" "${objects[@]}" -o "$tmp/voice-test"
 "$tmp/voice-test"
