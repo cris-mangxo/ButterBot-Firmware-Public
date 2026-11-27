@@ -7,13 +7,16 @@ from pathlib import Path
 import re
 import subprocess
 
-from ald_round import digest
+from ald_round import canonical, digest
 from pilot import read_pcm
-from public_orders import HELDOUT_FIXTURES
+from public_orders import HELDOUT_FIXTURES, valid_interval, verify_pcm
 from public_orders import specification as heldout_specification
 
 FIXTURE = Path(__file__).with_name("whole_orders.json")
 EXPANDED_FIXTURE = FIXTURE.with_name("whole_orders_expanded.json")
+ESMX_FIXTURE = FIXTURE.with_name("whole_orders_esmx.json")
+TRAINING_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ESMX_FIXTURE)
+ESMX_PROFILE = "esmx-continuous-training-v1"
 LABELS = {"outside": 0, "positive": 1, "other_die": 2, "negated": 3}
 TEMPOS = {"train": (100, 92, 108), "dev": (100,)}
 
@@ -21,20 +24,29 @@ TEMPOS = {"train": (100, 92, 108), "dev": (100,)}
 def specification(fixture=None):
     fixture = fixture or FIXTURE
     spec = json.loads(fixture.read_text("utf-8"))
+    esmx = spec.get("profile") == ESMX_PROFILE
+    if fixture.resolve() == ESMX_FIXTURE.resolve() and not esmx:
+        raise ValueError("Falta el perfil de entrenamiento es-MX")
     reserved = [(name, meta) for panel in HELDOUT_FIXTURES
                 for name, meta in heldout_specification(panel)["sources"].items()]
     reserved_names = {name for name, _ in reserved}
     reserved_groups = {meta.get("speaker_group", name) for name, meta in reserved}
     reserved_assets = {value[key] for _, value in reserved for key in ("enclosure", "sha256")}
-    groups = {}
+    groups, publishers = {}, {}
     for source, meta in spec["sources"].items():
         split, group = meta["split"], meta["speaker_group"]
         if (not re.fullmatch(r"[a-z][a-z0-9-]+", source) or split not in TEMPOS
                 or not group or source in reserved_names or group in reserved_groups
-                or meta.get("format", "mp3") not in {"mp3", "m4a"}
+                or meta.get("format", "mp3") not in {"mp3", "m4a", "webm"}
                 or not re.fullmatch(r"[a-f0-9]{64}", meta["sha256"])
                 or any(meta[key] in reserved_assets for key in ("enclosure", "sha256"))):
             raise ValueError("La fuente no es válida o pertenece al panel reservado")
+        if esmx:
+            publisher = canonical(meta.get("publisher", ""))
+            if not publisher or meta.get("locale") != "es-MX" or not meta.get("locale_evidence"):
+                raise ValueError("Falta acreditar el origen es-MX del locutor")
+            if publishers.setdefault(publisher, split) != split:
+                raise ValueError("Un programa aparece en entrenamiento y calibración")
         if groups.setdefault(group, split) != split:
             raise ValueError("Un grupo de voces aparece en entrenamiento y calibración")
     sources = spec["sources"]
@@ -48,6 +60,18 @@ def specification(fixture=None):
                 or category not in LABELS or not isinstance(start, int) or not isinstance(end, int)
                 or start < 0 or not 300 <= end - start <= 4000):
             raise ValueError("Toma continua inválida")
+        if esmx:
+            context = case.get("context_ms")
+            if (not re.fullmatch(r"[a-f0-9]{64}", case.get("pcm_sha256", ""))
+                    or not case.get("summary")
+                    or not valid_interval(context) or not context[0] <= start < end <= context[1]):
+                raise ValueError("Falta contexto o huella PCM de la toma es-MX")
+            if category == "positive":
+                evidence = case.get("die_evidence_ms")
+                if (case.get("die_basis") not in {"explicit", "contextual"}
+                        or not valid_interval(evidence) or not context[0] <= evidence[0] < evidence[1] <= context[1]
+                        or (case["die_basis"] == "explicit" and not start <= evidence[0] < evidence[1] <= end)):
+                    raise ValueError("No se acredita que la orden pida un solo D6")
         ranges = time_ranges.setdefault(case["source"], [])
         if any(start < earlier_end and earlier_start < end for earlier_start, earlier_end in ranges):
             raise ValueError("Los recortes de una grabación se superponen")
@@ -92,6 +116,7 @@ def build(root, out, fixture=None):
         wav = audio / (row["id"] + ".wav")
         if row["tempo"] == 100:
             make_audio(paths[row["source"]], wav, row["start_ms"], row["end_ms"])
+            verify_pcm(wav, row)
         else:
             original = audio / (row["original_id"] + "-100.wav")
             subprocess.run(
@@ -109,7 +134,7 @@ def build(root, out, fixture=None):
 def read_manifest(folder):
     path = folder / "manifest.json"
     manifest = json.loads(path.read_text("utf-8"))
-    fixture = next((item for item in (FIXTURE, EXPANDED_FIXTURE)
+    fixture = next((item for item in TRAINING_FIXTURES
                     if item.is_file() and manifest["fixture_sha256"] == digest(item)), None)
     if fixture is None:
         raise ValueError("El corpus continuo difiere de la anotación fijada")
@@ -123,6 +148,10 @@ def read_manifest(folder):
         "fixture_sha256": digest(fixture), "manifest_sha256": digest(path),
         "speaker_groups": {split: sorted({source["speaker_group"] for source in spec["sources"].values()
                                          if source["split"] == split}) for split in TEMPOS},
+        **({"positive_by_die_basis": {
+            split: dict(Counter(case["die_basis"] for case in spec["cases"] if case["category"] == "positive"
+                                and spec["sources"][case["source"]]["split"] == split))
+            for split in TEMPOS}} if spec.get("profile") == ESMX_PROFILE else {}),
         "original_counts": {split: dict(Counter(case["category"] for case in spec["cases"]
                                                if spec["sources"][case["source"]]["split"] == split))
                             for split in TEMPOS},
@@ -133,6 +162,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--expanded", action="store_true")
+    panel = parser.add_mutually_exclusive_group()
+    panel.add_argument("--expanded", action="store_const", const=EXPANDED_FIXTURE, dest="fixture")
+    panel.add_argument("--esmx", action="store_const", const=ESMX_FIXTURE, dest="fixture")
     args = parser.parse_args()
-    build(args.sources, args.out, EXPANDED_FIXTURE if args.expanded else FIXTURE)
+    build(args.sources, args.out, args.fixture)

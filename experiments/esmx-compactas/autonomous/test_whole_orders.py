@@ -123,6 +123,32 @@ class WholeOrderSplitTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "panel reservado"):
                     self.verify()
 
+    def test_native_training_rejects_reserved_voice_and_program_crossing(self):
+        data = whole_orders.specification(whole_orders.ESMX_FIXTURE)
+        development = data["sources"]["nayeli"]
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "training.json"
+            bad_sources = (
+                (dict(development, speaker_group="kill-team-mexico"), "panel reservado"),
+                (dict(development, publisher="Trompos y más"), "programa aparece"),
+            )
+            for source, error in bad_sources:
+                with self.subTest(error=error):
+                    data["sources"]["nayeli"] = source
+                    fixture.write_text(json.dumps(data), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, error):
+                        whole_orders.specification(fixture)
+
+    def test_native_training_checks_evidence_within_context(self):
+        data = whole_orders.specification(whole_orders.ESMX_FIXTURE)
+        case = next(case for case in data["cases"] if case["category"] == "positive")
+        case["die_evidence_ms"] = [0, 1]
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / "training.json"
+            fixture.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "un solo D6"):
+                whole_orders.specification(fixture)
+
     def test_esmx_profile_requires_hash_after_renaming(self):
         panel = reserved(ESMX_FIXTURE)
         del panel["cases"][0]["pcm_sha256"]

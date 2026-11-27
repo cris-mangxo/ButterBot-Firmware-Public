@@ -451,3 +451,43 @@ idf.py -C experiments/esmx-compactas/esp32s3 -B "$lab/qemu-rescue" \
   -D CONTINUOUS_DICE_GUARD=ON -D CONTINUOUS_DICE_RESCUE=ON -D "WORD_DICE_TEST_PCM_DIR=$pcm" build
 idf.py -C experiments/esmx-compactas/esp32s3 -B "$lab/qemu-rescue" qemu --qemu-extra-args="-nic none"
 ```
+
+## Entrenamiento continuo con voces públicas es-MX
+
+[El corpus](autonomous/whole_orders_esmx.json) fija diez turnos de entrenamiento y cuatro de calibración. Las tres órdenes de entrenamiento y las dos de calibración piden tirar un solo dado. El número de caras se acredita en el contexto de cada fuente. Se incluyen distractores con varios dados, otros tipos de dado y menciones que no solicitan una tirada. La separación por programa y grupo se valida antes de extraer. Se conservan los mismos límites de entrada y el mismo banco léxico que en el ensayo anterior.
+
+Con `$evidence_root` apuntando al laboratorio histórico, `$sources` al directorio de las grabaciones públicas fijadas y `$lab` a un directorio local para este ensayo, ejecutar desde la raíz del fork:
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+python3.12 -B "$experiment/whole_orders.py" --esmx --sources "$sources" --out "$lab/continuous-train"
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$lab/continuous-train" \
+  --prioritize-human --bank "$lab/esmx-continuous.bin" > "$lab/fit.json"
+python3.12 -B "$experiment/public_orders.py" --esmx-continuous --sources "$sources" --out "$lab/esmx-continuous-test"
+```
+
+Usa las fuentes originales de las dos fichas con los nombres y formatos que declaran. La extracción falla si algún archivo o PCM de referencia cambió. En `comparar.fish`, antes del bucle por brazo, añade las dos líneas siguientes:
+
+```fish
+set --append fixtures esmx-continuous
+set --append corpora "$lab/esmx-continuous-test"
+```
+
+Ejecuta los brazos `reference-rescue` y `acoustic` y usa `$lab/esmx-continuous.bin` en el `case acoustic`. Ambos llevan `--rescue`, los tres bancos de palabras anteriores y las mismas entradas. En QEMU usa `--esmx-continuous-public` en `qemu_fixture.py` y genera `acoustic_dice.h` de este banco con `train.py header`. El resto de opciones de rescate se conserva.
+
+El caso 79 contiene una corrección espontánea de D6 a D8. La ventana de cuatro segundos conserva el final de la propuesta y la corrección. La ventana de 5.830 segundos con los dos tipos excede el límite del modelo. Como diagnóstico en la Mac se prueba una derivación a 1.5× separada del conteo del panel. La versión de FFmpeg figura en los resultados.
+
+```fish
+ffmpeg -nostdin -v error -n -ss 748.950 -i "$sources/rolecito.m4a" -t 5.830 \
+  -ac 1 -ar 16000 -c:a pcm_s16le "$lab/correction-original.wav"
+ffmpeg -nostdin -v error -n -i "$lab/correction-original.wav" -af atempo=1.50 \
+  -ac 1 -ar 16000 -c:a pcm_s16le "$lab/correction-fast.wav"
+for bank in "$evidence_root/autonomous-v5/expanded.bin" "$lab/esmx-continuous.bin"
+    ffmpeg -nostdin -v error -i "$lab/correction-fast.wav" -f s16le -c:a pcm_s16le pipe:1 | \
+      "$lab/kws" word-rescue "$evidence_root/pilot-v2/templates.bin" 6200 600 \
+      "$evidence_root/phrases-final/bank.bin" "$evidence_root/autonomous/words.bin" \
+      "$evidence_root/autonomous-v2/words-extra.bin" "$evidence_root/autonomous-v3/words-mixed.bin" "$bank"
+end
+```

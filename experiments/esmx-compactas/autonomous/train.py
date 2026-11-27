@@ -251,6 +251,16 @@ def train_bank(args):
             "dev_positive_detected": int((decisions & (human_truth == 1)).sum()),
             "dev_false_activations": int((decisions & (human_truth != 1)).sum()),
         })
+        if "positive_by_die_basis" in provenance:
+            dev_rows = [row for row in rows if row["split"] == "dev"]
+            by_basis = {}
+            for row, admitted in zip(dev_rows, decisions, strict=True):
+                if row["label"] != 1:
+                    continue
+                counts = by_basis.setdefault(row["die_basis"], {"eligible": 0, "detected": 0})
+                counts["eligible"] += 1
+                counts["detected"] += int(admitted)
+            provenance["dev_positive_results_by_die_basis"] = by_basis
     class_names = tuple(LABELS)
     summary = {split: dict(Counter(class_names[int(label)] for label in values[1]))
                for split, values in sets.items()}

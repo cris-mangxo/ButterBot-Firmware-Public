@@ -17,8 +17,9 @@ ORDERED_FIXTURE = FIXTURE.with_name("public_orders_ordered.json")
 NATURAL_FIXTURE = FIXTURE.with_name("public_orders_natural.json")
 ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx.json")
 DIRECT_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_direct.json")
+CONTINUOUS_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_continuous.json")
 HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE,
-                    ESMX_FIXTURE, DIRECT_ESMX_FIXTURE)
+                    ESMX_FIXTURE, DIRECT_ESMX_FIXTURE, CONTINUOUS_ESMX_FIXTURE)
 STRICT_ESMX_PROFILE = "esmx-orders-with-controls-v1"
 ESMX_POSITIVES = {"explicit_single_d6_order", "contextual_single_d6_order"}
 ESMX_CONTEXTUAL = {"contextual_single_d6_order", "contextual_single_d6_cancel",
@@ -37,7 +38,7 @@ def specification(fixture=None):
     data = json.loads(fixture.read_text("utf-8"))
     esmx = data.get("profile") == STRICT_ESMX_PROFILE
     fixture_path = fixture.resolve()
-    if fixture_path in {ESMX_FIXTURE.resolve(), DIRECT_ESMX_FIXTURE.resolve()} and not esmx:
+    if fixture_path in {ESMX_FIXTURE.resolve(), DIRECT_ESMX_FIXTURE.resolve(), CONTINUOUS_ESMX_FIXTURE.resolve()} and not esmx:
         raise ValueError("Falta el perfil del panel es-MX")
     pcm_required = esmx or fixture_path == NATURAL_FIXTURE.resolve()
     declared = set()
@@ -165,7 +166,7 @@ def add_panel_options(parser, suffix=""):
     panel = parser.add_mutually_exclusive_group()
     for name, fixture in (("expanded", EXPANDED_FIXTURE), ("ordered", ORDERED_FIXTURE),
                           ("natural", NATURAL_FIXTURE), ("esmx", ESMX_FIXTURE),
-                          ("esmx-direct", DIRECT_ESMX_FIXTURE)):
+                          ("esmx-direct", DIRECT_ESMX_FIXTURE), ("esmx-continuous", CONTINUOUS_ESMX_FIXTURE)):
         panel.add_argument(f"--{name}{suffix}", action="store_const", const=fixture, dest="public_fixture")
 
 

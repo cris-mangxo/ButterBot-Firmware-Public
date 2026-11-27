@@ -1,0 +1,107 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "killmatch": {
+      "speaker_group": "kill-team-mexico",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UC-lisp3tBKZtH8IAmVLghvg",
+      "page": "https://www.youtube.com/watch?v=a-2IGw9ycSg",
+      "enclosure": "https://www.youtube.com/watch?v=a-2IGw9ycSg",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "44aaef02a38c51b1ad3f15266d0050328f4edcbf266570e934e7d0e728143e51",
+      "rules": "https://www.warhammer-community.com/en-gb/articles/KNyfjpEe/seize-the-initiative-and-launch-crucial-strategic-ploys-in-kill-teams-dramatic-turning-points/"
+    },
+    "reroll": {
+      "speaker_group": "reroll",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCIB9yDvXKhqUPjNhyY9Njog",
+      "page": "https://www.youtube.com/watch?v=L-_yTR4Gn7I",
+      "enclosure": "https://www.youtube.com/watch?v=L-_yTR4Gn7I",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "e182b58d248f541eb56e8a86f6db5ef52467bad2f1f64e38823a35efec8e99e7"
+    },
+    "rolecito": {
+      "speaker_group": "el-rolecito",
+      "locale": "es",
+      "locale_evidence": "https://www.youtube.com/@elrolecito2.0/about",
+      "page": "https://www.youtube.com/watch?v=-sdDeqIH9Lo",
+      "enclosure": "https://www.youtube.com/watch?v=-sdDeqIH9Lo",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "0ee2704f62246da7cb2a17184982e64d87821cc5fdf540e488d251564bdcbfef"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-76",
+      "source": "killmatch",
+      "start_ms": 2281230,
+      "end_ms": 2283430,
+      "category": "contextual_single_d6_order",
+      "expected": 6,
+      "summary": "Pide resolver la iniciativa de la ronda. La regla oficial asigna una tirada de un dado de seis a cada jugador.",
+      "context_ms": [
+        2279000,
+        2296600
+      ],
+      "pcm_sha256": "1b1dd3b28bc25d5fe52a0ab8c3fc43adcd23867a10fa8afc1be45ed5653d9e7d",
+      "die_evidence_ms": [
+        2284330,
+        2296560
+      ]
+    },
+    {
+      "id": "public-77",
+      "source": "killmatch",
+      "start_ms": 2327710,
+      "end_ms": 2329600,
+      "category": "out_of_scope_other_action",
+      "expected": 0,
+      "summary": "Un jugador pide usar una granada de humo en el juego. No solicita tirar un dado.",
+      "context_ms": [
+        2324680,
+        2334000
+      ],
+      "pcm_sha256": "d36bb18c82b0bdbec076a4f314005ad2911b85bf76db18ae1f08498b8eaa8a2e"
+    },
+    {
+      "id": "public-78",
+      "source": "reroll",
+      "start_ms": 2222220,
+      "end_ms": 2224140,
+      "category": "contextual_single_d6_order",
+      "expected": 6,
+      "summary": "Pide una tirada de fuerza bruta. En las reglas del juego se identifica como un solo dado de seis. La voz del programa ya se reservó en ensayos anteriores.",
+      "context_ms": [
+        2219130,
+        2229270
+      ],
+      "pcm_sha256": "c22abb41e0485a81885a7e509ce8c8a2d4b29ece2a1754d0f7ba7c44283e1e56",
+      "die_evidence_ms": [
+        822950,
+        827660
+      ]
+    },
+    {
+      "id": "public-79",
+      "source": "rolecito",
+      "start_ms": 749900,
+      "end_ms": 753900,
+      "category": "spontaneous_correction_to_other_die",
+      "expected": 0,
+      "supplemental_control": true,
+      "summary": "Se descarta el dado de seis propuesto al aclarar que el arco usa un dado de ocho. El audio breve conserva el seis y la corrección. El contexto contiene la mención completa y la tirada de ocho posterior.",
+      "context_ms": [
+        742520,
+        768500
+      ],
+      "die_evidence_ms": [
+        748870,
+        750980
+      ],
+      "pcm_sha256": "709a33d8c1f6b57185435aee687074963bc637713a71cd3c29c1b505ab15e3f8"
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "profile": "esmx-continuous-training-v1",
+  "sources": {
+    "trompos": {
+      "speaker_group": "trompos-y-mas",
+      "publisher": "Trompos y más",
+      "split": "train",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.tromposymas.com/juegos",
+      "page": "https://www.youtube.com/watch?v=rAuq5IvW-go",
+      "enclosure": "https://www.youtube.com/watch?v=rAuq5IvW-go",
+      "format": "webm",
+      "youtube_audio_format": "251-3",
+      "sha256": "5a524357f0dcba1baf3faf10a58c392711d95cc1874454df1599f135b29f09ff"
+    },
+    "oca-mx": {
+      "speaker_group": "trompos-y-mas",
+      "publisher": "Trompos y más",
+      "split": "train",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.tromposymas.com/juegos",
+      "page": "https://www.youtube.com/watch?v=2tKumLdLZiA",
+      "enclosure": "https://www.youtube.com/watch?v=2tKumLdLZiA",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "e1f4af095b4b0a4cd2b5495411551e1481ec83730413f1640c23d5af7d56b0b3"
+    },
+    "craps": {
+      "speaker_group": "cristian-sanchez",
+      "publisher": "Cristian Sánchez",
+      "split": "train",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/@cristiansanchez-tj7ex/about",
+      "page": "https://www.youtube.com/watch?v=bUHYY36Pr1g",
+      "enclosure": "https://www.youtube.com/watch?v=bUHYY36Pr1g",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "fb7cd6c008fac37eb4e8d6a5190749455fd0152341af4e386750887b02a6f137"
+    },
+    "doble-dice": {
+      "speaker_group": "doble-veinte",
+      "publisher": "Doble 20",
+      "split": "train",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/@doble_20/about",
+      "page": "https://www.youtube.com/watch?v=LfNoXNw7I0Q",
+      "enclosure": "https://www.youtube.com/watch?v=LfNoXNw7I0Q",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "2882aff21a123fa039a2ebe96a18da029ce6736cdc223826583cf269b60dcff8"
+    },
+    "nayeli": {
+      "speaker_group": "tiempo-de-pensar",
+      "publisher": "Tiempo de pensar",
+      "split": "dev",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/@Tiempodepensar/about",
+      "page": "https://www.youtube.com/watch?v=8vm11GSM-oI",
+      "enclosure": "https://www.youtube.com/watch?v=8vm11GSM-oI",
+      "format": "webm",
+      "youtube_audio_format": "251-1",
+      "sha256": "d5b2ea6624794f7f56bc36dc4a5c060022dd725f649983c885672949be09f2ad"
+    }
+  },
+  "cases": [
+    {
+      "id": "train-01",
+      "source": "trompos",
+      "start_ms": 177950,
+      "end_ms": 181050,
+      "category": "positive",
+      "summary": "Invita a volver a tirar el único dado en el turno ilustrado.",
+      "context_ms": [
+        36000,
+        190000
+      ],
+      "pcm_sha256": "d710794d76242b63f593d4a941b438b1ed42c508a9ad0323bdc6db43fb426a3f",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        155000,
+        177700
+      ]
+    },
+    {
+      "id": "train-02",
+      "source": "trompos",
+      "start_ms": 230680,
+      "end_ms": 233800,
+      "category": "positive",
+      "summary": "Instruye volver a tirar el dado tras haber obtenido un seis. Seis es el resultado, no el nombre del dado.",
+      "context_ms": [
+        220000,
+        240500
+      ],
+      "pcm_sha256": "c9242e2b1852a9c2d89e2baeff0e715cb03ff8751493d56d0c1ad2c60ae0c54d",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        220000,
+        230200
+      ]
+    },
+    {
+      "id": "train-03",
+      "source": "craps",
+      "start_ms": 13730,
+      "end_ms": 16640,
+      "category": "positive",
+      "summary": "Para decidir quién empieza explica que se hace una tirada de un dado.",
+      "context_ms": [
+        11000,
+        34000
+      ],
+      "pcm_sha256": "5b25a59dd6f8e2443c08e40c850da8664ff19ddd5e76c71bccb0cd92741bf188",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        17000,
+        33000
+      ]
+    },
+    {
+      "id": "train-04",
+      "source": "oca-mx",
+      "start_ms": 57530,
+      "end_ms": 59850,
+      "category": "other_die",
+      "summary": "Para elegir quién inicia se lanzan los dos dados de la variante mostrada.",
+      "context_ms": [
+        35000,
+        62000
+      ],
+      "pcm_sha256": "dbb8c1a9d4bfda8e70792756808f343a2f8dbcdcc15d710735a7d5c2d40ad8db"
+    },
+    {
+      "id": "train-05",
+      "source": "craps",
+      "start_ms": 125100,
+      "end_ms": 128920,
+      "category": "other_die",
+      "summary": "Durante la demostración pide al otro participante tirar sus dados en plural.",
+      "context_ms": [
+        120000,
+        137000
+      ],
+      "pcm_sha256": "74edc1d8fa26fa761ec2cdbcbb7cc98c400cb6687ab579f3ce6d9b4194cae44d"
+    },
+    {
+      "id": "train-06",
+      "source": "doble-dice",
+      "start_ms": 87300,
+      "end_ms": 90900,
+      "category": "other_die",
+      "summary": "Indicación de lanzar un dado de veinte, en vez de uno de seis.",
+      "context_ms": [
+        83500,
+        92800
+      ],
+      "pcm_sha256": "e68e1b52e2c83400c24f53254ce711d965f2033941b1f72f942a9717f1d4824e"
+    },
+    {
+      "id": "train-07",
+      "source": "doble-dice",
+      "start_ms": 304460,
+      "end_ms": 307700,
+      "category": "outside",
+      "summary": "Explica qué dado se presenta en la sesión y nombra seis lados sin solicitar que se tire.",
+      "context_ms": [
+        290000,
+        315000
+      ],
+      "pcm_sha256": "bc89b29aca86210bcf55a46ebb35231c19c0cb9c93106a265b38e5ed69e8b93e"
+    },
+    {
+      "id": "train-08",
+      "source": "trompos",
+      "start_ms": 317500,
+      "end_ms": 320940,
+      "category": "outside",
+      "summary": "El narrador ilustra cuántas casillas puede avanzar una ficha tras obtener un tres.",
+      "context_ms": [
+        310000,
+        325000
+      ],
+      "pcm_sha256": "e56614422c453db7794ddd983dbfbbcbb9175343a87af209e102b1b9d13a7971"
+    },
+    {
+      "id": "train-09",
+      "source": "doble-dice",
+      "start_ms": 345040,
+      "end_ms": 348500,
+      "category": "other_die",
+      "summary": "Indica tirar cuatro dados de seis para generar una característica.",
+      "context_ms": [
+        333000,
+        355000
+      ],
+      "pcm_sha256": "6d16fd249d065d82e9093cb539cd202684a0158648e652d00dc98a221d37244c"
+    },
+    {
+      "id": "train-10",
+      "source": "doble-dice",
+      "start_ms": 398240,
+      "end_ms": 401820,
+      "category": "outside",
+      "summary": "Describe el daño de una espada corta y menciona uno de seis en un ejemplo.",
+      "context_ms": [
+        395000,
+        404600
+      ],
+      "pcm_sha256": "fd1abbee9cb31b240a17b263d05aed716e87571debdd0d5983cb9def522696d7"
+    },
+    {
+      "id": "dev-01",
+      "source": "nayeli",
+      "start_ms": 109100,
+      "end_ms": 112200,
+      "category": "positive",
+      "summary": "Pide a cada jugador lanzar un dado para decidir quién empieza.",
+      "context_ms": [
+        102000,
+        125800
+      ],
+      "pcm_sha256": "b1c9acbaffe0a59e50e3a11dd043cb8cdb340020056ba54690e2d6b64a0ac57b",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        120800,
+        125800
+      ]
+    },
+    {
+      "id": "dev-02",
+      "source": "nayeli",
+      "start_ms": 356420,
+      "end_ms": 359580,
+      "category": "positive",
+      "summary": "Indica lanzar el dado fuera del tablero, como regla aplicable a cada tiro.",
+      "context_ms": [
+        339000,
+        367000
+      ],
+      "pcm_sha256": "5338840d66ae45f3c4ffb8a565336a17f16119803e619f64e4438f9819b39e69",
+      "die_basis": "contextual",
+      "die_evidence_ms": [
+        339000,
+        353460
+      ]
+    },
+    {
+      "id": "dev-03",
+      "source": "nayeli",
+      "start_ms": 360030,
+      "end_ms": 363590,
+      "category": "negated",
+      "summary": "Explica que al lanzar dentro del tablero se pierde el turno. El recorte es un caso de regla, sin orden de tirar.",
+      "context_ms": [
+        353500,
+        364500
+      ],
+      "pcm_sha256": "c2624381f7c66e44cd2ecf134c46f7246f00cb81e151b350643f9d68914f3ef6"
+    },
+    {
+      "id": "dev-04",
+      "source": "nayeli",
+      "start_ms": 208130,
+      "end_ms": 211470,
+      "category": "outside",
+      "summary": "Explica que las casillas de salida sirven como lugares seguros.",
+      "context_ms": [
+        206000,
+        215000
+      ],
+      "pcm_sha256": "ef04308cc84a075a51d4a0146451de0b630889106763ed7876bd7610dfd387a8"
+    }
+  ]
+}
