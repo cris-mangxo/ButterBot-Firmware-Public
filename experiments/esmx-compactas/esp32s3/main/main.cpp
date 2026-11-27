@@ -25,6 +25,9 @@
 #elif defined(KWS_WITH_CONTINUOUS_DICE_CONSENSUS)
 #include "DiceConsensus.h"
 #include "consensus_acoustic_dice.h"
+#ifdef KWS_WITH_CONTINUOUS_DICE_BACKUP
+#include "backup_acoustic_dice.h"
+#endif
 #endif
 #endif
 #endif
@@ -72,9 +75,14 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 #else
 		constexpr auto mode = ConsensusMode::SharedSix;
 #endif
+#ifdef KWS_WITH_CONTINUOUS_DICE_BACKUP
+		constexpr auto* backup = &PilotBackupDice;
+#else
+		constexpr const AcousticDice* backup = nullptr;
+#endif
 		label = static_cast<int>(completeConsensusDice(signature, result.intent, words, PilotAcousticDice,
 		                                              PilotConsensusDice, wordWorkspace, PilotWordDice,
-		                                              PilotWordExtra, PilotWordAdapted, mode));
+		                                              PilotWordExtra, PilotWordAdapted, mode, backup));
 #else
 		const auto candidate = completeAcousticDice(signature, result.intent, words, PilotAcousticDice);
 #ifdef KWS_WITH_CONTINUOUS_DICE_GUARD
@@ -112,7 +120,9 @@ extern "C" void app_main(){
 		return;
 	}
 #ifdef KWS_WITH_WORD_TEST_PCM
-#ifdef KWS_WITH_CONTINUOUS_DICE_ORDERED_DIE
+#ifdef KWS_WITH_CONTINUOUS_DICE_BACKUP
+	std::printf("WORD_D6_MODE ordered_die_backup\n");
+#elif defined(KWS_WITH_CONTINUOUS_DICE_ORDERED_DIE)
 	std::printf("WORD_D6_MODE ordered_die\n");
 #endif
 	unsigned failures = 0;

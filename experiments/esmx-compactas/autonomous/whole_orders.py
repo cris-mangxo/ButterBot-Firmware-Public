@@ -27,6 +27,10 @@ LABELS = {"outside": 0, "positive": 1, "other_die": 2, "negated": 3}
 TEMPOS = {"train": (100, 92, 108), "dev": (100,)}
 
 
+def says_literal_d6(text):
+    return re.search(r"\bdado de seis\b", canonical(text)) is not None
+
+
 def explicit_exclusions(sources):
     return EXPLICIT_GUEST_GROUPS | {sources[name]["speaker_group"] for name in REASSIGNED_RECORDINGS}
 
@@ -100,7 +104,7 @@ def specification(fixture=None):
                 raise ValueError("Cambió la etiqueta de la toma reasignada")
         if explicit and split == "train" and category == "positive" and (
                 case.get("die_basis") != "explicit"
-                or not re.search(r"\bdado de seis\b", canonical(case.get("spoken_form", "")))):
+                or not says_literal_d6(case.get("spoken_form", ""))):
             raise ValueError("La orden de entrenamiento debe decir dado de seis")
         ranges = time_ranges.setdefault(case["source"], [])
         if any(start < earlier_end and earlier_start < end for earlier_start, earlier_end in ranges):

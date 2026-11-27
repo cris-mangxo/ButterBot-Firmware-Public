@@ -18,6 +18,7 @@ from ald_round import ALD_SHA256, canonical, digest
 from phrases import too_long
 from pilot import feature, read_pcm
 from model_sources import SHARVARD_SHA256
+from whole_orders import says_literal_d6
 
 FIXTURE = Path(__file__).with_name("fixture.json")
 BANK_BYTES = 6468
@@ -213,18 +214,31 @@ def verify_wire(program, bank, observations, exact):
 def train_bank(args):
     torch.set_num_threads(4)
     torch.manual_seed(1118)
-    observed, omitted = collect(args.corpus, read_manifest(args.corpus), args.program)
+    synthetic = read_manifest(args.corpus)
+    filter_report = {}
+    if args.explicit_backup:
+        original_count = len(synthetic)
+        synthetic = [row for row in synthetic if row["label"] != LABELS["positive"]
+                     or says_literal_d6(row["text"])]
+        filter_report = {
+            "positive_filter": "dado de seis",
+            "excluded_synthetic_positive_variants": original_count - len(synthetic),
+        }
+    observed, omitted = collect(args.corpus, synthetic, args.program)
     human_dev = []
     dev_rows = []
     provenance = {}
     if args.continuous:
-        from whole_orders import RETRAIN_ESMX_FIXTURE, pooled_manifests, read_manifest as continuous_manifest
+        from whole_orders import EXPLICIT_ESMX_FIXTURE, RETRAIN_ESMX_FIXTURE, pooled_manifests
+        from whole_orders import read_manifest as continuous_manifest
         if len(args.continuous) == 1:
             folder, = args.continuous
             rows, provenance = continuous_manifest(folder)
             groups = [(folder, rows)]
         else:
             groups, provenance = pooled_manifests(args.continuous)
+        if args.explicit_backup and provenance.get("fixture_sha256") != digest(EXPLICIT_ESMX_FIXTURE):
+            raise ValueError("--explicit-backup requiere el corpus verificado de --esmx-explicit")
         retrain_index = None
         if args.retrain_repeat is not None:
             fixture_hash = digest(RETRAIN_ESMX_FIXTURE)
@@ -237,6 +251,17 @@ def train_bank(args):
         # With an override, keep historical corpora at eight repeats each.
         human_train = []
         for index, (folder, rows) in enumerate(groups):
+            if args.explicit_backup:
+                original_ids = {row["original_id"] for row in rows if row["label"] == LABELS["positive"]}
+                rows = [row for row in rows if row["label"] != LABELS["positive"]
+                        or says_literal_d6(row.get("spoken_form", ""))]
+                included_ids = {row["original_id"] for row in rows if row["label"] == LABELS["positive"]}
+                if not included_ids:
+                    raise ValueError("El corpus no contiene órdenes humanas con dado de seis")
+                filter_report.update({
+                    "included_human_positive_ids": sorted(included_ids),
+                    "excluded_human_positive_ids": sorted(original_ids - included_ids),
+                })
             human, skipped = collect(folder, rows, args.program)
             if skipped:
                 raise ValueError("Una toma humana quedó fuera del rango de entrada")
@@ -269,6 +294,7 @@ def train_bank(args):
         human_truth = dev_truth[-len(human_dev):]
         provenance.update({
             "train_repeat_per_tempo": 8, "dev_turns": len(human_dev),
+            **filter_report,
             **({"retrain_repeat_per_tempo": args.retrain_repeat} if args.retrain_repeat is not None else {}),
             **({"priority": "human_development"} if priority else {}),
             "dev_positive_detected": int((decisions & (human_truth == 1)).sum()),
@@ -317,14 +343,19 @@ def main():
     parser.add_argument("--continuous", type=Path, action="append",
                         help="Use a verified continuous speech corpus. Repeat to combine corpora.")
     parser.add_argument("--prioritize-human", action="store_true")
+    parser.add_argument("--explicit-backup", action="store_true",
+                        help="Fit positives that explicitly say 'dado de seis'")
     parser.add_argument("--retrain-repeat", type=int, help="Training repeats for the verified --esmx-retrain corpus")
-    parser.add_argument("--symbol", choices=("PilotAcousticDice", "PilotConsensusDice"),
+    parser.add_argument("--symbol", choices=("PilotAcousticDice", "PilotConsensusDice", "PilotBackupDice"),
                         help="Identifier for the emitted C++ model")
     args = parser.parse_args()
     if args.prioritize_human and (args.operation != "fit" or not args.continuous):
         parser.error("--prioritize-human requiere fit y un corpus humano continuo")
     if args.retrain_repeat is not None and (args.operation != "fit" or not args.continuous or args.retrain_repeat < 1):
         parser.error("--retrain-repeat requiere fit, un corpus continuo y un entero positivo")
+    if args.explicit_backup and (args.operation != "fit" or len(args.continuous or []) != 1
+                                 or args.retrain_repeat is not None):
+        parser.error("--explicit-backup requiere fit y un único corpus de órdenes explícitas")
     if args.symbol and args.operation != "header":
         parser.error("--symbol requiere header")
     if args.operation == "fit":

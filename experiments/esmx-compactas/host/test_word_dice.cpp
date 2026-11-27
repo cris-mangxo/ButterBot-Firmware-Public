@@ -217,6 +217,30 @@ int main(){
 	require(completeConsensusDice(empty, Intent::Fact, Intent::Fact, outside, positive, orderedDie,
 	                              model, model, delayedSix, ConsensusMode::OrderedDie) == Intent::Fact);
 
+	const auto withBackup = [&](Intent baseline, Intent verified, const AcousticDice& reference,
+	                            const AcousticDice& first, const WordFeatures& words){
+		return completeConsensusDice(empty, baseline, verified, reference, first, words,
+		                             model, model, delayedSix, ConsensusMode::OrderedDie, &positive);
+	};
+	require(withBackup(Intent::Unknown, Intent::Unknown, outside, outside, orderedDie) == Intent::Dice6);
+	require(completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, outside, outside, orderedDie,
+	                              model, model, delayedSix, ConsensusMode::OrderedDie, &closeNegation)
+	        == Intent::Unknown);
+	require(completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, outside, positive, agreed,
+	                              model, model, model, ConsensusMode::OrderedDie, &outside) == Intent::Dice6);
+	require(withBackup(Intent::Unknown, Intent::Unknown, weakCompetition, outside, orderedDie) == Intent::Unknown);
+	require(withBackup(Intent::Unknown, Intent::Unknown, closeNegation, outside, orderedDie) == Intent::Unknown);
+	require(withBackup(Intent::Unknown, Intent::Unknown, outside, closeNegation, orderedDie) == Intent::Unknown);
+	require(withBackup(Intent::Unknown, Intent::Unknown, outside, negative, orderedDie) == Intent::Unknown);
+	require(withBackup(Intent::Unknown, Intent::Unknown, outside, outside, withoutNoun) == Intent::Unknown);
+	require(completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, outside, outside, trailingNo,
+	                              model, extraDenialBank, delayedSix, ConsensusMode::OrderedDie, &positive)
+	        == Intent::Unknown);
+	require(withBackup(Intent::Fact, Intent::Unknown, outside, outside, orderedDie) == Intent::Unknown);
+	require(withBackup(Intent::Fact, Intent::Fact, outside, outside, orderedDie) == Intent::Fact);
+	require(completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, outside, outside, orderedDie,
+	                              model, model, delayedSix, ConsensusMode::SharedSix, &positive) == Intent::Unknown);
+
 	contrasted = signal;
 	word(contrasted, 1, 2);
 	require(!acceptsWordDice(contrasted, model));

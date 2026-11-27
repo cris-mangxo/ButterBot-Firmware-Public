@@ -594,3 +594,24 @@ python3.12 -B "$experiment/whole_orders.py" --esmx-retrain --sources "$sources" 
 ```
 
 Para probar un peso menor del corpus nuevo usa `--retrain-repeat 2` y otros nombres de salida. Los corpus históricos conservan ocho repeticiones. Congela cada banco y su informe antes de evaluar. En `public-orders` usa `--continuous-fit` de cada banco y conserva el banco de referencia de `--consensus-reference`. Compara `word_nominal` por caso sobre las mismas entradas y revisa la regresión, las órdenes reservadas y las falsas tiradas antes de decidir si sustituir un banco.
+
+## Respaldo experimental para «dado de seis»
+
+El respaldo se ejecuta después de una abstención del banco vigente. Requiere ausencia de negación competitiva en la referencia y en el banco de primera elección, que los léxicos confirmen «dado» seguido de «seis» y que el respaldo proponga D6 con su propio margen frente a las otras clases. Conserva el veto de «Dato curioso» y las decisiones del banco vigente.
+
+Extrae el corpus fijado con `whole_orders.py --esmx-explicit`. Con `$explicit` apuntando a ese corpus, ejecuta desde la raíz del fork.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+mkdir -p "$lab/backup-bank"
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$explicit" \
+  --explicit-backup --bank "$lab/backup.bin" > "$lab/fit-backup.json"
+"$train_python" -B "$experiment/train.py" header --bank "$lab/backup.bin" \
+  --symbol PilotBackupDice --header "$lab/backup-bank/backup_acoustic_dice.h"
+```
+
+La opción conserva como positivos únicamente las órdenes sintéticas y humanas que incluyen la frase «dado de seis». El informe identifica las tomas humanas incluidas y excluidas. Agrega `--backup "$lab/backup.bin" --backup-fit "$lab/fit-backup.json"` al ensayo con `--nominal`. Compara `word_nominal` y `word_backup` en las mismas entradas. Conserva `--continuous-fit` del banco vigente en `public-orders`. El evaluador cruza los grupos, programas y grabaciones de los donantes humanos y excluye los casos compartidos de ambos brazos.
+
+Para QEMU usa un directorio de compilación propio y añade `-D "CONTINUOUS_DICE_BACKUP_DIR=$lab/backup-bank"` con el modo ordenado activo. El comparador se compila con `-D CONTINUOUS_DICE_BACKUP_DIR=` para limpiar esa opción de la caché. Comprueba la marca exacta `WORD_D6_MODE ordered_die_backup` y coteja cada resultado con el anfitrión. La paridad y el acierto frente a la etiqueta se comprueban por separado. El modo queda optativo. Mantén audio, encabezados generados, pesos e imágenes localmente. Ejecuta la compilación y QEMU.

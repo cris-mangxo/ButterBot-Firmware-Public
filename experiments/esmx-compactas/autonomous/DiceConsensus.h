@@ -24,7 +24,8 @@ inline Intent completeConsensusDice(const Signature& input, Intent baseline, Int
                                     const AcousticDice& reference, const AcousticDice& candidate,
                                     const WordFeatures& words, const WordBank& primary,
                                     const WordBank& extra, const WordBank& adapted,
-                                    ConsensusMode mode = ConsensusMode::SharedSix){
+                                    ConsensusMode mode = ConsensusMode::SharedSix,
+                                    const AcousticDice* backup = nullptr){
 	if(baseline != Intent::Unknown || (verified != Intent::Unknown && verified != Intent::Dice6)){
 		return verified;
 	}
@@ -50,12 +51,19 @@ inline Intent completeConsensusDice(const Signature& input, Intent baseline, Int
 	                 referenceScores[DiceNegation] >= reference.minimumScore)){
 		return Intent::Unknown;
 	}
-	if(!proposesDice6(acousticDiceScores(input, candidate), candidate)){
-		return Intent::Unknown;
-	}
-	if((!competing && confirmsSixAcrossBanks(words, primary, extra, adapted)) ||
-	   (mode == ConsensusMode::OrderedDie && confirmsOrderedDieSix(words, primary, extra, adapted))){
+	const auto candidateScores = acousticDiceScores(input, candidate);
+	const bool proposed = proposesDice6(candidateScores, candidate);
+	if(proposed && !competing && confirmsSixAcrossBanks(words, primary, extra, adapted)){
 		return Intent::Dice6;
+	}
+	// Only try the fallback on an abstention without acoustic competition from negation.
+	// Check the lexicons first to avoid the extra CNN on unrelated turns.
+	if(mode == ConsensusMode::OrderedDie &&
+	   (proposed || (backup && !competing && !hasCompetingNegation(candidateScores, candidate))) &&
+	   confirmsOrderedDieSix(words, primary, extra, adapted)){
+		if(proposed || proposesDice6(acousticDiceScores(input, *backup), *backup)){
+			return Intent::Dice6;
+		}
 	}
 	return Intent::Unknown;
 }

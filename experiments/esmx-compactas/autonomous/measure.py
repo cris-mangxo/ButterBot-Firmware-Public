@@ -33,6 +33,7 @@ VARIANTS = ("compact", "turn_cnn", "word_gate")
 
 def trial(args, wav, category, expected, identifier=None):
     long = too_long(wav)
+    backup = getattr(args, "backup", None)
     variants = VARIANTS + (("word_pair",) if args.extra else ()) + (("word_adapt",) if args.adapted else ())
     if args.continuous:
         variants += ("word_full", "word_guarded")
@@ -44,6 +45,8 @@ def trial(args, wav, category, expected, identifier=None):
         variants += ("word_consensus",)
     if args.nominal:
         variants += ("word_nominal",)
+    if backup:
+        variants += ("word_backup",)
     data = {"category": category, "expected": expected, "overlong": long,
             "baseline": 0, "decisions": dict.fromkeys(variants, 0)}
     if identifier is not None:
@@ -69,6 +72,8 @@ def trial(args, wav, category, expected, identifier=None):
             commands.append(("word_consensus", "word-consensus", [*banks, args.consensus_reference]))
         if args.nominal:
             commands.append(("word_nominal", "word-nominal", [*banks, args.consensus_reference]))
+        if backup:
+            commands.append(("word_backup", "word-backup", [*banks, args.consensus_reference, backup]))
     for variant, mode, models in commands:
         command = [args.program, mode, args.baseline, str(MAX_COST), str(MIN_GAP), args.prior, *models]
         process = subprocess.run(command, input=read_pcm(wav), capture_output=True, timeout=10)
@@ -89,6 +94,8 @@ def trial(args, wav, category, expected, identifier=None):
         raise ValueError("El banco adaptado perdió un D6 de los dos bancos anteriores")
     if args.continuous:
         decisions = data["decisions"]
+        if backup and decisions["word_nominal"] and decisions["word_backup"] != decisions["word_nominal"]:
+            raise ValueError("El respaldo alteró una decisión vigente")
         prior = decisions["word_adapt"]
         if prior and (decisions["word_full"], decisions["word_guarded"]) != (prior, prior):
             raise ValueError("El detector continuo alteró una orden ya reconocida")
@@ -204,10 +211,15 @@ def is_reassigned(case, sources, groups, assets):
                for name in names)
 
 
-def explicit_training(fit_file, bank_sha256, fixture_sha256):
+def read_fit(fit_file, bank_sha256):
     fit = json.loads(fit_file.read_text("utf-8"))
     if not isinstance(fit, dict) or fit.get("bank_sha256") != bank_sha256:
         raise ValueError("El ajuste no corresponde al banco evaluado")
+    return fit
+
+
+def explicit_training(fit_file, bank_sha256, fixture_sha256):
+    fit = read_fit(fit_file, bank_sha256)
     if "continuous" not in fit:
         return False
     corpus = fit["continuous"]
@@ -217,6 +229,25 @@ def explicit_training(fit_file, bank_sha256, fixture_sha256):
                    for part in parts)):
         raise ValueError("Procedencia del corpus continuo inválida")
     return any(part["fixture_sha256"] == fixture_sha256 for part in parts)
+
+
+def verify_backup_training(fit_file, bank_sha256):
+    fit = read_fit(fit_file, bank_sha256).get("continuous")
+    fixture = whole_orders.EXPLICIT_ESMX_FIXTURE
+    if not isinstance(fit, dict) or fit.get("fixture_sha256") != digest(fixture) or "corpora" in fit:
+        raise ValueError("El respaldo requiere el corpus registrado de órdenes explícitas")
+    train = whole_orders.specification(fixture)
+    sources = train["sources"]
+    included_ids = sorted(case["id"] for case in train["cases"] if case["category"] == "positive"
+                          and whole_orders.says_literal_d6(case.get("spoken_form", "")))
+    if (not included_ids or fit.get("positive_filter") != "dado de seis"
+            or fit.get("included_human_positive_ids") != included_ids):
+        raise ValueError("El informe no acredita órdenes humanas explícitas para el respaldo")
+    groups = (whole_orders.explicit_exclusions(sources)
+              | {alias for name, source in sources.items() for alias in source_identity(name, source) if alias})
+    assets = {source[key] for source in sources.values() for key in ("page", "enclosure", "sha256")
+              if source.get(key)}
+    return groups, assets
 
 
 def main():
@@ -235,6 +266,8 @@ def main():
                         help="Compare the supplementary consensus route with the fixed rescue reference")
     parser.add_argument("--nominal", action="store_true",
                         help="Measure the ordered noun and six confirmation variant")
+    parser.add_argument("--backup", type=Path, help="Optional bank for the explicit D6 fallback")
+    parser.add_argument("--backup-fit", type=Path, help="Verified training report for --backup")
     add_panel_options(parser, "-public")
     parser.add_argument("--esmx-explicit-partition", action="store_true",
                         help="Exclude programs reassigned to the explicit Mexican Spanish training set")
@@ -250,6 +283,8 @@ def main():
         parser.error("--consensus-reference requiere --rescue y el banco acústico de referencia fijado")
     if args.nominal and not args.consensus_reference:
         parser.error("--nominal requiere --consensus-reference")
+    if bool(args.backup) != bool(args.backup_fit) or (args.backup and not args.nominal):
+        parser.error("--backup y --backup-fit deben usarse juntos con --nominal")
     if (args.public_fixture or args.esmx_explicit_partition) and args.operation != "public-orders":
         parser.error("Seleccionar un panel o una partición humana requiere public-orders")
     if args.adapted and not args.extra:
@@ -270,6 +305,17 @@ def main():
         provenance["word_consensus_reference"] = CONTRAST_BANK_SHA256
     bank_sha256 = provenance.get("word_full_acoustic")
     explicit_partition = args.esmx_explicit_partition
+    backup_groups = set()
+    backup_assets = set()
+    if args.backup:
+        try:
+            backup_sha256 = digest(args.backup)
+            backup_groups, backup_assets = verify_backup_training(args.backup_fit, backup_sha256)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        provenance["word_backup_acoustic"] = backup_sha256
+        provenance["word_backup_fit"] = digest(args.backup_fit)
+        explicit_partition |= args.operation == "public-orders"
     if (args.operation == "public-orders" and bank_sha256
             and bank_sha256 not in HISTORICAL_BANKS | {EXPLICIT_BANK_SHA256} and not args.continuous_fit):
         parser.error("La medición pública de un banco nuevo requiere --continuous-fit")
@@ -295,8 +341,8 @@ def main():
         assets = set()
         if explicit_partition:
             train = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
-            groups = whole_orders.explicit_exclusions(train["sources"])
-            assets = reassigned_assets(groups)
+            groups = whole_orders.explicit_exclusions(train["sources"]) | backup_groups
+            assets = reassigned_assets(groups) | backup_assets
         sources = specification(fixture)["sources"]
         rows = []
         for case, wav in verified_cases(args.corpus, fixture):
