@@ -565,7 +565,7 @@ Para repetir la regresión en el ESP32-S3 emulado, prepara un encabezado con los
 
 ## Órdenes públicas completas con «dado de seis»
 
-[El panel nuevo](autonomous/public_orders_esmx_full_turns.json) fija cuatro recortes continuos de dos locutores es-MX. Contiene una orden real de una partida, una instrucción de una sola tirada en un tutorial y dos controles que piden o permiten más de una tirada. Los grupos, URL y huellas de los orígenes se reservan para evaluación. La búsqueda de una cancelación espontánea que diga «dado de seis» sigue abierta.
+[El panel nuevo](autonomous/public_orders_esmx_full_turns.json) fija cuatro recortes continuos de dos locutores es-MX. Contiene una orden real de una partida, una instrucción de una sola tirada en un tutorial y dos controles que piden o permiten más de una tirada. El entrenador excluye los grupos y las fuentes de la ficha. La búsqueda de una cancelación espontánea que diga «dado de seis» sigue abierta.
 
 Guarda las fuentes de la ficha como `exhume.m4a` y `reroll-shot.m4a` en el directorio local `$sources`. El extractor valida las huellas originales y de cada recorte. Ejecuta desde la raíz del fork.
 
