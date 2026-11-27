@@ -159,7 +159,7 @@ def build(root, out, fixture=None):
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def read_manifest(folder):
+def verified_manifest(folder):
     path = folder / "manifest.json"
     manifest = json.loads(path.read_text("utf-8"))
     fixture = next((item for item in TRAINING_FIXTURES
@@ -172,7 +172,7 @@ def read_manifest(folder):
             raise ValueError("Cambió una etiqueta, fuente o partición")
         if digest(folder / "audio" / (row["id"] + ".wav")) != row["wav_sha256"]:
             raise ValueError("Cambió una toma continua")
-    return manifest["samples"], {
+    provenance = {
         "fixture_sha256": digest(fixture), "manifest_sha256": digest(path),
         **({"public_excluded_groups": sorted(explicit_exclusions(spec["sources"]))}
            if fixture == EXPLICIT_ESMX_FIXTURE else {}),
@@ -185,6 +185,59 @@ def read_manifest(folder):
         "original_counts": {split: dict(Counter(case["category"] for case in spec["cases"]
                                                if spec["sources"][case["source"]]["split"] == split))
                             for split in TEMPOS},
+    }
+    return manifest["samples"], provenance, spec["sources"]
+
+
+def read_manifest(folder):
+    rows, provenance, _ = verified_manifest(folder)
+    return rows, provenance
+
+
+def pooled_manifests(folders):
+    """Combine verified speech corpora, counting any shared recording interval only once."""
+    partitions, originals, variants, corpus, grouped = {}, {}, {}, [], []
+    for folder in folders:
+        rows, provenance, sources = verified_manifest(folder)
+        for source in sources.values():
+            for field in ("speaker_group", "sha256", "enclosure"):
+                key = (field, source[field])
+                if partitions.setdefault(key, source["split"]) != source["split"]:
+                    raise ValueError("Una fuente o voz cruza entrenamiento y calibración en el corpus combinado")
+        selected = []
+        for row in rows:
+            source = sources[row["source"]]["sha256"]
+            start, end = row["start_ms"], row["end_ms"]
+            label = row["label"]
+            recordings = originals.setdefault(source, {})
+            interval = (start, end)
+            if interval not in recordings:
+                if any(start < other_end and other_start < end for other_start, other_end in recordings):
+                    raise ValueError("Se superponen recortes de una misma grabación en el corpus combinado")
+                recordings[interval] = row
+            elif recordings[interval]["label"] != label:
+                raise ValueError("Hay etiquetas distintas para el mismo recorte en el corpus combinado")
+            key = (source, interval, row["tempo"])
+            if key not in variants:
+                variants[key] = row["wav_sha256"]
+                selected.append(row)
+            elif variants[key] != row["wav_sha256"]:
+                raise ValueError("Cambió el audio de una variante repetida en el corpus combinado")
+        grouped.append((folder, selected))
+        corpus.append(provenance)
+    takes = [row for recording in originals.values() for row in recording.values()]
+    excluded_groups = sorted({group for item in corpus for group in item.get("public_excluded_groups", ())})
+    return grouped, {
+        "corpora": corpus,
+        "original_counts": {split: dict(Counter(row["category"] for row in takes if row["split"] == split))
+                            for split in TEMPOS},
+        "positive_by_die_basis": {
+            split: dict(Counter(row.get("die_basis", "unannotated") for row in takes
+                                if row["split"] == split and row["label"] == 1))
+            for split in TEMPOS
+        },
+        "unique_tempo_variants": len(variants),
+        **({"public_excluded_groups": excluded_groups} if excluded_groups else {}),
     }
 
 

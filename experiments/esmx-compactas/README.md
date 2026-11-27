@@ -508,3 +508,23 @@ python3.12 -B "$experiment/public_orders.py" --esmx-cancellation --sources "$sou
 ```
 
 En `comparar.fish`, conserva los dos brazos con `--rescue`. Usa `d6-explicit.bin` para el candidato y `expanded.bin` para la referencia. Agrega `--esmx-explicit-partition` a cada llamada `public-orders` de ambos brazos, también al evaluar bancos recién entrenados con esta ficha. El evaluador exige esa opción para el banco de este ensayo identificado por su SHA-256. Incluye los paneles `esmx-continuous` y `esmx-cancellation` con sus directorios y compara `word_rescue`. La [ficha de omisión](autonomous/public_orders_esmx_cancellation.json) separa el caso de la medición es-MX porque la variante regional no está acreditada. Para repetirlo en ESP32-S3 emulado, genera el encabezado del banco nuevo con `train.py header` y pasa `--esmx-cancellation-public` a `qemu_fixture.py`. Ejecuta únicamente la compilación y QEMU.
+
+## Entrenamiento con corpus combinados
+
+El entrenador admite repetir `--continuous` con corpus ya verificados. El cruce entre entrenamiento y calibración se comprueba por grupo y recurso de origen. Si dos fichas comparten una toma, se cuenta una sola vez por huella del original, intervalo y velocidad. El ajuste comprueba que los audios repetidos sean idénticos y conserva el desglose de cada ficha.
+
+Desde el fork, prepara el corpus ampliado, el contextual es-MX y el explícito con `whole_orders.py` usando `--expanded`, `--esmx` y `--esmx-explicit`, respectivamente. Con sus rutas en `$expanded`, `$contextual` y `$explicit`, ejecuta en fish.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+set -l experiment experiments/esmx-compactas/autonomous
+"$train_python" -B "$experiment/train.py" fit --program "$lab/kws" \
+  --corpus "$evidence_root/autonomous/ald" --continuous "$expanded" \
+  --continuous "$contextual" --continuous "$explicit" \
+  --prioritize-human --bank "$lab/pooled.bin" > "$lab/fit-pooled.json"
+python3.12 -B "$experiment/public_orders.py" --esmx-table --sources "$sources" --out "$lab/table-test"
+```
+
+Agrega el panel `esmx-table` a la comparación. La evaluación de un banco acústico nuevo con `public-orders` exige el informe de ajuste `--continuous-fit`. La huella del banco debe coincidir y la ficha explícita activa su exclusión de donantes. Para que la referencia histórica use la misma partición, agrega `--esmx-explicit-partition` a sus evaluaciones públicas. Usa `--rescue` en ambos brazos. La [ficha de la nueva mesa es-MX](autonomous/public_orders_esmx_table.json) contiene una orden de partida y una mención de la regla.
+
+Al reproducir la negación compuesta en ESP32-S3 emulado, pasa `--ordered-public --public-id public-37` a `qemu_fixture.py`. El candidato combinado activó esa negación. La referencia se mantiene como banco del laboratorio.

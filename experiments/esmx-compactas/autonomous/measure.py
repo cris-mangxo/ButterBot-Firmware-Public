@@ -20,6 +20,13 @@ BANK_SHA256 = "ca40780ad1ee096f211aa59d3d1d7e410bbeb3f2879c0c3f23e76633e589d7ca"
 CONTRAST_BANK_SHA256 = "7d5a53c1c98f4c74d45ac6984e223c41dd8d79f5e61558a9b19cf2459a05c8d8"
 CONTRAST_WORD_SHA256 = "bc4dab7f7dcacfebc53d641712429c1e5c0d409fe9fab71becb43d768ecc801d"
 EXPLICIT_BANK_SHA256 = "53dc9e084b543190312e3a03fbe527b3a358fe8cb1ead3d154487ff079739f8f"
+# Historical banks evaluated before fit reports were required for public audio.
+HISTORICAL_BANKS = {
+    CONTRAST_BANK_SHA256,
+    "8941790cf1ffd27f9e58f636b70f48fc23ab8c8ce167a49fac998c440143d119",
+    "fdb9b633cad99898beab2d92adbb76256730481e641af5d8e686cb05dfe2d7a4",
+    "062be582dd5ffcd09bf03d0cf16fa1a5def5bdb1bd30cea65bde220fc587a4d3",
+}
 FIXTURE = Path(__file__).with_name("fixture.json")
 VARIANTS = ("compact", "turn_cnn", "word_gate")
 
@@ -189,6 +196,21 @@ def is_reassigned(case, sources, groups, assets):
                for name in names)
 
 
+def explicit_training(fit_file, bank_sha256, fixture_sha256):
+    fit = json.loads(fit_file.read_text("utf-8"))
+    if not isinstance(fit, dict) or fit.get("bank_sha256") != bank_sha256:
+        raise ValueError("El ajuste no corresponde al banco evaluado")
+    if "continuous" not in fit:
+        return False
+    corpus = fit["continuous"]
+    parts = corpus.get("corpora", [corpus]) if isinstance(corpus, dict) else None
+    if (not isinstance(parts, list) or not parts
+            or any(not isinstance(part, dict) or not isinstance(part.get("fixture_sha256"), str)
+                   for part in parts)):
+        raise ValueError("Procedencia del corpus continuo inválida")
+    return any(part["fixture_sha256"] == fixture_sha256 for part in parts)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("test", "fresh", "asr-holdout", "replay", "human", "public-orders"))
@@ -197,6 +219,8 @@ def main():
     parser.add_argument("--extra", type=Path)
     parser.add_argument("--adapted", type=Path)
     parser.add_argument("--continuous", type=Path)
+    parser.add_argument("--continuous-fit", type=Path,
+                        help="Verify training provenance and apply the corresponding public partition")
     parser.add_argument("--rescue", action="store_true")
     parser.add_argument("--contrast", action="store_true")
     add_panel_options(parser, "-public")
@@ -226,8 +250,20 @@ def main():
         provenance["word_adapt_extra"] = digest(args.adapted)
     if args.continuous:
         provenance["word_full_acoustic"] = digest(args.continuous)
-    if (args.operation == "public-orders" and provenance.get("word_full_acoustic") == EXPLICIT_BANK_SHA256
-            and not args.esmx_explicit_partition):
+    bank_sha256 = provenance.get("word_full_acoustic")
+    explicit_partition = args.esmx_explicit_partition
+    if (args.operation == "public-orders" and bank_sha256
+            and bank_sha256 not in HISTORICAL_BANKS | {EXPLICIT_BANK_SHA256} and not args.continuous_fit):
+        parser.error("La medición pública de un banco nuevo requiere --continuous-fit")
+    if args.continuous_fit:
+        if args.operation != "public-orders" or bank_sha256 is None:
+            parser.error("--continuous-fit requiere public-orders y --continuous")
+        try:
+            explicit_partition |= explicit_training(args.continuous_fit, bank_sha256,
+                                                   digest(whole_orders.EXPLICIT_ESMX_FIXTURE))
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+    if args.operation == "public-orders" and bank_sha256 == EXPLICIT_BANK_SHA256 and not explicit_partition:
         parser.error("El banco fijado de órdenes explícitas requiere --esmx-explicit-partition")
     if args.operation == "human":
         rows, metadata = real_trials(args)
@@ -239,21 +275,21 @@ def main():
         excluded = []
         groups = frozenset()
         assets = set()
-        if args.esmx_explicit_partition:
+        if explicit_partition:
             train = whole_orders.specification(whole_orders.EXPLICIT_ESMX_FIXTURE)
             groups = whole_orders.explicit_exclusions(train["sources"])
             assets = reassigned_assets(groups)
         sources = specification(fixture)["sources"]
         rows = []
         for case, wav in verified_cases(args.corpus, fixture):
-            if is_reassigned(case, sources, groups, assets):
+            if explicit_partition and is_reassigned(case, sources, groups, assets):
                 excluded.append(case["id"])
                 continue
             rows.append(trial(args, wav, case["category"], case["expected"], case["id"]))
         if any(row["overlong"] for row in rows):
             raise ValueError("Una orden pública supera el límite del turno")
         report = {"public_fixture_sha256": digest(fixture), "cases": rows}
-        if args.esmx_explicit_partition:
+        if explicit_partition:
             report["training_partition"] = {
                 "fixture_sha256": digest(whole_orders.EXPLICIT_ESMX_FIXTURE),
                 "excluded_groups": sorted(groups), "excluded_ids": excluded,

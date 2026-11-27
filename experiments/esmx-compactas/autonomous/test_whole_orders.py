@@ -21,6 +21,41 @@ class WholeOrderSplitTest(unittest.TestCase):
             with patch.object(whole_orders, "FIXTURE", fixture):
                 return whole_orders.specification()
 
+    def test_pooled_corpora_reuse_each_recording_interval_once(self):
+        source = {"speaker_group": "same-show", "sha256": "a" * 64, "enclosure": "media", "split": "train"}
+        row = {"source": "original", "start_ms": 500, "end_ms": 2500, "tempo": 100,
+               "wav_sha256": "b" * 64, "split": "train", "label": 1, "category": "positive"}
+        aliases = [row, dict(row, source="alias"), dict(row, source="alias", start_ms=2700, end_ms=3800)]
+        manifests = [([aliases[0]], {}, {"original": source}), (aliases[1:], {}, {"alias": source})]
+        with patch.object(whole_orders, "verified_manifest", side_effect=manifests):
+            groups, metadata = whole_orders.pooled_manifests(("one", "two"))
+        self.assertEqual([len(rows) for _, rows in groups], [1, 1])
+        self.assertEqual(metadata["original_counts"], {"train": {"positive": 2}, "dev": {}})
+        self.assertEqual(metadata["unique_tempo_variants"], 2)
+
+    def test_pooled_corpora_reject_group_crossing_between_manifests(self):
+        source = {"speaker_group": "same-show", "sha256": "a" * 64, "enclosure": "media", "split": "train"}
+        other = dict(source, split="dev", sha256="b" * 64, enclosure="another-episode")
+        manifests = [([], {}, {"one": source}), ([], {}, {"two": other})]
+        with patch.object(whole_orders, "verified_manifest", side_effect=manifests):
+            with self.assertRaisesRegex(ValueError, "cruza entrenamiento y calibración"):
+                whole_orders.pooled_manifests(("one", "two"))
+
+    def test_fit_provenance_applies_partition_to_a_new_pooled_bank(self):
+        from measure import explicit_training
+        with tempfile.TemporaryDirectory() as folder:
+            fit = Path(folder) / "fit.json"
+            fit.write_text(json.dumps({"bank_sha256": "new", "continuous": {"corpora": [
+                {"fixture_sha256": "unrelated"}, {"fixture_sha256": "explicit"},
+            ]}}), encoding="utf-8")
+            self.assertTrue(explicit_training(fit, "new", "explicit"))
+            self.assertFalse(explicit_training(fit, "new", "different"))
+            with self.assertRaisesRegex(ValueError, "no corresponde"):
+                explicit_training(fit, "other", "explicit")
+            fit.write_text(json.dumps({"bank_sha256": "new", "continuous": None}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "inválida"):
+                explicit_training(fit, "new", "explicit")
+
     def test_tempo_variants_remain_in_training(self):
         rows = list(whole_orders.order_rows(self.verify()))
         self.assertTrue(any(row["tempo"] != 100 and row["label"] == 1 for row in rows))

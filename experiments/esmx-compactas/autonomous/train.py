@@ -215,16 +215,26 @@ def train_bank(args):
     torch.manual_seed(1118)
     observed, omitted = collect(args.corpus, read_manifest(args.corpus), args.program)
     human_dev = []
+    dev_rows = []
     provenance = {}
     if args.continuous:
-        from whole_orders import read_manifest as continuous_manifest
-        rows, provenance = continuous_manifest(args.continuous)
-        human, skipped = collect(args.continuous, rows, args.program)
-        if skipped:
-            raise ValueError("Una toma humana quedó fuera del rango de entrada")
+        from whole_orders import pooled_manifests, read_manifest as continuous_manifest
+        if len(args.continuous) == 1:
+            folder, = args.continuous
+            rows, provenance = continuous_manifest(folder)
+            groups = [(folder, rows)]
+        else:
+            groups, provenance = pooled_manifests(args.continuous)
         # Oversample the scarce human turns, with noise/time masking applied by fit().
-        observed["train"].extend(human["train"] * 8)
-        human_dev = human["dev"]
+        human_train = []
+        for folder, rows in groups:
+            human, skipped = collect(folder, rows, args.program)
+            if skipped:
+                raise ValueError("Una toma humana quedó fuera del rango de entrada")
+            human_train.extend(human["train"])
+            human_dev.extend(human["dev"])
+            dev_rows.extend(row for row in rows if row["split"] == "dev")
+        observed["train"].extend(human_train * 8)
         observed["dev"].extend(human_dev)
     sets = {}
     for split, values in observed.items():
@@ -252,12 +262,11 @@ def train_bank(args):
             "dev_false_activations": int((decisions & (human_truth != 1)).sum()),
         })
         if "positive_by_die_basis" in provenance:
-            dev_rows = [row for row in rows if row["split"] == "dev"]
             by_basis = {}
             for row, admitted in zip(dev_rows, decisions, strict=True):
                 if row["label"] != 1:
                     continue
-                counts = by_basis.setdefault(row["die_basis"], {"eligible": 0, "detected": 0})
+                counts = by_basis.setdefault(row.get("die_basis", "unannotated"), {"eligible": 0, "detected": 0})
                 counts["eligible"] += 1
                 counts["detected"] += int(admitted)
             provenance["dev_positive_results_by_die_basis"] = by_basis
@@ -292,7 +301,8 @@ def main():
     parser.add_argument("operation", choices=("fit", "header"))
     for name in ("program", "corpus", "bank", "header"):
         parser.add_argument(f"--{name}", type=Path, required=name == "bank")
-    parser.add_argument("--continuous", type=Path)
+    parser.add_argument("--continuous", type=Path, action="append",
+                        help="Use a verified continuous speech corpus. Repeat to combine corpora.")
     parser.add_argument("--prioritize-human", action="store_true")
     args = parser.parse_args()
     if args.prioritize_human and (args.operation != "fit" or not args.continuous):

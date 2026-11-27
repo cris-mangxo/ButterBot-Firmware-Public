@@ -1,0 +1,45 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "mosque": {
+      "speaker_group": "los-tres-mosquejuegos",
+      "publisher": "Los 3 Mosquejuegos",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCbyPcfuvG1Gfctl2fsYLV0Q/about",
+      "page": "https://www.youtube.com/watch?v=SVFXTy4oJYg",
+      "enclosure": "https://www.youtube.com/watch?v=SVFXTy4oJYg",
+      "format": "m4a",
+      "sha256": "5df99edc905dff8dc5b8e5b728d05b1322283d7662c4712135821f9cbf9bee47"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-81",
+      "start_ms": 840650,
+      "end_ms": 844120,
+      "expected": 6,
+      "category": "explicit_single_d6_order",
+      "context_ms": [
+        836000,
+        863000
+      ],
+      "summary": "El director le pide a un jugador que tire un D seis para definir su personaje. El jugador tira y obtiene dos.",
+      "source": "mosque",
+      "pcm_sha256": "a4c922a8fdb00860fb915d9e2e32d5b39be9f7e56df35225649e31d4e435f7bf"
+    },
+    {
+      "id": "public-82",
+      "start_ms": 663000,
+      "end_ms": 666850,
+      "expected": 0,
+      "category": "d6_rule_explanation",
+      "context_ms": [
+        647000,
+        676000
+      ],
+      "summary": "Al explicar la regla de resolución de Honey Heist, el director describe una tirada de un dado de seis caras. No está pidiendo tirar en ese momento.",
+      "source": "mosque",
+      "pcm_sha256": "8b355169f69411d85965fb6bcdad9f7b94a413b02d912e9bd8a5d04d1d59cb5e"
+    }
+  ]
+}
