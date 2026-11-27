@@ -151,12 +151,12 @@ class WholeOrderSplitTest(unittest.TestCase):
                         meta[key] = previous
 
     def test_direct_esmx_panel_is_reserved_for_all_training_manifests(self):
-        fixture = public_orders.DIRECT_ESMX_FIXTURE
-        for source in reserved(fixture)["sources"].values():
-            self.spec["sources"]["apaga"]["speaker_group"] = source["speaker_group"]
-            with self.subTest(source=source["speaker_group"]):
-                with self.assertRaisesRegex(ValueError, "panel reservado"):
-                    self.verify()
+        for fixture in (public_orders.DIRECT_ESMX_FIXTURE, public_orders.FULL_TURNS_ESMX_FIXTURE):
+            for source in reserved(fixture)["sources"].values():
+                self.spec["sources"]["apaga"]["speaker_group"] = source["speaker_group"]
+                with self.subTest(panel=fixture.name, source=source["speaker_group"]):
+                    with self.assertRaisesRegex(ValueError, "panel reservado"):
+                        self.verify()
 
     def test_native_training_rejects_reserved_voice_and_program_crossing(self):
         data = whole_orders.specification(whole_orders.ESMX_FIXTURE)

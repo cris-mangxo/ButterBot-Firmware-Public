@@ -1,0 +1,83 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "exhume": {
+      "speaker_group": "role-per-second-irvin-morales",
+      "publisher": "Role Per Second",
+      "locale": "es-MX",
+      "locale_evidence": "https://thedeathdieclub.com/role-per-second/",
+      "format": "m4a",
+      "page": "https://www.youtube.com/watch?v=Xz0_i_uTSpY",
+      "enclosure": "https://www.youtube.com/watch?v=Xz0_i_uTSpY",
+      "sha256": "d753ace5894d914a032af163104160897504d33fcc782d3fa61c4c05dcca911e"
+    },
+    "reroll-shot": {
+      "speaker_group": "reroll",
+      "publisher": "ReRoll",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCIB9yDvXKhqUPjNhyY9Njog/about",
+      "format": "m4a",
+      "page": "https://www.youtube.com/watch?v=4QPZyVonDaA",
+      "enclosure": "https://www.youtube.com/watch?v=4QPZyVonDaA",
+      "sha256": "e73b8080af8595cb976e5f9eae73a79ad8c863ad2c441905f0b59703951256a4"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-88",
+      "source": "reroll-shot",
+      "start_ms": 5423810,
+      "end_ms": 5425730,
+      "expected": 6,
+      "category": "explicit_single_d6_order",
+      "context_ms": [
+        5420000,
+        5448500
+      ],
+      "summary": "Chok Hernández solicita que otra persona tire un dado de seis. Tras aclarar un gasto del juego, el narrador reitera la orden y la jugadora informa que sacó cinco.",
+      "pcm_sha256": "1062d8a246138963bbbdf2caa2954929ac89cb790d9779910832e55be64c7bb3"
+    },
+    {
+      "id": "public-89",
+      "source": "exhume",
+      "start_ms": 1542530,
+      "end_ms": 1544440,
+      "expected": 6,
+      "category": "explicit_single_d6_order",
+      "context_ms": [
+        1539600,
+        1549900
+      ],
+      "summary": "Irvin Morales indica en un tutorial que, tras usar una habilidad, hay que tirar una vez un dado de seis caras. El tipo de dado y la instrucción aparecen en el audio.",
+      "pcm_sha256": "7e8869818808d99e1a28a179f86fd745240e51ddcdf46032f26ff336163623f2"
+    },
+    {
+      "id": "public-90",
+      "source": "exhume",
+      "start_ms": 1356630,
+      "end_ms": 1359980,
+      "expected": 0,
+      "category": "multiple_dice",
+      "context_ms": [
+        1352100,
+        1365350
+      ],
+      "summary": "La instrucción dice que se tira un dado de seis por cada estadística. Se describen tres estadísticas, por lo que la frase completa solicita más de una tirada.",
+      "pcm_sha256": "8fa29cbd132fcf0468dea6a599701b6944a6c25cd44d22b47f036fdf8464591f"
+    },
+    {
+      "id": "public-91",
+      "source": "reroll-shot",
+      "start_ms": 1648530,
+      "end_ms": 1651860,
+      "expected": 0,
+      "category": "variable_dice_count",
+      "context_ms": [
+        1646000,
+        1671100
+      ],
+      "summary": "El narrador explica que quien juega elige cuántos dados de seis lanza. No solicita una sola tirada D6.",
+      "pcm_sha256": "06a0c2b24719b4ce555d0ccf32ac08c943d7e31707f0094e18197c84e289dcc5"
+    }
+  ]
+}

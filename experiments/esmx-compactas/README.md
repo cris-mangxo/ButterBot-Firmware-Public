@@ -562,3 +562,17 @@ python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
 Añade `--esmx-board-games-public` al medir el panel anterior con `public-orders` y usa `$lab/board-games-panel` en `--corpus`. Las grabaciones quedan fuera de Git.
 
 Para repetir la regresión en el ESP32-S3 emulado, prepara un encabezado con los cinco casos estándar y agrega `--public-case DIR ID` para cada caso de desarrollo 03, 37, 81 y 61. Usa un directorio de compilación separado y activa `-D CONTINUOUS_DICE_ORDERED_DIE=ON` junto con el banco de consenso de la sección anterior. Para el comparador pasa `-D CONTINUOUS_DICE_ORDERED_DIE=OFF` de forma explícita. El ensayo debe imprimir `WORD_D6_MODE ordered_die` y cerrar con `WORD_D6_DONE 0`. Ejecuta solo `build` y QEMU. El resultado de la emulación no mide la latencia del micrófono ni el uso de memoria del firmware completo.
+
+## Órdenes públicas completas con «dado de seis»
+
+[El panel nuevo](autonomous/public_orders_esmx_full_turns.json) fija cuatro recortes continuos de dos locutores es-MX. Contiene una orden real de una partida, una instrucción de una sola tirada en un tutorial y dos controles que piden o permiten más de una tirada. Los grupos, URL y huellas de los orígenes se reservan para evaluación. La búsqueda de una cancelación espontánea que diga «dado de seis» sigue abierta.
+
+Guarda las fuentes de la ficha como `exhume.m4a` y `reroll-shot.m4a` en el directorio local `$sources`. El extractor valida las huellas originales y de cada recorte. Ejecuta desde la raíz del fork.
+
+```fish
+set -x PYTHONPATH experiments/esmx-compactas
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --esmx-full-turns --sources "$sources" --out "$lab/full-turns-panel"
+```
+
+Para medir, usa `public-orders` con `--esmx-full-turns-public --corpus "$lab/full-turns-panel"` y conserva los bancos, `--continuous-fit`, `--consensus-reference` y `--nominal` de la comparación anterior. La regla vigente se abstuvo en los cuatro recortes. Una alternativa de laboratorio que exigía acuerdo entre bancos y la secuencia «verbo, dado, seis» con una señal acústica más débil tampoco recuperó las dos órdenes. Quedó fuera del reconocedor.
