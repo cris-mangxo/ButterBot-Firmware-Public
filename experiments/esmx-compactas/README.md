@@ -346,3 +346,108 @@ python3 -B experiments/esmx-compactas/autonomous/public_orders.py \
 ```
 
 En el comando de `measure.py public-orders` anterior, usa `--esmx-public --corpus "$v8/esmx-public"` con `--rescue --contrast`. En el generador de QEMU, usa `--esmx-public` y selecciona los casos de interés con `--public-id`. La cancelación de una repetición representada en una demostración es `public-64`. La ampliación, anotada después de la primera medición, agrega `public-70` como control de una regla en español de variante sin certificar. Las tres órdenes es-MX quedaron sin reconocer, una explícita y dos contextuales. Las rutas con confirmación rechazaron los siete controles. La red sin confirmación propuso D6 en `public-70`. Common Voice es-MX se registra como copia local provisional. El ensayo de referencia de QEMU usa el modo `CONTINUOUS_DICE_RESCUE`. `word_full` sirve como control de la red sin confirmación léxica. Las grabaciones y los binarios de laboratorio quedan locales.
+
+## Órdenes D6 abreviadas y nueva prueba es-MX
+
+La receta [direct_dice.py](autonomous/direct_dice.py) añade ejemplos de verbos con pronombre, variantes sin la palabra «dado», órdenes con cuatro o más palabras y retractaciones al final del turno. Genera con Ald y dos voces Sharvard. Los dos bancos int8 se prueban por separado. El banco de palabras amplía el vocabulario de entrenamiento sin alterar los márgenes de la compilación de referencia. Los recortes del panel nunca entran a esos bancos.
+
+Desde el fork, con el ejecutable `kws` compilado como en la primera sección. Conserva los archivos de salida en el laboratorio local:
+
+```fish
+# Configura estas rutas para tu laboratorio y sus entornos Python.
+set -l evidence_root /ruta/al/laboratorio-de-ensayos
+set -l lab /ruta/al/ensayo-nuevo
+set -l piper_python /ruta/al/entorno-de-piper/bin/python
+set -l train_python /ruta/al/entorno-de-torch/bin/python
+set -l public_sources /ruta/a/las-tres-fuentes-del-panel
+set -l ald_onnx "$evidence_root/piper-ald-2026-11/es_MX-ald-medium.onnx"
+set -l sharvard_onnx "$evidence_root/autonomous-v2/es_ES-sharvard-medium.onnx"
+set -l ald_corpus "$evidence_root/autonomous/ald"
+set -l ald_aligned "$evidence_root/autonomous/ald-aligned"
+set -l expanded_train "$evidence_root/autonomous-v5/expanded-train"
+set -l mswc_mixed "$evidence_root/autonomous-v3/human-mixed"
+set -l recipe experiments/esmx-compactas/autonomous/direct_dice.py
+set -x PYTHONPATH experiments/esmx-compactas
+"$piper_python" -B "$recipe" render --ald "$ald_onnx" --sharvard "$sharvard_onnx" --output "$lab/direct"
+"$piper_python" -B "$recipe" render --ald "$ald_onnx" --sharvard "$sharvard_onnx" --aligned --output "$lab/direct-aligned"
+"$train_python" -B "$recipe" acoustic --program "$lab/kws" --ald-turns "$ald_corpus" \
+  --human "$expanded_train" --corpus "$lab/direct" --bank "$lab/direct-acoustic.bin"
+"$train_python" -B "$recipe" words --program "$lab/kws" --ald-turns "$ald_aligned" \
+  --human "$mswc_mixed" --corpus "$lab/direct-aligned" --bank "$lab/direct-words.bin"
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --esmx-direct --sources "$public_sources" --out "$lab/esmx-direct"
+```
+
+En `measure.py public-orders` usa `--esmx-direct-public --corpus "$lab/esmx-direct"` y los bancos publicados. Para la referencia agrega `--rescue --contrast`. Para los candidatos conserva `--rescue` y sustituye solo el argumento `--continuous` o `--adapted`, según corresponda. El contraste usa límites de bancos concretos y el evaluador rechaza los candidatos con esa opción. En QEMU se prueba el rescate de referencia con el mismo panel.
+
+[La ficha](autonomous/public_orders_esmx_direct.json) separa dos instrucciones que nombran un D6, una orden de partida donde el número de caras se conoce por la regla y dos controles. Las variantes rechazaron ambos controles y omitieron las tres órdenes. La CNN alternativa por sí sola confundió cuatro dados con uno. El banco de palabras alternativo recuperó un D6 Ald conocido y perdió un acierto humano anterior. Los dos bancos quedan como experimentos. Ambos se reprodujeron con el mismo SHA-256. El detector C++ ahora rechaza conteos de cuadros fuera del búfer y devuelve logits neutros si se pide un cuadro inválido.
+
+Para repetir las demás filas, guarda el siguiente bloque como `comparar.fish` y ejecútalo con `fish comparar.fish <directorio-ensayos-previos> <directorio-ensayo-nuevo> <archivo-common-voice>`. `$evidence_root` es el directorio local de los ensayos previos. Desde esa raíz, las entradas del entrenamiento son `autonomous/ald`, `autonomous/ald-aligned`, `autonomous-v5/expanded-train` y `autonomous-v3/human-mixed`. Los ONNX son el Ald guardado en `piper-ald-2026-11` y Sharvard en `autonomous-v2`, cada uno junto a su configuración `.onnx.json`. `$cv_archive` apunta al archivo femenino de Common Voice descargado de Mozilla. `$lab` contiene el ejecutable, los bancos nuevos y el panel nuevo extraído en `esmx-direct`.
+
+```fish
+if test (count $argv) -ne 3
+    echo 'Uso: fish comparar.fish ENSAYOS_PREVIOS ENSAYO_NUEVO COMMON_VOICE_TAR' >&2
+    exit 2
+end
+set -l evidence_root "$argv[1]"
+set -l lab "$argv[2]"
+set -l cv_archive "$argv[3]"
+set -l measure experiments/esmx-compactas/autonomous/measure.py
+set -x PYTHONPATH experiments/esmx-compactas
+set -l common --program "$lab/kws" --baseline "$evidence_root/pilot-v2/templates.bin" \
+  --prior "$evidence_root/phrases-final/bank.bin" --turn "$evidence_root/autonomous/dice.bin" \
+  --words "$evidence_root/autonomous/words.bin" --extra "$evidence_root/autonomous-v2/words-extra.bin" --rescue
+set -l fixtures base expanded ordered natural esmx esmx-direct
+set -l corpora "$evidence_root/autonomous-v2/public-holdout" "$evidence_root/autonomous-v5/expanded-test" \
+  "$evidence_root/autonomous-v6/ordered-complete" "$evidence_root/autonomous-v7/natural-public-final" \
+  "$evidence_root/autonomous-v8/esmx-publish" "$lab/esmx-direct"
+for arm in reference reference-rescue acoustic words
+    set -l words "$evidence_root/autonomous-v3/words-mixed.bin"
+    set -l cnn "$evidence_root/autonomous-v5/expanded.bin"
+    set -l contrast
+    switch $arm
+        case reference
+            set contrast --contrast
+        case acoustic
+            set cnn "$lab/direct-acoustic.bin"
+        case words
+            set words "$lab/direct-words.bin"
+    end
+    set -l banks --adapted "$words" --continuous "$cnn" $contrast
+    for i in (seq (count $fixtures))
+        set -l panel
+        if test $i -ne 1
+            set panel "--$fixtures[$i]-public"
+        end
+        python3.12 -B "$measure" public-orders $common $banks $panel --corpus "$corpora[$i]" \
+          > "$lab/$arm-$fixtures[$i].json"; or exit 1
+    end
+    python3.12 -B "$measure" replay $common $banks --corpus "$evidence_root/phrases-final" \
+      --older-wide "$evidence_root/d6-round1" > "$lab/$arm-replay.json"; or exit 1
+    python3.12 -B "$measure" human $common $banks --archive "$cv_archive" > "$lab/$arm-cv.json"; or exit 1
+end
+```
+
+Para órdenes públicas, agrupa `cases` por `expected`. Se acierta una orden si `expected=6` y la variante devuelve `6`. Se cuenta una falsa tirada si `expected=0` y la variante devuelve `6`. Contrasta `word_contrast` de la referencia con `word_rescue` de los candidatos. Para aislar el cambio de banco, compara por caso `word_rescue` de `reference-rescue` con los brazos alternativos. En Common Voice suma `categories[].evaluated` y la columna `false_d6` de la variante de cada brazo. En la regresión usa las cuatro categorías que devuelve `replay`, con sus denominadores `evaluated`. La paridad de la CNN en calibración es una muestra de 24 turnos elegida por `train.verify_wire`.
+
+Para reproducir los pesos, ejecuta otra vez ambos entrenadores con rutas de banco nuevas y compara con `shasum -a 256`. Para los límites de cuadros, sustituye `host/main.cpp` por `host/test_word_dice.cpp` en el comando C++ de este README, agrega `-fsanitize=address,undefined` y ejecuta la prueba resultante.
+
+Con ESP-IDF 5.5.3 y QEMU de Espressif inicializados, prepara y ejecuta el banco de rescate con los pesos de referencia. Los parámetros `WORD_DICE_ADAPTED_DIR` y `CONTINUOUS_DICE_DIR` apuntan a los encabezados anteriores, no a los candidatos de este ensayo.
+
+```fish
+set -l pcm "$lab/qemu-pcm"
+mkdir -p "$pcm"
+python3.12 -B experiments/esmx-compactas/autonomous/qemu_fixture.py \
+  --test "$evidence_root/autonomous-v7/test.json" --replay "$lab/reference-replay.json" \
+  --corpus "$evidence_root/autonomous/ald-aligned" --legacy "$evidence_root/phrases-final" \
+  --older-wide "$evidence_root/d6-round1" --esmx-direct-public --public-dir "$lab/esmx-direct" \
+  --header "$pcm/word_pcm.h"
+idf.py -C experiments/esmx-compactas/esp32s3 -B "$lab/qemu-rescue" \
+  -D "SDKCONFIG=$lab/qemu-rescue.sdkconfig" -D IDF_TARGET=esp32s3 -D KWS_WITH_MODEL=ON \
+  -D "PILOT_MODEL_DIR=$evidence_root/pilot-v2" -D "PHRASE_BANK_DIR=$evidence_root/phrases-final" \
+  -D "WORD_DICE_DIR=$evidence_root/autonomous" -D "WORD_DICE_EXTRA_DIR=$evidence_root/autonomous-v2/selected-bank" \
+  -D "WORD_DICE_ADAPTED_DIR=$evidence_root/autonomous-v3/adapted-bank" \
+  -D "CONTINUOUS_DICE_DIR=$evidence_root/autonomous-v5/continuous-bank" \
+  -D CONTINUOUS_DICE_GUARD=ON -D CONTINUOUS_DICE_RESCUE=ON -D "WORD_DICE_TEST_PCM_DIR=$pcm" build
+idf.py -C experiments/esmx-compactas/esp32s3 -B "$lab/qemu-rescue" qemu --qemu-extra-args="-nic none"
+```

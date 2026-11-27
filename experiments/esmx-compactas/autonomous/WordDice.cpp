@@ -6,6 +6,7 @@
 namespace EsMx::Kws {
 namespace {
 constexpr int32_t MaxBias = 1 << 24;
+static_assert(bb::asr::kBands == 2 * Bands);
 
 enum Label {Other, Verb, Die, Six, Denial, OtherNumber, Context};
 
@@ -64,6 +65,9 @@ bool extractWordFeatures(bb::asr::LogMel& frontend, std::span<const int16_t> pcm
 }
 
 std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t time, const WordBank& bank){
+	if(input.count > input.frames.size() || time >= input.count){
+		return {};
+	}
 	std::array<int8_t, WordHidden> first, hidden;
 	const int origin = static_cast<int>(time) - WordWindow / 2;
 	const int begin = std::max(0, -origin);
@@ -100,6 +104,9 @@ std::array<int32_t, WordLabels> wordLogits(const WordFeatures& input, size_t tim
 }
 
 bool acceptsWordDice(const WordFeatures& input, const WordBank& bank){
+	if(input.count > input.frames.size()){
+		return false;
+	}
 	constexpr std::array<int, 3> order{Verb, Die, Six};
 	int previous = Other;
 	int run = 0;

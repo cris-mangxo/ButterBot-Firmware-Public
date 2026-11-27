@@ -127,6 +127,13 @@ int main(){
 	word(validContrast, 9, 2, 2);
 	word(validContrast, 17, 3, 2);
 	require(acceptsContrastedDice(validContrast, strong));
+	auto invalidCount = validContrast;
+	invalidCount.count = invalidCount.frames.size() + 1;
+	const std::array<int32_t, WordLabels> noLogits{};
+	require(!acceptsWordDice(invalidCount, strong));
+	require(wordLogits(invalidCount, 1, strong) == noLogits);
+	require(wordLogits(validContrast, validContrast.count, strong) == noLogits);
+	require(wordLogits(validContrast, static_cast<size_t>(-1), strong) == noLogits);
 	for(int veto : {4, 5, 6}){
 		auto vetoed = validContrast;
 		word(vetoed, 23, veto, 2);

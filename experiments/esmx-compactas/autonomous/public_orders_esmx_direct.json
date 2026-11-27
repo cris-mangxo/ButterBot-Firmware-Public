@@ -1,0 +1,127 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "fungi": {
+      "speaker_group": "tirando-rol",
+      "locale": "es-MX",
+      "locale_evidence": "https://sesioncero.mx/grimorio/creadores-de-contenido-de-rol-en-mexico-que-debes-conocer",
+      "page": "https://podcasters.spotify.com/pod/show/tirandorol/episodes/Tirando-Rol-BONUS---Problemas-Fungi-parte-1-con-Beto-de-Condado-20-e3djab4",
+      "enclosure": "https://anchor.fm/s/100f3c838/podcast/play/113927972/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-13%2F416036554-44100-2-bfe6088ed7613.mp3",
+      "format": "mp3",
+      "evaluation_note": "Episodio nuevo de un grupo ya reservado. Invitado de Condado 20, también reservado.",
+      "sha256": "00844809c272f633cf2dbf2b9233b53c0212937e7dbaa87c086d2300e9068720"
+    },
+    "juganor": {
+      "speaker_group": "el-juganor",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/@ElJugaNor/about",
+      "page": "https://www.youtube.com/watch?v=IlWed5Ur7bI",
+      "enclosure": "https://www.youtube.com/watch?v=IlWed5Ur7bI",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "98f4b462392b9124404d25e952a9df90f0d428db4bf2f6159a3302a440b21dab"
+    },
+    "reroll": {
+      "speaker_group": "reroll",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCIB9yDvXKhqUPjNhyY9Njog",
+      "page": "https://www.youtube.com/watch?v=L-_yTR4Gn7I",
+      "enclosure": "https://www.youtube.com/watch?v=L-_yTR4Gn7I",
+      "format": "m4a",
+      "youtube_audio_format": "140",
+      "sha256": "e182b58d248f541eb56e8a86f6db5ef52467bad2f1f64e38823a35efec8e99e7"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-71",
+      "source": "fungi",
+      "start_ms": 2730000,
+      "end_ms": 2732370,
+      "category": "explicit_single_d6_order",
+      "expected": 6,
+      "summary": "El narrador solicita a quienes no pasaron la prueba que lancen un dado de seis cada quien.",
+      "context_ms": [
+        2728750,
+        2735250
+      ],
+      "die_evidence_ms": [
+        2730730,
+        2731930
+      ],
+      "pcm_sha256": "f81ba50756e91ac74b6d369f3252ae6889bdc2fb14da193683b50b566ad1288b"
+    },
+    {
+      "id": "public-72",
+      "source": "juganor",
+      "start_ms": 768215,
+      "end_ms": 770530,
+      "category": "explicit_single_d6_order",
+      "expected": 6,
+      "summary": "Instrucción del tutorial para elegir los ideales del personaje. Indica una tirada de un solo dado de seis.",
+      "context_ms": [
+        765800,
+        774600
+      ],
+      "die_evidence_ms": [
+        769780,
+        770530
+      ],
+      "pcm_sha256": "ae8aa8988db09c92ed8481460e18906282e56a00fa7aa5fda03be173b0304c24"
+    },
+    {
+      "id": "public-73",
+      "source": "reroll",
+      "start_ms": 2166260,
+      "end_ms": 2169890,
+      "category": "contextual_single_d6_order",
+      "expected": 6,
+      "summary": "La narradora solicita la primera tirada de la sesión por criminal. Las reglas anteriores identifican ese dado como D6. El audio del turno no dice el número de caras.",
+      "context_ms": [
+        2161500,
+        2177130
+      ],
+      "die_evidence_ms": [
+        822950,
+        827660
+      ],
+      "pcm_sha256": "b295dee813b6c180b48694e5039cbd015fb4ce2637c01c7356674d7eb561a92b"
+    },
+    {
+      "id": "public-74",
+      "source": "juganor",
+      "start_ms": 126292,
+      "end_ms": 128552,
+      "category": "multiple_d6",
+      "expected": 0,
+      "summary": "El tutorial pide cuatro dados de seis, no una sola tirada individual.",
+      "context_ms": [
+        123300,
+        134900
+      ],
+      "die_evidence_ms": [
+        126620,
+        128552
+      ],
+      "pcm_sha256": "8f5341447e788a45930c0eeaf37e34cbca03e6420e044ba8ca468795106a6032"
+    },
+    {
+      "id": "public-75",
+      "source": "reroll",
+      "start_ms": 5308790,
+      "end_ms": 5310350,
+      "category": "spontaneous_contextual_die_switch",
+      "expected": 0,
+      "summary": "Una jugadora decide cambiar su dado físico durante la partida. La tirada continúa con el sustituto y da cinco. No dice el número de caras.",
+      "context_ms": [
+        5294100,
+        5313970
+      ],
+      "die_evidence_ms": [
+        822950,
+        827660
+      ],
+      "pcm_sha256": "53fc2e9fffb8e87c1928498e8fee441bddf69149aa26da5251fdb40d7ce4a6af"
+    }
+  ]
+}

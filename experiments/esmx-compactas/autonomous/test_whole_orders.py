@@ -115,6 +115,14 @@ class WholeOrderSplitTest(unittest.TestCase):
                     finally:
                         meta[key] = previous
 
+    def test_direct_esmx_panel_is_reserved_for_all_training_manifests(self):
+        fixture = public_orders.DIRECT_ESMX_FIXTURE
+        for source in reserved(fixture)["sources"].values():
+            self.spec["sources"]["apaga"]["speaker_group"] = source["speaker_group"]
+            with self.subTest(source=source["speaker_group"]):
+                with self.assertRaisesRegex(ValueError, "panel reservado"):
+                    self.verify()
+
     def test_esmx_profile_requires_hash_after_renaming(self):
         panel = reserved(ESMX_FIXTURE)
         del panel["cases"][0]["pcm_sha256"]
