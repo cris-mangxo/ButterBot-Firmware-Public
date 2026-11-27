@@ -67,9 +67,14 @@ static int probe(std::span<const int16_t> pcm, unsigned& cost){
 		label = static_cast<int>(completeContrastedDice(signature, result.intent, words, PilotAcousticDice,
 		                                               wordWorkspace, PilotWordAdapted));
 #elif defined(KWS_WITH_CONTINUOUS_DICE_CONSENSUS)
+#ifdef KWS_WITH_CONTINUOUS_DICE_ORDERED_DIE
+		constexpr auto mode = ConsensusMode::OrderedDie;
+#else
+		constexpr auto mode = ConsensusMode::SharedSix;
+#endif
 		label = static_cast<int>(completeConsensusDice(signature, result.intent, words, PilotAcousticDice,
 		                                              PilotConsensusDice, wordWorkspace, PilotWordDice,
-		                                              PilotWordExtra, PilotWordAdapted));
+		                                              PilotWordExtra, PilotWordAdapted, mode));
 #else
 		const auto candidate = completeAcousticDice(signature, result.intent, words, PilotAcousticDice);
 #ifdef KWS_WITH_CONTINUOUS_DICE_GUARD
@@ -107,6 +112,9 @@ extern "C" void app_main(){
 		return;
 	}
 #ifdef KWS_WITH_WORD_TEST_PCM
+#ifdef KWS_WITH_CONTINUOUS_DICE_ORDERED_DIE
+	std::printf("WORD_D6_MODE ordered_die\n");
+#endif
 	unsigned failures = 0;
 	for(const auto& test : WordPcmCases){
 		label = probe(test.samples, cost);

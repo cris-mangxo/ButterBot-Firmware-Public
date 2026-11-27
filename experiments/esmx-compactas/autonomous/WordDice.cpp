@@ -204,6 +204,56 @@ bool confirmsSixAcrossBanks(const WordFeatures& input, const WordBank& primary, 
 	return heardSix;
 }
 
+bool confirmsOrderedDieSix(const WordFeatures& input, const WordBank& primary, const WordBank& extra,
+                           const WordBank& adapted){
+	if(input.count > input.frames.size()){
+		return false;
+	}
+	constexpr int MaxSixOffset = 3;
+	constexpr int MinDieToSix = 4, MaxDieToSix = 60;
+	int dieRun = 0, sixRun = 0;
+	int trailingDenialRun = 0;
+	int noun = -1, primarySix = -1, adaptedSix = -1;
+	bool matched = false;
+	for(int frame = 0; frame < static_cast<int>(input.count); ++frame){
+		const int mainWord = token(wordLogits(input, frame, primary), primary);
+		const int adaptedWord = token(wordLogits(input, frame, adapted), adapted);
+		const bool mainDenial = mainWord == Denial;
+		const bool adaptedDenial = adaptedWord == Denial;
+		const bool extraDenial = (matched || mainDenial || adaptedDenial) &&
+		                         token(wordLogits(input, frame, extra), extra) == Denial;
+		const int denialVotes = int(mainDenial) + int(adaptedDenial) + int(extraDenial);
+		trailingDenialRun = matched && denialVotes ? trailingDenialRun + 1 : 0;
+		if(denialVotes >= 2 || trailingDenialRun >= 2){
+			return false;
+		}
+		dieRun = adaptedWord == Die ? dieRun + 1 : 0;
+		if(dieRun == 2){
+			primarySix = adaptedSix = -1;
+			matched = false;
+		}
+		if(dieRun >= 2){
+			noun = frame;
+		}
+		const int gap = frame - noun;
+		if(noun < 0 || gap < MinDieToSix || gap > MaxDieToSix){
+			sixRun = 0;
+			continue;
+		}
+		sixRun = mainWord == Six ? sixRun + 1 : 0;
+		if(sixRun >= 2){
+			primarySix = frame;
+		}
+		if(adaptedWord == Six){
+			adaptedSix = frame;
+		}
+		// Match nearby evidence from the two lexicons without assuming identical frame boundaries.
+		matched |= primarySix >= 0 && adaptedSix >= 0 &&
+		           frame - std::min(primarySix, adaptedSix) <= MaxSixOffset;
+	}
+	return matched;
+}
+
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,
                              const WordBank& bank, DiceConfirmation confirmation){
 	if(previous != Intent::Unknown || candidate != Intent::Dice6 || input.count > input.frames.size()){

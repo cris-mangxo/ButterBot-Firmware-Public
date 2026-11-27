@@ -6,6 +6,8 @@
 
 namespace EsMx::Kws {
 
+enum class ConsensusMode { SharedSix, OrderedDie };
+
 inline bool prefersNegation(const DiceScores& scores, const AcousticDice& bank){
 	const auto alternative = std::max({scores[DiceOutside], scores[DiceOther], scores[DiceRequest]});
 	return scores[DiceNegation] - alternative >= bank.minimumMargin;
@@ -21,7 +23,8 @@ inline bool hasCompetingNegation(const DiceScores& scores, const AcousticDice& b
 inline Intent completeConsensusDice(const Signature& input, Intent baseline, Intent verified,
                                     const AcousticDice& reference, const AcousticDice& candidate,
                                     const WordFeatures& words, const WordBank& primary,
-                                    const WordBank& extra, const WordBank& adapted){
+                                    const WordBank& extra, const WordBank& adapted,
+                                    ConsensusMode mode = ConsensusMode::SharedSix){
 	if(baseline != Intent::Unknown || (verified != Intent::Unknown && verified != Intent::Dice6)){
 		return verified;
 	}
@@ -40,13 +43,18 @@ inline Intent completeConsensusDice(const Signature& input, Intent baseline, Int
 	                         DiceConfirmation::OrderedRescue) == Intent::Dice6){
 		return Intent::Dice6;
 	}
-	// A competitive negation in the reference blocks the secondary route even
-	// when the candidate proposes D6.
-	if(hasCompetingNegation(referenceScores, reference)){
+	// Preserve the shared-six veto. The ordered route can examine weak
+	// competition below the reference bank's absolute score floor.
+	const bool competing = hasCompetingNegation(referenceScores, reference);
+	if(competing && (mode == ConsensusMode::SharedSix || prefersNegation(referenceScores, reference) ||
+	                 referenceScores[DiceNegation] >= reference.minimumScore)){
 		return Intent::Unknown;
 	}
-	if(proposesDice6(acousticDiceScores(input, candidate), candidate) &&
-	   confirmsSixAcrossBanks(words, primary, extra, adapted)){
+	if(!proposesDice6(acousticDiceScores(input, candidate), candidate)){
+		return Intent::Unknown;
+	}
+	if((!competing && confirmsSixAcrossBanks(words, primary, extra, adapted)) ||
+	   (mode == ConsensusMode::OrderedDie && confirmsOrderedDieSix(words, primary, extra, adapted))){
 		return Intent::Dice6;
 	}
 	return Intent::Unknown;

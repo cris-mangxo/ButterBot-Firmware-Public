@@ -35,6 +35,8 @@ bool acceptsWordDice(const WordFeatures& input, const WordBank& bank);
 bool acceptsContrastedDice(const WordFeatures& input, const WordBank& bank);
 bool confirmsSixAcrossBanks(const WordFeatures& input, const WordBank& primary, const WordBank& extra,
                             const WordBank& adapted);
+bool confirmsOrderedDieSix(const WordFeatures& input, const WordBank& primary, const WordBank& extra,
+                           const WordBank& adapted);
 enum class DiceConfirmation { SixOnly, OrderedRescue };
 
 Intent confirmContinuousDice(Intent previous, Intent candidate, const WordFeatures& input,

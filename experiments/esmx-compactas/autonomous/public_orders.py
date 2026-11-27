@@ -21,9 +21,10 @@ CONTINUOUS_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_continuous.json"
 CANCELLATION_FIXTURE = FIXTURE.with_name("public_orders_esmx_cancellation.json")
 TABLE_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_table.json")
 MENTION_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_mention.json")
+GAMES_ESMX_FIXTURE = FIXTURE.with_name("public_orders_esmx_board_games.json")
 HELDOUT_FIXTURES = (FIXTURE, EXPANDED_FIXTURE, ORDERED_FIXTURE, NATURAL_FIXTURE,
                     ESMX_FIXTURE, DIRECT_ESMX_FIXTURE, CONTINUOUS_ESMX_FIXTURE, CANCELLATION_FIXTURE,
-                    TABLE_ESMX_FIXTURE, MENTION_ESMX_FIXTURE)
+                    TABLE_ESMX_FIXTURE, MENTION_ESMX_FIXTURE, GAMES_ESMX_FIXTURE)
 STRICT_ESMX_PROFILE = "esmx-orders-with-controls-v1"
 ESMX_POSITIVES = {"explicit_single_d6_order", "contextual_single_d6_order"}
 ESMX_CONTEXTUAL = {"contextual_single_d6_order", "contextual_single_d6_cancel",
@@ -44,7 +45,8 @@ def specification(fixture=None):
     fixture_path = fixture.resolve()
     if fixture_path in {ESMX_FIXTURE.resolve(), DIRECT_ESMX_FIXTURE.resolve(),
                         CONTINUOUS_ESMX_FIXTURE.resolve(), CANCELLATION_FIXTURE.resolve(),
-                        TABLE_ESMX_FIXTURE.resolve(), MENTION_ESMX_FIXTURE.resolve()} and not esmx:
+                        TABLE_ESMX_FIXTURE.resolve(), MENTION_ESMX_FIXTURE.resolve(),
+                        GAMES_ESMX_FIXTURE.resolve()} and not esmx:
         raise ValueError("Falta el perfil del panel es-MX")
     pcm_required = esmx or fixture_path == NATURAL_FIXTURE.resolve()
     declared = set()
@@ -178,7 +180,7 @@ def add_panel_options(parser, suffix=""):
                           ("natural", NATURAL_FIXTURE), ("esmx", ESMX_FIXTURE),
                           ("esmx-direct", DIRECT_ESMX_FIXTURE), ("esmx-continuous", CONTINUOUS_ESMX_FIXTURE),
                           ("esmx-cancellation", CANCELLATION_FIXTURE), ("esmx-table", TABLE_ESMX_FIXTURE),
-                          ("esmx-mention", MENTION_ESMX_FIXTURE)):
+                          ("esmx-mention", MENTION_ESMX_FIXTURE), ("esmx-board-games", GAMES_ESMX_FIXTURE)):
         panel.add_argument(f"--{name}{suffix}", action="store_const", const=fixture, dest="public_fixture")
 
 

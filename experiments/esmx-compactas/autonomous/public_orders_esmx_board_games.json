@@ -1,0 +1,93 @@
+{
+  "profile": "esmx-orders-with-controls-v1",
+  "sources": {
+    "omar": {
+      "speaker_group": "omar-vazquez-a",
+      "publisher": "Omar Vázquez A",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCGZ2XdNY_46Uip12vj1Io1g/about",
+      "page": "https://www.youtube.com/watch?v=ABy11b50IvQ",
+      "enclosure": "https://www.youtube.com/watch?v=ABy11b50IvQ",
+      "format": "m4a",
+      "sha256": "2e57fbd49538d25771ef823c5af003fab503df43ae34087d5e7bab5d74c7af3c"
+    },
+    "mariano": {
+      "speaker_group": "mariano-razo",
+      "publisher": "Mariano Razo",
+      "locale": "es-MX",
+      "locale_evidence": "https://www.youtube.com/channel/UCLYqpLGnCoQfcD7BdDKsSxQ/about",
+      "page": "https://www.youtube.com/watch?v=VWIRSE5Yebw",
+      "enclosure": "https://www.youtube.com/watch?v=VWIRSE5Yebw",
+      "format": "m4a",
+      "sha256": "9aba79cea388644179681e1d3e5ee995e47776a6053cf443422816c25312d52b"
+    }
+  },
+  "cases": [
+    {
+      "id": "public-84",
+      "source": "omar",
+      "start_ms": 100100,
+      "end_ms": 103910,
+      "expected": 6,
+      "category": "contextual_single_d6_order",
+      "context_ms": [
+        96200,
+        113700
+      ],
+      "die_evidence_ms": [
+        99000,
+        109000
+      ],
+      "die_evidence_kind": "same_turn_video_cube",
+      "summary": "El instructor pide tirar el dado para empezar la demostración y tira una sola vez. El video muestra un dado cúbico rojo y la voz anuncia seis. El recorte no dice el número de caras.",
+      "pcm_sha256": "6f290604cdf4c3a750d866a623abdae175e2988f210a8dca0189e831a485c61b"
+    },
+    {
+      "id": "public-85",
+      "source": "mariano",
+      "start_ms": 18880,
+      "end_ms": 22200,
+      "expected": 6,
+      "category": "contextual_single_d6_order",
+      "context_ms": [
+        16000,
+        34100
+      ],
+      "die_evidence_ms": [
+        20300,
+        32400
+      ],
+      "die_evidence_kind": "same_turn_video_cube",
+      "summary": "El anfitrión pide tirar el dado para decidir quién empieza. Cada jugador hace su propia tirada con el mismo dado cúbico visible. El recorte no dice el número de caras.",
+      "pcm_sha256": "76ff82b86d9e893b9ed02afd183ad5d65f9482b59f3cc6d674a5c612f019a318"
+    },
+    {
+      "id": "public-86",
+      "source": "mariano",
+      "start_ms": 300650,
+      "end_ms": 304350,
+      "expected": 0,
+      "category": "multiple_dice",
+      "context_ms": [
+        296000,
+        318000
+      ],
+      "summary": "El jugador anuncia su tirada con el dado triple. La instrucción solo abarca una tirada D6 en este experimento.",
+      "pcm_sha256": "d058f5e152e4daf707cb9bb8f1ead1861ceb2750a06dea26735d7667b6a110b0"
+    },
+    {
+      "id": "public-87",
+      "source": "omar",
+      "start_ms": 107360,
+      "end_ms": 110960,
+      "expected": 0,
+      "category": "d6_roll_result",
+      "context_ms": [
+        99000,
+        113000
+      ],
+      "summary": "El instructor comunica que sacó seis y comienza a narrar su movimiento por el tablero. No pide una tirada.",
+      "pcm_sha256": "321753a9a150b63a420d4ace60883e68c875113e771aec6d612bdca07fc5058d"
+    }
+  ]
+}

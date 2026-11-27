@@ -71,7 +71,8 @@ int main(int argc, char** argv){
 	const bool wordGuarded = argc == 10 && std::string_view(argv[1]) == "word-guarded";
 	const bool wordRescue = argc == 10 && std::string_view(argv[1]) == "word-rescue";
 	const bool wordContrast = argc == 10 && std::string_view(argv[1]) == "word-contrast";
-	const bool wordConsensus = argc == 11 && std::string_view(argv[1]) == "word-consensus";
+	const bool wordNominal = argc == 11 && std::string_view(argv[1]) == "word-nominal";
+	const bool wordConsensus = wordNominal || (argc == 11 && std::string_view(argv[1]) == "word-consensus");
 	const bool wordFull = wordGuarded || wordRescue || wordContrast || wordConsensus ||
 	                      (argc == 10 && std::string_view(argv[1]) == "word-full");
 	const bool wordFrames = argc == 2 && std::string_view(argv[1]) == "word-frames";
@@ -215,8 +216,9 @@ int main(int argc, char** argv){
 				if(!load(argv[10], reference) || !validAcousticDice(reference)){
 					return 2;
 				}
+				const auto mode = wordNominal ? ConsensusMode::OrderedDie : ConsensusMode::SharedSix;
 				intent = completeConsensusDice(signature, result.intent, intent, reference, model,
-				                               wordFeatures, bank, models[0], models[1]);
+				                               wordFeatures, bank, models[0], models[1], mode);
 			}else if(wordContrast){
 				intent = completeContrastedDice(signature, result.intent, intent, model, wordFeatures, models.back());
 			}else if(wordGuarded || wordRescue){

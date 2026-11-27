@@ -160,6 +160,63 @@ int main(){
 	require(combined(Intent::Unknown, Intent::Dice6, positive, negative, agreed) == Intent::Dice6);
 	require(combined(Intent::Unknown, Intent::Dice6, negative, negative, signal) == Intent::Dice6);
 
+	auto delayedSix = model;
+	delayedSix.input[(3 * Bands + 3) * WordWindow + WordWindow / 2] = 0;
+	delayedSix.input[(3 * Bands + 7) * WordWindow + WordWindow / 2] = 2;
+	WordFeatures orderedDie{};
+	orderedDie.count = 30;
+	word(orderedDie, 4, 2, 2);
+	word(orderedDie, 14, 7, 1);
+	word(orderedDie, 15, 3, 2);
+	require(confirmsOrderedDieSix(orderedDie, model, model, delayedSix));
+	auto withoutNoun = orderedDie;
+	word(withoutNoun, 4, 0, 2);
+	require(!confirmsOrderedDieSix(withoutNoun, model, model, delayedSix));
+	auto tooFarApart = orderedDie;
+	tooFarApart.frames[14].fill(0);
+	word(tooFarApart, 21, 7, 1);
+	require(!confirmsOrderedDieSix(tooFarApart, model, model, delayedSix));
+	auto extraDenialBank = model;
+	extraDenialBank.input[(4 * Bands + 4) * WordWindow + WordWindow / 2] = 0;
+	extraDenialBank.input[(4 * Bands + 8) * WordWindow + WordWindow / 2] = 2;
+	auto trailingNo = orderedDie;
+	word(trailingNo, 23, 8, 1);
+	require(confirmsOrderedDieSix(trailingNo, model, extraDenialBank, delayedSix));
+	word(trailingNo, 24, 8, 1);
+	require(!confirmsOrderedDieSix(trailingNo, model, extraDenialBank, delayedSix));
+	auto replacement = orderedDie;
+	word(replacement, 22, 2, 2);
+	word(replacement, 26, 5, 3);
+	require(!confirmsOrderedDieSix(replacement, model, model, delayedSix));
+	for(size_t start : {1, 24}){
+		auto denied = orderedDie;
+		word(denied, start, 4, 1);
+		require(!confirmsOrderedDieSix(denied, model, model, delayedSix));
+	}
+	for(int dieLead : {3, 4, 59, 60}){
+		WordFeatures boundary{};
+		boundary.count = 90;
+		word(boundary, 2, 2, 2);
+		word(boundary, 3 + dieLead, 3, 2);
+		require(confirmsOrderedDieSix(boundary, model, model, model) == (dieLead == 4 || dieLead == 59));
+	}
+	WordFeatures reversedNominal{};
+	reversedNominal.count = 30;
+	word(reversedNominal, 4, 3, 3);
+	word(reversedNominal, 14, 2, 4);
+	require(!confirmsOrderedDieSix(reversedNominal, model, model, model));
+	const auto weakCompetition = fakeAcoustic({1, 8, 1, 3});
+	const auto nominal = [&](const AcousticDice& reference){
+		return completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, reference, positive, orderedDie,
+		                             model, model, delayedSix, ConsensusMode::OrderedDie);
+	};
+	require(nominal(weakCompetition) == Intent::Dice6);
+	require(nominal(closeNegation) == Intent::Unknown);
+	require(completeConsensusDice(empty, Intent::Unknown, Intent::Unknown, weakCompetition, positive, orderedDie,
+	                              model, model, delayedSix) == Intent::Unknown);
+	require(completeConsensusDice(empty, Intent::Fact, Intent::Fact, outside, positive, orderedDie,
+	                              model, model, delayedSix, ConsensusMode::OrderedDie) == Intent::Fact);
+
 	contrasted = signal;
 	word(contrasted, 1, 2);
 	require(!acceptsWordDice(contrasted, model));

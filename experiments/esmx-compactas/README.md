@@ -547,3 +547,18 @@ python3.12 -B "$experiment/public_orders.py" --esmx-mention --sources "$sources"
 ```
 
 En ESP-IDF usa la configuración de rescate. `CONTINUOUS_DICE_DIR` apunta al encabezado de referencia de `expanded.bin`. Agrega `-D "CONTINUOUS_DICE_CONSENSUS_DIR=$lab/consensus-bank"`. Genera el encabezado QEMU con las opciones anteriores y `--public-case DIR ID` para cada caso de 03, 37, 81 y 82. Genera una segunda imagen para 83 con `--esmx-mention-public`; los cinco clips públicos juntos exceden la partición de laboratorio al incrustar sus PCM. Usa solo `build` y QEMU.
+
+## Confirmación ordenada de «dado» y «seis»
+
+El modo experimental agrega una alternativa después de la confirmación anterior. Requiere una propuesta del banco acústico combinado, una detección sostenida de «dado» por el léxico adaptado y después evidencia de «seis» en el léxico principal y el adaptado. Los cuadros avanzan cada 20 ms. El comienzo de la confirmación se busca a partir de cuatro cuadros tras acabar la racha de «dado». Los dos léxicos pueden diferir hasta tres cuadros y la confirmación debe quedar dentro de 60 cuadros desde el final de «dado». Una nueva detección sostenida de «dado» invalida la anterior. Dos cuadros de negación posterior en cualquiera de los tres léxicos vetan esta alternativa. Una negación anterior detectada solo por un léxico puede pasar. El modo no reconoce el verbo de forma obligatoria ni infiere el número de caras por contexto visual.
+
+Agrega `--nominal` al comando de confirmación anterior para obtener `word_consensus` y `word_nominal` sobre las mismas entradas y con los mismos bancos. Conserva `--continuous-fit` y `--consensus-reference`. Los casos `public-03`, `37`, `81` y `61` y todos los casos que comparten sus fuentes o la voz del prefijo de 37 pertenecen a desarrollo. La [ficha de mesas nuevas](autonomous/public_orders_esmx_board_games.json) añade dos locutores reservados. Coloca las fuentes con los nombres y formatos de la ficha en `$sources`.
+
+```fish
+python3.12 -B experiments/esmx-compactas/autonomous/public_orders.py \
+  --esmx-board-games --sources "$sources" --out "$lab/board-games-panel"
+```
+
+Añade `--esmx-board-games-public` al medir el panel anterior con `public-orders` y usa `$lab/board-games-panel` en `--corpus`. Las grabaciones quedan fuera de Git.
+
+Para repetir la regresión en el ESP32-S3 emulado, prepara un encabezado con los cinco casos estándar y agrega `--public-case DIR ID` para cada caso de desarrollo 03, 37, 81 y 61. Usa un directorio de compilación separado y activa `-D CONTINUOUS_DICE_ORDERED_DIE=ON` junto con el banco de consenso de la sección anterior. Para el comparador pasa `-D CONTINUOUS_DICE_ORDERED_DIE=OFF` de forma explícita. El ensayo debe imprimir `WORD_D6_MODE ordered_die` y cerrar con `WORD_D6_DONE 0`. Ejecuta solo `build` y QEMU. El resultado de la emulación no mide la latencia del micrófono ni el uso de memoria del firmware completo.
