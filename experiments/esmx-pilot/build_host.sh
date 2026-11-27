@@ -17,7 +17,9 @@ entry=(experiments/esmx-pilot/recognize.cpp)
 flags=(-std=c++20 -O2 -Wall -Wextra -Werror -DBB_ESMX_PILOT)
 if [[ ${3:-} == --capture ]]; then
     entry=(experiments/esmx-pilot/capture_replay.cpp "$kws/PilotCapture.cpp")
-    flags+=(-pthread -I experiments/esmx-pilot/capture_stubs)
+    entry+=(experiments/esmx-pilot/dispatch_probe.cpp main/src/Audio/EsMxPilot/Dispatch.cpp)
+    flags+=(-pthread -Wno-unused-parameter -I experiments/esmx-pilot/capture_stubs -I experiments/esmx-pilot/dispatch_stubs
+            -I experiments/esmx-commands/host -I components/ButterBot-Common/src -I components/CMF/src)
 fi
 ${CXX:-c++} "${flags[@]}" \
     -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \

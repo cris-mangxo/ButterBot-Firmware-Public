@@ -13,12 +13,14 @@ from replay import PUBLIC_PANELS, panel
 
 DEVELOPMENT_D6 = {"public-03", "public-37", "public-61", "public-78", "public-81"}
 RESERVED_D6 = {"public-88", "public-89"}
+RESERVED_INTENTS = {"mantequilla": 1, "chiste": 3, "hora": 5, "d6": 6}
+DISPATCH = {1: "butter", 3: "joke", 5: "time", 6: "dice6_factory"}
 ALIASES = {
     "butter": 1, "joke": 3, "time": 5, "d6": 6, "veto-d6": 0, "veto-fact": 0,
 }
 
 
-def recordings(base):
+def recordings(base, additional_manifests=()):
     for index, folder in enumerate(PUBLIC_PANELS):
         for case in panel(base, index):
             if case["overlong"]:
@@ -45,12 +47,29 @@ def recordings(base):
         path = base / "primer-candidato" / "synthetic" / f"{name}.wav"
         yield name, "synthetic_aliases", "alias", expected, path, None
 
-    voices = base / "primer-candidato-voces"
-    for case in json.loads((voices / "manifest.json").read_text())["clips"]:
-        if case["locale"] != "es-MX" or case["split"] != "heldout" or case["intent"] != "hora":
-            raise ValueError(f"unexpected reserved voice metadata for {case['id']}")
-        yield (case["id"], "public_reserved_time", "time", ALIASES["time"],
-               voices / case["file"], case["wav_sha256"])
+    voices = (base / "primer-candidato-voces").resolve(strict=True)
+    adjustment = json.loads((voices / "manifest-ajuste.json").read_text())["clips"]
+    seen = set()
+    for manifest in (voices / "manifest.json", *additional_manifests):
+        manifest = manifest.resolve(strict=True)
+        if manifest.parent != voices:
+            raise ValueError("reserved manifests belong in primer-candidato-voces")
+        for case in json.loads(manifest.read_text())["clips"]:
+            intention, identifier = case["intent"], case["id"]
+            if case["locale"] != "es-MX" or case["split"] != "heldout" or intention not in RESERVED_INTENTS:
+                raise ValueError(f"unexpected reserved voice metadata for {identifier}")
+            if identifier in seen:
+                raise ValueError(f"duplicate reserved voice ID: {identifier}")
+            seen.add(identifier)
+            if not all(case.get(key) for key in ("source_group", "speaker_group")) or any(
+                    case[key] == row.get(key) for row in adjustment for key in ("source_group", "speaker_group")):
+                raise ValueError(f"reserved voice overlaps adjustment or has missing provenance: {identifier}")
+            file = Path(case["file"])
+            path = (voices / file).resolve(strict=True)
+            if file.name != case["file"] or path.parent != voices or not case.get("wav_sha256"):
+                raise ValueError(f"unpinned reserved recording for {identifier}")
+            kind = "time" if intention == "hora" else intention
+            yield identifier, f"public_reserved_{kind}", kind, RESERVED_INTENTS[intention], path, case["wav_sha256"]
 
 
 def pcm_from(wav, expected_hash=None):
@@ -70,14 +89,19 @@ def evaluate(executable, pcm, *arguments):
     return json.loads(verdict.stdout)
 
 
-def run(raw, capture, base):
+def run(raw, capture, base, additional_manifests):
     rows = []
-    for name, split, category, expected, wav, digest in recordings(base):
+    for name, split, category, expected, wav, digest in recordings(base, additional_manifests):
         pcm = pcm_from(wav, digest)
+        immediate = evaluate(capture, pcm)
         nominal = evaluate(capture, pcm, "--nominal-hangover")
+        for observed in (immediate, nominal):
+            if observed["route"] != DISPATCH.get(observed["observed"], "none"):
+                raise ValueError(f"recognition and dispatch diverged for {name}")
         rows.append({"id": name, "split": split, "category": category, "expected": expected,
-                     "raw": evaluate(raw, pcm), **evaluate(capture, pcm),
+                     "raw": evaluate(raw, pcm), **immediate,
                      "nominal_hold": nominal["observed"], "nominal_hold_reason": nominal["reason"],
+                     "nominal_hold_route": nominal["route"],
                      "nominal_hold_input_samples_sent": nominal["input_samples_sent"]})
     d6_pcm = pcm_from(base / "primer-candidato" / "synthetic" / "d6.wav")
     interruption = evaluate(capture, d6_pcm, "--interrupted")
@@ -94,16 +118,19 @@ def main():
     parser.add_argument("raw_recognizer", type=Path)
     parser.add_argument("capture_recognizer", type=Path)
     parser.add_argument("experiment_root", type=Path)
+    parser.add_argument("--additional-reserved-manifest", type=Path, action="append", default=[])
     args = parser.parse_args()
     rows, interruption, silence = run(args.raw_recognizer.resolve(strict=True),
-                                      args.capture_recognizer.resolve(strict=True), args.experiment_root)
+                                      args.capture_recognizer.resolve(strict=True), args.experiment_root,
+                                      args.additional_reserved_manifest)
     summary = {
-        "capture": "production PilotCapture and recognizer with host FreeRTOS stubs",
+        "capture": "production capture, recognizer and dispatch with host FreeRTOS and routine doubles",
         "input": "16 kHz mono PCM16, fixed 20 ms frames, RMS gate 180, up to 240 ms preroll",
         "nominal_hold": "same RMS gate with 1000 ms of simulated VAD hold; not ESP-SR output",
         "reason_notes": {
             "classified": "inference notification observed and completed result read at frozen ticks",
-            "overflow": "inferred from actual rejection of a valid frame beyond the sample cap",
+            "raw_overflow": "raw AFE PCM exceeded its sample budget",
+            "model_span": "retained PCM after end trimming exceeded the model budget",
             "listen_deadline": "observed rejection after explicit clock advance for silent input",
             "gap": "observed rejection after dropping a frame before the rest of an utterance",
         },

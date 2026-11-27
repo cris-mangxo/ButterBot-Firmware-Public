@@ -1,5 +1,6 @@
 #include "Audio/EsMxKws/PilotCapture.h"
 #include "esp_err.h"
+#include "dispatch_probe.h"
 
 #include <algorithm>
 #include <array>
@@ -19,6 +20,22 @@ constexpr size_t PreRollSamples = 12 * FrameSamples;
 constexpr int RmsThreshold = 180;
 constexpr size_t NominalAfeHoldMilliseconds = 1000;
 constexpr TickType_t ListenDeadlineMilliseconds = 8000;
+constexpr size_t EndpointMilliseconds = PilotCapture::EndpointSilenceSamples * 1000 / bb::asr::kSampleRate;
+
+std::string_view rejectionName(PilotCapture::Rejection cause){
+    using R = PilotCapture::Rejection;
+    switch(cause){
+        case R::None: return {};
+        case R::RawOverflow: return "raw_overflow";
+        case R::ModelSpan: return "model_span";
+        case R::Empty: return "empty";
+        case R::InvalidFrame: return "invalid_frame";
+        case R::Gap: return "gap";
+        case R::ListenDeadline: return "listen_deadline";
+        case R::InferenceDeadline: return "inference_deadline";
+    }
+    return {};
+}
 
 bool voiced(std::span<const int16_t> samples) {
     uint64_t energy = 0;
@@ -66,7 +83,7 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
 
     // Analyze the input once so the reported metrics are independent of when
     // the worker thread makes its result available.
-    std::array<bool, (EsMx::Kws::MaxSamples + FrameSamples - 1) / FrameSamples> active{};
+    std::array<bool, (PilotCapture::RawCapacitySamples + FrameSamples - 1) / FrameSamples> active{};
     size_t firstVoice = samples.size();
     for (size_t start = 0; start < samples.size(); start += FrameSamples) {
         const auto chunk = samples.subspan(start, std::min(FrameSamples, samples.size() - start));
@@ -89,27 +106,15 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
     };
 
     const unsigned initialNotifications = CaptureStub::notifications.load();
-    // All supplied frames are valid and earlier than the listening deadline.
-    // Track bytes accepted before submission so an immediate Unknown at capacity
-    // can be attributed to overflow. The production API returns only an intent.
-    size_t bufferedSamples = 0;
-    bool collecting = false;
-    auto feed = [&](std::span<int16_t> samples, bool speech, std::span<int16_t> prefix = {}) {
-        const auto input = frame(samples, speech, prefix);
+    auto feed = [&](std::span<int16_t> chunk, bool speech, std::span<int16_t> prefix = {}) {
+        const auto input = frame(chunk, speech, prefix);
         result.intent = capture.accept(&input);
         if (CaptureStub::notifications.load() != initialNotifications) {
-            result.reason = "classified";
             result.intent = waitForInference(capture);
+            result.reason = "classified";
             return true;
         }
-
-        collecting |= speech;
-        if (collecting) {
-            bufferedSamples += prefix.size() + samples.size();
-        }
-        if (result.intent == Intent::Unknown && bufferedSamples > EsMx::Kws::MaxSamples) {
-            result.reason = "overflow";
-        }
+        result.reason = rejectionName(capture.rejection());
         return result.intent.has_value();
     };
 
@@ -133,9 +138,7 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
         }
         if (interrupt && measuredSpeech && ++voiceSent == halfVoice) {
             result.intent = capture.accept(nullptr);
-            if (result.intent == Intent::Unknown && CaptureStub::notifications.load() == initialNotifications) {
-                result.reason = "gap";
-            }
+            result.reason = rejectionName(capture.rejection());
             return result;
         }
     }
@@ -145,12 +148,10 @@ ReplayResult replay(std::span<int16_t> samples, bool interrupt, size_t holdMilli
         const auto tail = frame(silence, false);
         CaptureStub::ticks = ListenDeadlineMilliseconds;
         result.intent = capture.accept(&tail);
-        if (result.intent == Intent::Unknown && CaptureStub::notifications.load() == initialNotifications) {
-            result.reason = "listen_deadline";
-        }
+        result.reason = rejectionName(capture.rejection());
         return result;
     }
-    for (size_t elapsed = 0; elapsed < holdMilliseconds + 400; elapsed += FrameMilliseconds) {
+    for (size_t elapsed = 0; elapsed < holdMilliseconds + EndpointMilliseconds + 80; elapsed += FrameMilliseconds) {
         CaptureStub::ticks += FrameMilliseconds;
         if (feed(silence, speechWithHold(false, silence.size()))) {
             break;
@@ -168,11 +169,11 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    static std::array<int16_t, EsMx::Kws::MaxSamples + 1> pcm;
+    static std::array<int16_t, PilotCapture::RawCapacitySamples + 1> pcm;
     std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
     const auto bytes = static_cast<size_t>(std::cin.gcount());
     if (bytes == 0 || bytes % sizeof(int16_t) != 0 ||
-        bytes > EsMx::Kws::MaxSamples * sizeof(int16_t) || std::cin.bad()) {
+        bytes > PilotCapture::RawCapacitySamples * sizeof(int16_t) || std::cin.bad()) {
         return 2;
     }
 
@@ -184,6 +185,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::cout << "{\"observed\":" << static_cast<int>(*result.intent)
+              << ",\"route\":\"" << probeDispatch(*result.intent) << "\""
               << ",\"reason\":\"" << result.reason << "\""
               << ",\"voiced_frames\":" << result.voicedFrames
               << ",\"preroll_samples\":" << result.preRoll

@@ -55,7 +55,7 @@ Una evaluación posterior debe reservar locutores antes del ajuste y conservar a
 
 ## Repetición a través de la captura y comparación de un respaldo
 
-El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. La retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. Entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
+El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. La retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. En el checkpoint anterior, entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
 
 ```sh
 bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
@@ -74,3 +74,15 @@ Con el Python 3.12 de entrenamiento con PyTorch 2.9.1 y NumPy 2.4.2, el entorno 
 ```
 
 `kws` es el ejecutable de los [experimentos compactos](../esmx-compactas/README.md), con los modos `features` y `acoustic-scores`. Los pesos y parámetros de cuantización ocupan 6 468 bytes. Se guardan localmente con cabecera de laboratorio, fuera del formato de banco D6, junto con el registro previo a la prueba y los WAV. La toma SpanishPod A0056 procede de Praxis Language y se usa para ajuste con licencia CC BY 3.0. [Ficha y licencia de la toma](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).
+
+## Retención del turno y cancelación tardía
+
+El piloto espera 1,2 s de silencio anunciado por el VAD y conserva las pausas interiores. Guarda hasta 100 000 muestras PCM16 en PSRAM. Antes de inferir, recorta solo ceros digitales de los extremos. El reconocedor sigue limitado a 64 000 muestras. Un turno demasiado largo o incompleto se descarta entero. Para D6, un prefijo que ya clasifica como una orden completa y va seguido de más señal con energía tras una pausa de al menos 240 ms deja el turno en abstención. La detección marca ambigüedad acústica y cubre la cancelación débil probada. También puede abstenerse ante una aclaración legítima.
+
+Los dos brazos de escritorio procesaron los 112 WAV completos y recuperaron `public-81`. Los 33 controles públicos alcanzaron el reconocedor sin generar una orden. El arnés enlaza el despachador real y observa la clave de rutina y su fábrica con dobles de los servicios. La reproducción y los efectos físicos siguen pendientes.
+
+```sh
+python3 experiments/esmx-pilot/late_cancel_replay.py "$lab/capture" "$d6_ald_wav" "$cancelacion_ald_wav"
+```
+
+El control toma dos WAV de Ald, una orden afirmativa de D6 y una frase de cancelación. Concatena las voces con pausas de 250, 880 y 950 ms, tres niveles de amplitud para la segunda frase y ambos brazos de VAD. En la evaluación se usaron «No, mejor no lo tires», «No, cancela» y «No lo tires». De 54 controles, 30 llegaron a inferencia y 24 excedieron la ventana del modelo. Todos evitaron la tirada. Este control se añade al panel público y a las regresiones previas. La variante recorta silencio digital. Una cola de ruido no nula puede conservarse y provocar una abstención en un turno de más de cuatro segundos.
