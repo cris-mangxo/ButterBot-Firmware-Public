@@ -4,6 +4,7 @@ import json
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -14,7 +15,8 @@ from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
 from phoneme_replay_lab import overlaps_adjustment, summarize
 from phoneme_reject_lab import load_negatives
-from phoneme_confirm_lab import confirmed, local_ctc_cost
+from phoneme_confirm_lab import checked_bank, confirmed, local_ctc_cost
+from phoneme_ctc_adapt_lab import METHOD as ADAPTATION, TARGET_SHA256
 from time_lab import file_digest
 
 
@@ -116,6 +118,36 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertEqual(confirmed(0, None, cutoff), 0)
         self.assertEqual(confirmed(5, 2.5, cutoff), 0)
         self.assertEqual(confirmed(5, 2.0, cutoff), 5)
+
+    def test_adapted_bank_cannot_change_the_intent_head(self):
+        with TemporaryDirectory() as work:
+            directory = Path(work)
+            reference, adapted = directory / "reference", directory / "adapted"
+            reference.mkdir()
+            adapted.mkdir()
+            negative = directory / "index.json"
+            negative.write_text("{}")
+            weights = "student-int8-weights.npz"
+            arrays = {"phones.weight": np.array([1], dtype=np.int8),
+                      "phones.weight.scale": np.array([0.1], dtype=np.float32),
+                      "phones.bias": np.array([1.0], dtype=np.float32),
+                      "intent.weight": np.array([1], dtype=np.int8)}
+            np.savez_compressed(reference / weights, **arrays)
+            base_sha = file_digest(reference / weights)
+            arrays["phones.weight"][0] += 1
+            np.savez_compressed(adapted / weights, **arrays)
+            args = SimpleNamespace(reference_bank=reference, base=adapted, negatives=directory)
+            report = {"procedure": ADAPTATION, "initial_weights_sha256": base_sha,
+                      "teacher_cache_sha256": "synthetic", "target_sha256": TARGET_SHA256,
+                      "negative_cache_sha256": file_digest(negative), "weights_sha256": file_digest(adapted / weights)}
+            with (patch("phoneme_confirm_lab.BASE_SHA256", base_sha),
+                  patch("phoneme_confirm_lab.NEGATIVE_CACHE_SHA256", file_digest(negative))):
+                self.assertEqual(checked_bank(args, report, "synthetic"), report["weights_sha256"])
+                arrays["intent.weight"][0] += 1
+                np.savez_compressed(adapted / weights, **arrays)
+                report["weights_sha256"] = file_digest(adapted / weights)
+                with self.assertRaisesRegex(ValueError, "changed a frozen tensor: intent.weight"):
+                    checked_bank(args, report, "synthetic")
 
 
 if __name__ == "__main__":

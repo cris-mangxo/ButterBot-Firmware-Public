@@ -20,7 +20,11 @@ def frozen_model(directory):
     weight_path = directory / "student-int8-weights.npz"
     if report["schema"] != RECIPE or file_digest(weight_path) != report["weights_sha256"]:
         raise ValueError("Frozen checkpoint differs from its seal")
-    model = Student(report["labels"]).eval()
+    return load_int8_weights(weight_path, report["labels"]), report
+
+
+def load_int8_weights(weight_path, labels):
+    model = Student(labels).eval()
     values = {}
     with np.load(weight_path, allow_pickle=False) as weights:
         for name, tensor in model.state_dict().items():
@@ -37,7 +41,7 @@ def frozen_model(directory):
                 raise ValueError("Frozen tensor has invalid values")
             values[name] = torch.from_numpy(raw)
     model.load_state_dict(values)
-    return model, report
+    return model
 
 
 def native_frames(features, pcm):

@@ -12,8 +12,9 @@ import torch
 
 import keyword_lab as kw
 from capture_replay import pcm_from
-from phoneme_reject_lab import BASE_SHA256, load_negatives
-from phoneme_replay_lab import evaluate, frozen_model, native_frames, summarize
+from phoneme_ctc_adapt_lab import HEAD_ARRAYS, METHOD as ADAPTATION, TARGET_SHA256
+from phoneme_reject_lab import BASE_SHA256, NEGATIVE_CACHE_SHA256, load_negatives
+from phoneme_replay_lab import evaluate, frozen_model, native_frames, overlaps_adjustment, summarize
 from phoneme_student_lab import gate, load_cache
 from phoneme_teacher_lab import phonemes
 from time_lab import file_digest, invoke
@@ -174,7 +175,7 @@ def freeze(args, model, source):
             raise ValueError("Human anchors need the same feature extractor as the synthetic cache")
         anchors = anchor_thresholds(args, model, patterns, thresholds)
     negative = load_negatives(args.negatives, args.speaker_split, source["frontend_sha256"])
-    report = {"schema": METHOD, "bank_sha256": BASE_SHA256, "cache_sha256": file_digest(args.cache / "index.json"),
+    report = {"schema": METHOD, "bank_sha256": args.bank_sha256, "cache_sha256": file_digest(args.cache / "index.json"),
               "negative_cache_sha256": file_digest(args.negatives / "index.json"),
               "speaker_split_sha256": file_digest(args.speaker_split), "coverage": COVERAGE, "templates": patterns,
               "thresholds": thresholds, "training_affirmatives": fitted_counts,
@@ -196,7 +197,7 @@ def freeze(args, model, source):
 
 def parameters(args, vocabulary):
     data = json.loads(args.guard.read_text())
-    if (data["schema"] != METHOD or data["bank_sha256"] != BASE_SHA256
+    if (data["schema"] != METHOD or data["bank_sha256"] != args.bank_sha256
             or data["cache_sha256"] != file_digest(args.cache / "index.json")
             or data["negative_cache_sha256"] != file_digest(args.negatives / "index.json")
             or data["speaker_split_sha256"] != file_digest(args.speaker_split)):
@@ -212,17 +213,24 @@ def parameters(args, vocabulary):
     return patterns, thresholds, anchor_pcm
 
 
+def natural_adjustment_hashes(directory):
+    records = json.loads((directory / "index.json").read_text())["records"]
+    return {row["effective_pcm_sha256"] for row in records.values()}
+
+
 def replay(args, model, source):
-    patterns, thresholds, anchors = parameters(args, source["vocabulary"])
+    patterns, thresholds, human_adjustment = parameters(args, source["vocabulary"])
     if source["frontend_sha256"] != file_digest(args.features):
         raise ValueError("Unexpected feature extractor")
+    if args.bank_sha256 != BASE_SHA256:
+        human_adjustment.update(natural_adjustment_hashes(args.negatives))
 
     def prediction(selected, features, pcm):
         return confirmed(*observe(selected, native_frames(features, pcm), patterns), thresholds)
 
     adjustment = {row["pcm_sha256"] for row in source["records"].values()}
-    rows = list(evaluate(args, model, adjustment, anchors, predict=prediction))
-    original = list(evaluate(args, model, adjustment, anchors))
+    rows = list(evaluate(args, model, adjustment, human_adjustment, predict=prediction))
+    original = list(evaluate(args, model, adjustment, human_adjustment))
     excluded_pcm = [row["id"] for row in rows[:112]
                     if any(row[mode]["matches_adjustment_pcm"] for mode in ("raw", "retained"))]
     pure = {row["id"] for row in rows[:112]} - set(excluded_pcm)
@@ -239,10 +247,10 @@ def replay(args, model, source):
     if args.diagnostic:
         item = json.loads((args.diagnostic / "sealed.json").read_text())
         pcm = pcm_from(args.diagnostic / "mantequilla.wav", item["wav_sha256"])
-        if sha256(kw.trimmed(pcm)).hexdigest() in anchors:
-            raise ValueError("Human diagnostic overlaps an anchor")
         diag = {"classification": item["status"], "wav_sha256": item["wav_sha256"], "expected": 1}
         for mode, sample in (("raw", pcm), ("retained", invoke(args.capture, pcm, "--pcm-with-hangover"))):
+            if overlaps_adjustment(sample, adjustment, human_adjustment):
+                raise ValueError("Human diagnostic overlaps training or development audio")
             intent, cost = observe(model, native_frames(args.features, sample), patterns)
             diag[mode] = {"initial": intent, "ctc_cost": cost, "verified": confirmed(intent, cost, thresholds)}
         diagnostics.append(diag)
@@ -264,8 +272,7 @@ def chm_replay(args, model, source):
         raise ValueError("Unexpected CHM150 corpus, speaker split or feature extractor")
     role = json.loads(args.speaker_split.read_text())["speaker_roles"]
     speakers = {who for who, assignment in role.items() if assignment == "heldout"}
-    adjustment = {row["effective_pcm_sha256"]
-                  for row in json.loads((args.negatives / "index.json").read_text())["records"].values()}
+    adjustment = natural_adjustment_hashes(args.negatives)
     adjustment.update(anchors)
     compact, initial, verified = Counter(), Counter(), Counter()
     tested = set()
@@ -297,11 +304,38 @@ def existing(path):
     return Path(path).resolve(strict=True)
 
 
+def checked_bank(args, report, cache_sha):
+    bank_sha = report["weights_sha256"]
+    if report["teacher_cache_sha256"] != cache_sha:
+        raise ValueError("Unexpected synthetic cache for phoneme bank")
+    if bank_sha == BASE_SHA256:
+        return bank_sha
+    if (not args.reference_bank or report.get("procedure") != ADAPTATION
+            or report.get("initial_weights_sha256") != BASE_SHA256
+            or report.get("target_sha256") != TARGET_SHA256
+            or report.get("negative_cache_sha256") != NEGATIVE_CACHE_SHA256
+            or file_digest(args.negatives / "index.json") != NEGATIVE_CACHE_SHA256):
+        raise ValueError("Unexpected adapted bank or natural target provenance")
+    original = args.reference_bank / "student-int8-weights.npz"
+    candidate = args.base / original.name
+    if file_digest(original) != BASE_SHA256:
+        raise ValueError("Unexpected reference bank")
+    with np.load(original, allow_pickle=False) as before, np.load(candidate, allow_pickle=False) as after:
+        names = set(before.files)
+        if names != set(after.files) or not HEAD_ARRAYS <= names:
+            raise ValueError("Adapted bank changed the tensor inventory")
+        for name in names - HEAD_ARRAYS:
+            if before[name].dtype != after[name].dtype or not np.array_equal(before[name], after[name]):
+                raise ValueError(f"Adapted bank changed a frozen tensor: {name}")
+    return bank_sha
+
+
 def main():
     common = argparse.ArgumentParser(add_help=False)
     for key in ("base", "cache", "negatives", "speaker-split"):
         common.add_argument("--" + key, type=existing, required=True)
     common.add_argument("--guard", type=Path, required=True)
+    common.add_argument("--reference-bank", type=existing)
     parser = argparse.ArgumentParser(description=__doc__)
     children = parser.add_subparsers(dest="stage", required=True)
     preparation = children.add_parser("freeze", parents=[common])
@@ -319,8 +353,7 @@ def main():
     torch.set_num_threads(2)
     model, report = frozen_model(args.base)
     index = args.cache / "index.json"
-    if report["weights_sha256"] != BASE_SHA256 or report["teacher_cache_sha256"] != file_digest(index):
-        raise ValueError("Unexpected frozen bank or synthetic cache")
+    args.bank_sha256 = checked_bank(args, report, file_digest(index))
     source = json.loads(index.read_text())
     result = {"freeze": freeze, "replay": replay, "replay-chm": chm_replay}[args.stage](args, model, source)
     print(json.dumps(result, indent=2))

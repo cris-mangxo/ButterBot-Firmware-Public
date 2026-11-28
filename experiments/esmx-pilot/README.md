@@ -229,6 +229,23 @@ La preparación y la evaluación CHM150 requieren DuckDB 1.4.4. Se usa la [conve
 
 Para la variante humana agrega `--human-anchors "$experiment_root/primer-candidato-voces" --features "$kws"` a `freeze` y usa otro `--guard`. El modo `replay-chm` recibe `--corpus`, `--ffmpeg`, `--features` y `--reference` además de los argumentos comunes. Evalúa los 30 hablantes reservados de CHM150. La confirmación solo conserva o veta la etiqueta del banco. En esta prueba, el modo estricto perdió las órdenes humanas de Hora y Mantequilla. La variante con voces de ajuste las conservó y siguió agregando activaciones incorrectas. Las variantes quedan fuera del firmware.
 
+### Ajuste de la capa fonética con voz humana
+
+`phoneme_ctc_adapt_lab.py` convierte las transcripciones de CHM150 en objetivos CTC con eSpeak NG. Entrena la capa de fonemas con los rasgos de ajuste humanos y sintéticos y el codificador congelado. Usa desarrollo únicamente para medir el banco int8 recargado y comprueba igualdad exacta en sus salidas de intención y negación. El filtro de referencias admite 88 de 89 turnos humanos de desarrollo. El turno restante participa en el replay de conversación.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/phoneme_ctc_adapt_lab.py prepare \
+  --cache "$lab/phone-targets" --negatives "$lab/chm150/native-negative-features" \
+  --speaker-split "$lab/chm150/speaker-roles.json" --corpus "$chm_parquet" \
+  --espeak "$espeak_ng" --targets "$lab/natural-phones.json"
+"$training_python" -B experiments/esmx-pilot/phoneme_ctc_adapt_lab.py train \
+  --cache "$lab/phone-targets" --negatives "$lab/chm150/native-negative-features" \
+  --speaker-split "$lab/chm150/speaker-roles.json" --targets "$lab/natural-phones.json" \
+  --base "$lab/phone-student" --output "$lab/phone-natural-head"
+```
+
+Para comprobar las tres variantes del guard con el banco adaptado, usa `--base "$lab/phone-natural-head" --reference-bank "$lab/phone-student"` en `freeze`, `replay` y `replay-chm`. Crea un guard distinto para cada variante. Los ejemplos sintéticos afirmativos de ajuste y los anclajes opcionales fijan los límites. CHM150 se usa para medirlos. El replay comprueba la procedencia, la igualdad de cada tensor ajeno a la capa fonética y las coincidencias exactas de PCM con el ajuste. Los locutores reservados de CHM150 entran únicamente en `replay-chm`.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
