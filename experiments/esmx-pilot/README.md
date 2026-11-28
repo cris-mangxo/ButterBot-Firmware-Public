@@ -53,6 +53,31 @@ Mantequilla y Chiste siguen sin una muestra humana es-MX reservada apta. Queda p
 
 Una evaluación posterior debe reservar locutores antes del ajuste y conservar aparte los casos históricos consultados 03, 37 y 81. Los casos 88 y 89 permanecen reservados. El veto de «Dato curioso» sigue en el banco de frases y el perfil solo despacha las cuatro acciones enumeradas. [Frontend de audio de Espressif](https://docs.espressif.com/projects/esp-sr/en/latest/esp32s3/audio_front_end/README.html).
 
+## Perfil experimental con Hora
+
+La variante opt-in reutiliza el banco fonético de Chiste. Contrasta la pregunta por la hora actual con agenda, negaciones y otras órdenes mediante CTC de turno completo. Solo actúa después de una abstención `NoMatch`, una vez descartado Chiste. Para Hora se retiran los ceros digitales de los extremos y se mantienen las pausas interiores. El perfil usa una sola reserva temporal en PSRAM y reutiliza la inferencia cuando los dos recortes son idénticos.
+
+Los pares de laboratorio incluyen preguntas que se distinguen por la preposición «a» o por un evento después de «hora». Las voces sintéticas se reparten entre ajuste, desarrollo y prueba. La variante `grammar_anchor` usa también el ancla SpanishPod y los controles de agenda declarados en la calibración. La prueba sintética de desarrollo seleccionó `grammar_synthetic`. La exportación usa de forma explícita `grammar_anchor`, elegida después de comparar los resultados del panel diagnóstico con el perfil estricto. El audio de How to Spanish quedó fuera del ajuste. El caso citado acredita el recorrido de escritorio y la validación con voces humanas reservadas de Hora sigue pendiente. [Fuente del ancla y atribución](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).
+
+```sh
+pairs=experiments/esmx-pilot/clock_minimal_pairs_lab.py
+"$training_python" -B "$pairs" generate --output "$lab/clock-pairs"
+"$training_python" -B "$pairs" fit --output "$lab/clock-pairs" --root "$experiment_root" \
+  --bank "$bank" --speech "$synthetic_features" --chm "$lab/chm150" \
+  --frontend "$kws" --espeak "$espeak_ng" --agenda-calibration "$agenda_calibration"
+python3.12 -B experiments/esmx-pilot/phoneme_native/export_clock_rule.py \
+  "$lab/clock-pairs/frozen.json" "$lab/generated/clock_rule.h" --arm grammar_anchor
+BB_ESMX_JOKE_FALLBACK=1 BB_ESMX_CLOCK_FALLBACK=1 \
+  bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/host"
+BB_ESMX_JOKE_FALLBACK=1 BB_ESMX_CLOCK_FALLBACK=1 \
+  bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
+idf.py -B "$lab/clock-pilot" -D "SDKCONFIG=$lab/pilot.sdkconfig" \
+  -DBB_ESMX_PILOT=ON -DBB_ESMX_JOKE_FALLBACK=ON -DBB_ESMX_CLOCK_FALLBACK=ON \
+  -D "BB_ESMX_ASSETS=$lab/generated" build
+```
+
+El replay del laboratorio reutiliza los argumentos del ajuste y agrega `--pilot` y `--capture` de la referencia previa. El perfil de conflicto del laboratorio se queda fuera de la aplicación. Por ejemplo, la repetición citada `hts-424-current-echo` obtuvo puntaje de Hora alto en la sonda aislada y a la vez quedó en abstención en la aplicación por `DiceNegationConflict` en las dos vistas. Para verificar el recorrido real desde PCM se usan ambas opciones del arnés de rutinas, con `time` como expectativa y sin suministrar una etiqueta observada. Los binarios y audios generados permanecen locales.
+
 ## Referencia de transcripción en Mac
 
 Este diagnóstico compara la inferencia compacta con dos modelos Whisper locales seguidos de una gramática cerrada y el selector de acciones del fabricante. Requiere las muestras locales selladas del piloto, Python 3.12, `whisper-cli` 1.9.6, los pesos fijados por el script y los encabezados generados en la construcción de escritorio. Los modelos permanecen en la Mac. La salida guarda decisiones, rutas y hashes. El audio capturado y las transcripciones que consume el diagnóstico se procesan en un directorio temporal.

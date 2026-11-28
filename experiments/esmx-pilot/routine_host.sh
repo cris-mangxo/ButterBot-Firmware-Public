@@ -16,6 +16,10 @@ if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 && -z "$models" ]]; then
     printf 'BB_ESMX_JOKE_FALLBACK=1 requires GENERATED_MODEL_DIR.\n' >&2
     exit 2
 fi
+if [[ ${BB_ESMX_CLOCK_FALLBACK:-0} == 1 && ${BB_ESMX_JOKE_FALLBACK:-0} != 1 ]]; then
+    printf 'BB_ESMX_CLOCK_FALLBACK=1 requires BB_ESMX_JOKE_FALLBACK=1.\n' >&2
+    exit 2
+fi
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"
 scratch="$(mktemp -d)"
@@ -80,6 +84,15 @@ if [[ -n "${models:-}" ]]; then
         flags+=(-DBB_ESMX_JOKE_FALLBACK -I "$native")
         joke_sources=(main/src/Audio/EsMxPilot/JokeFallback.cpp "$native/Kernel.cpp"
                       "$native/Alignment.cpp" "$native/JokeGuard.cpp")
+        if [[ ${BB_ESMX_CLOCK_FALLBACK:-0} == 1 ]]; then
+            if [[ ! -f "$models/clock_rule.h" ]]; then
+                printf 'Missing generated Hora header: clock_rule.h\n' >&2
+                exit 2
+            fi
+            ln -s -- "$models/clock_rule.h" "$scratch/generated/clock_rule.h"
+            flags+=(-DBB_ESMX_CLOCK_FALLBACK)
+            joke_sources+=("$native/ClockGuard.cpp")
+        fi
         for source in "${joke_sources[@]}"; do
             object="$scratch/$(basename "${source%.cpp}").o"
             "${CXX:-c++}" "${flags[@]}" -ffp-contract=off -I "$kws" -I "$experiments/autonomous" \

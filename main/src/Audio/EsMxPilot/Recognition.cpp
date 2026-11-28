@@ -104,8 +104,8 @@ RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
 Kws::Intent recognize(std::span<const int16_t> pcm){
 	const auto decision = recognizeDetailed(pcm);
 #ifdef BB_ESMX_JOKE_FALLBACK
-	if(decision.allowsFallback() && matchesJokeFallback(frontend, words, pcm)){
-		return Kws::Intent::Joke;
+	if(decision.allowsFallback()){
+		return recognizePhonemeFallback(frontend, words, pcm);
 	}
 #endif
 	return decision.intent;

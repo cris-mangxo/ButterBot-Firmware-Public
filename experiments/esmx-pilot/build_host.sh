@@ -17,6 +17,10 @@ entry=(experiments/esmx-pilot/recognize.cpp)
 recognition=(main/src/Audio/EsMxPilot/Recognition.cpp)
 flags=(-std=c++20 -O2 -Wall -Wextra -Werror -DBB_ESMX_PILOT)
 joke=()
+if [[ ${BB_ESMX_CLOCK_FALLBACK:-0} == 1 && ${BB_ESMX_JOKE_FALLBACK:-0} != 1 ]]; then
+    printf 'BB_ESMX_CLOCK_FALLBACK=1 requires BB_ESMX_JOKE_FALLBACK=1.\n' >&2
+    exit 2
+fi
 if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 ]]; then
     native=experiments/esmx-pilot/phoneme_native
     for header in student_bank.h joke_rule.h; do
@@ -28,6 +32,14 @@ if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 ]]; then
     flags+=(-DBB_ESMX_JOKE_FALLBACK -I "$native")
     joke_sources=(main/src/Audio/EsMxPilot/JokeFallback.cpp "$native/Kernel.cpp"
                   "$native/Alignment.cpp" "$native/JokeGuard.cpp")
+    if [[ ${BB_ESMX_CLOCK_FALLBACK:-0} == 1 ]]; then
+        if [[ ! -f "$assets/clock_rule.h" ]]; then
+            printf 'Missing generated Hora header: clock_rule.h\n' >&2
+            exit 2
+        fi
+        flags+=(-DBB_ESMX_CLOCK_FALLBACK)
+        joke_sources+=("$native/ClockGuard.cpp")
+    fi
 fi
 if [[ ${3:-} == --capture || ${BB_ESMX_JOKE_FALLBACK:-0} == 1 ]]; then
     scratch="$(mktemp -d)"

@@ -5,6 +5,9 @@
 #include "WordDice.h"
 #include "joke_rule.h"
 #include "student_bank.h"
+#ifdef BB_ESMX_CLOCK_FALLBACK
+#include "clock_rule.h"
+#endif
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -24,13 +27,23 @@ static_assert(std::string_view(JokeBankSha256) == std::string_view(FrozenSha256)
 static_assert(Bands == Kws::Bands && MaxFrames == Kws::MaxWordFrames);
 static_assert(sizeof(std::array<int8_t, Bands>) == Bands);
 static_assert(static_cast<unsigned>(Kws::Intent::Joke) == 3);
+#ifdef BB_ESMX_CLOCK_FALLBACK
+static_assert(std::string_view(ClockBankSha256) == std::string_view(FrozenSha256),
+              "The es-MX Hora rule requires its frozen phoneme bank");
+static_assert(static_cast<unsigned>(Kws::Intent::Time) == 5);
+#endif
 
 constexpr size_t TrimWindow = bb::asr::kSampleRate / 50;
 constexpr uint64_t FloorEnergy = 90 * 90 * TrimWindow;
 constexpr uint64_t RelativeGate = 512;
 constexpr size_t MinSamples = 400;
-constexpr size_t MinFrames = 16;
-constexpr size_t MinFeatureSamples = bb::asr::kWin + (MinFrames - 1) * Kws::WordStride;
+constexpr auto samplesForFrames(size_t frames){
+    return bb::asr::kWin + (frames - 1) * Kws::WordStride;
+}
+constexpr size_t JokeMinFrames = 16;
+#ifdef BB_ESMX_CLOCK_FALLBACK
+constexpr size_t ClockMinFrames = 12;
+#endif
 
 uint64_t blockEnergy(std::span<const int16_t> pcm, size_t offset){
     uint64_t sum = 0;
@@ -94,29 +107,71 @@ void freeScratch(Scratch* scratch){
 #endif
 }
 
+#ifdef BB_ESMX_CLOCK_FALLBACK
+std::span<const int16_t> stripDigitalEdges(std::span<const int16_t> pcm){
+    const auto voiced = [](int16_t sample){ return sample != 0; };
+    const auto first = std::find_if(pcm.begin(), pcm.end(), voiced);
+    if(first == pcm.end()){
+        return {};
+    }
+    const auto end = std::find_if(pcm.rbegin(), pcm.rend(), voiced).base();
+    return {first, end};
+}
+#endif
+
+size_t inferView(bb::asr::LogMel& frontend, Kws::WordFeatures& words, std::span<const int16_t> pcm,
+                 size_t minimum, Scratch& scratch){
+    if(pcm.size() < samplesForFrames(minimum) || !Kws::extractWordFeatures(frontend, pcm, words) ||
+       words.count < minimum || words.count > MaxFrames){
+        return 0;
+    }
+    const size_t count = words.count;
+    auto features = std::span(scratch.features).first(count * Bands);
+    std::memcpy(features.data(), words.frames.data(), features.size_bytes());
+    return infer(features, Frozen, scratch.workspace, scratch.output) ? count : 0;
 }
 
-bool matchesJokeFallback(bb::asr::LogMel& frontend, Kws::WordFeatures& words,
-                         std::span<const int16_t> pcm){
-    const auto trimmed = trimTurn(pcm);
-    if(trimmed.size() < MinFeatureSamples){
-        return false;
-    }
+}
 
+Kws::Intent recognizePhonemeFallback(bb::asr::LogMel& frontend, Kws::WordFeatures& words,
+                                    std::span<const int16_t> pcm){
+    using Kws::Intent;
+    if(pcm.size() > Kws::MaxSamples){
+        return Intent::Unknown;
+    }
+    const auto jokePcm = trimTurn(pcm);
+    const bool jokeEligible = jokePcm.size() >= samplesForFrames(JokeMinFrames);
+#ifdef BB_ESMX_CLOCK_FALLBACK
+    const auto clockPcm = trimTurn(stripDigitalEdges(pcm));
+    const bool clockEligible = clockPcm.size() >= samplesForFrames(ClockMinFrames);
+    if(!jokeEligible && !clockEligible){
+#else
+    if(!jokeEligible){
+#endif
+        return Intent::Unknown;
+    }
     std::unique_ptr<Scratch, decltype(&freeScratch)> scratch(allocateScratch(), &freeScratch);
-    if(!scratch || !Kws::extractWordFeatures(frontend, trimmed, words)){
-        return false;
+    if(!scratch){
+        return Intent::Unknown;
     }
-
-    const size_t count = words.count;
-    if(count < MinFrames || count > MaxFrames){
-        return false;
-    }
-    auto features = std::span(scratch->features).first(count * Bands);
-    std::memcpy(features.data(), words.frames.data(), features.size_bytes());
+    const auto jokeFrames = jokeEligible ? inferView(frontend, words, jokePcm, JokeMinFrames, *scratch) : 0;
     // The encoder's first work buffer is free once inference has produced its output.
-    return infer(features, Frozen, scratch->workspace, scratch->output) &&
-           confirmsJoke(scratch->output, count, FrozenJoke, scratch->workspace.first);
+    if(jokeFrames && confirmsJoke(scratch->output, jokeFrames, FrozenJoke, scratch->workspace.first)){
+        return Intent::Joke;
+    }
+#ifdef BB_ESMX_CLOCK_FALLBACK
+    if(clockEligible){
+        const bool sameView = jokeFrames && jokePcm.data() == clockPcm.data() && jokePcm.size() == clockPcm.size();
+        const auto clockFrames = sameView ? jokeFrames : inferView(frontend, words, clockPcm, ClockMinFrames, *scratch);
+        if(clockFrames){
+            const auto score = scoreClock(scratch->output, clockFrames, FrozenClock, scratch->workspace.first);
+            if(score && *score > FrozenClock.threshold){
+                return Intent::Time;
+            }
+        }
+    }
+#endif
+    return Intent::Unknown;
 }
 
 }
