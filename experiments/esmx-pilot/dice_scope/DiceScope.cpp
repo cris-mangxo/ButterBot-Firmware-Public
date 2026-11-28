@@ -1,4 +1,4 @@
-#if defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+#if (defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)) || defined(BB_ESMX_D6_SCOPE_BENCH)
 #include "DiceScope.h"
 #include "DiceScopeAssets.h"
 #include "Audio/EsMxPilot/AcousticSearch.h"
@@ -7,10 +7,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <sys/stat.h>
 #include <tuple>
 
 namespace EsMx::Pilot {
@@ -156,8 +156,8 @@ int roundEven(int numerator, int denominator) {
 }
 
 bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords) {
-    std::error_code error;
-    if (!std::filesystem::is_regular_file(keywords, error)) return false;
+    struct stat info{};
+    if (stat(keywords, &info) != 0 || !S_ISREG(info.st_mode)) return false;
     for (const auto& term : DiceScopeAssets::Lexicon) {
         const std::unique_ptr<char, decltype(&std::free)> known(ps_lookup_word(decoder, term.term), &std::free);
         if (known) {

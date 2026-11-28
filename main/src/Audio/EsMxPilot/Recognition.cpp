@@ -3,7 +3,7 @@
 #ifdef BB_ESMX_CLOCK_ACOUSTIC
 #include "ClockAcoustic.h"
 #endif
-#if defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+#if (defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)) || defined(BB_ESMX_D6_SCOPE_BENCH)
 #include "DiceScope.h"
 #endif
 #ifdef BB_ESMX_JOKE_FALLBACK
@@ -144,7 +144,7 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 		return Kws::Intent::Butter;
 	}
 #endif
-#if defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+#if (defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)) || defined(BB_ESMX_D6_SCOPE_BENCH)
 	if(decision.intent == Kws::Intent::Unknown && decision.disposition == TurnDisposition::DiceNegationConflict &&
 	   confirmsDiceScope(pcm) && !hasAmbiguousDiceFollowUp(pcm)){
 		return Kws::Intent::Dice6;

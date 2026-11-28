@@ -1,0 +1,6 @@
+#pragma once
+#include <cstdint>
+
+namespace EsMx::Pilot::DiceScopeAssets {
+inline constexpr uint8_t KeywordFile[]{@DICE_SCOPE_KWS_BYTES@};
+}
