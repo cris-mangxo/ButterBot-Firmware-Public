@@ -121,6 +121,25 @@ mkdir -m 0700 "$lab/time"
 
 El banco de laboratorio mide 19 220 bytes en disco. El estimado de 200 bytes corresponde solo a dos filas de enteros de 32 bits para comparar una plantilla por vez. Quedan aparte el extractor, la firma de consulta y la pila. No se midieron memoria total ni latencia en el microcontrolador. En las dos voces reservadas de Hora hubo cero rescates. En el panel histórico introdujo cinco activaciones de Hora en otros casos, entre ellos una orden D6 reservada. El resultado descarta integrar este banco.
 
+## Clasificador temporal conjunto en Mac
+
+`keyword_lab.py` reutiliza el frontend C++ de palabras, sobre la salida de `kws word-frames`. Aprende tres señales, presencia de vocabulario, intención de turno y negación. La red pondera posiciones relativas en el turno. Clasifica turnos completos con umbrales fijados antes del replay. El experimento no determina tiempos ni orden explícito de palabras individuales.
+
+```sh
+mkdir -m 0700 "$lab/keywords"
+"$training_python" -B experiments/esmx-pilot/keyword_lab.py freeze \
+  --root "$experiment_root" --wav "$lab/fallback/wav" --features "$kws" --output "$lab/keywords"
+"$training_python" -B experiments/esmx-pilot/keyword_lab.py replay \
+  --root "$experiment_root" --wav "$lab/fallback/wav" --features "$kws" --output "$lab/keywords" \
+  --reference "$lab/recognize" --capture "$lab/capture" > "$lab/keywords/report.json"
+```
+
+La ruta usa 4 898 bytes de pesos int8 más escalas en disco y opera con los pesos de nuevo en flotante en Python. No se midieron memoria, latencia ni equivalencia de inferencia entera en ESP32-S3. El panel público incluye casos históricos de desarrollo del compacto. El modelo nuevo no ajustó sobre esas grabaciones. Las falsas activaciones en ese panel y en las negaciones sintéticas impiden integrarlo. `keyword_public_replay.py` permite repetir el contraste adicional con los manifiestos sellados de CIEMPIESS LIGHT y el material suplementario de FSI. Sus audios permanecen locales.
+
+## Rutinas de fábrica en Mac
+
+El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
+
 ## Retención del turno y cancelación tardía
 
 El piloto espera 1,2 s de silencio anunciado por el VAD y conserva las pausas interiores. Guarda hasta 100 000 muestras PCM16 en PSRAM. Antes de inferir, recorta solo ceros digitales de los extremos. El reconocedor sigue limitado a 64 000 muestras. Un turno demasiado largo o incompleto se descarta entero. Para D6, un prefijo que ya clasifica como una orden completa y va seguido de más señal con energía tras una pausa de al menos 240 ms deja el turno en abstención. La detección marca ambigüedad acústica y cubre la cancelación débil probada. También puede abstenerse ante una aclaración legítima o al aparecer un tercer hueco de esa duración.

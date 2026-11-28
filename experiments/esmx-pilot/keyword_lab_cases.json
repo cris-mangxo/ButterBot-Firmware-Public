@@ -1,0 +1,70 @@
+{
+  "train": {
+    "d6": [
+      "Tira un dado de seis.",
+      "¿Puedes lanzar un dado de seis?",
+      "Échate un dado de seis.",
+      "Rueda un dado de seis caras.",
+      "Necesito que tires un dado de seis lados.",
+      "Lánzame un dado que tenga seis caras.",
+      "Oye, ¿tiras un dado de seis, porfa?",
+      "Avienta ese dado de seis.",
+      "Quiero que tires un dado de seis caras.",
+      "Por favor, rueda el dado de seis."
+    ],
+    "reject": [
+      "¿Tienes un dado de seis?",
+      "No tires ese dado de seis.",
+      "Tira un dado de seis, no, espera, no lo hagas.",
+      "Tíralo, pero que no sea el dado de seis.",
+      "Ni se te ocurra tirar ese dado de seis.",
+      "Pásame la mantequilla. No, mejor déjala.",
+      "Dime un chiste. No, olvídalo.",
+      "Dime la hora. No, ya vi el reloj.",
+      "Quiero saber a qué hora empieza el partido.",
+      "Ese dado de seis tiene cinco puntos de un lado.",
+      "Creo que se atoró la mantequilla.",
+      "Eso se llama chiste de papá."
+    ]
+  },
+  "dev": {
+    "d6": [
+      "Échame una tirada con un dado de seis.",
+      "¿Puedes aventar el dado de seis?",
+      "¿Lanzas un dado de seis caras por mí?",
+      "Va, tú tira el dado de seis.",
+      "Oye, rueda uno de seis caras.",
+      "Lanza el dado que tiene seis lados."
+    ],
+    "reject": [
+      "Avienta el dado de seis. No, mejor cancela.",
+      "Olvida lo de tirar el dado de seis.",
+      "Nada más te dije que es un dado de seis.",
+      "Mejor no me digas qué hora es.",
+      "Puedes hacer chistes, pero ahorita no.",
+      "Pásame la mantequilla. No, pausa eso.",
+      "La función para tirar un dado de seis ya quedó.",
+      "¿Qué hora dijimos para llegar a casa?"
+    ]
+  },
+  "test": {
+    "d6": [
+      "¿Me tiras un dado que sea de seis lados?",
+      "Va, a ver, échate una tirada de un dado de seis.",
+      "Aviéntame un dado de seis caras, por favor.",
+      "¿Tú puedes rodar un dado de seis por mí?",
+      "Ándale, tira el dado de seis lados.",
+      "Usa un dado de seis para esta tirada."
+    ],
+    "reject": [
+      "Tira un dado de seis, no, aguanta, cancela la tirada.",
+      "Ya no avientes ese dado de seis, déjalo ahí.",
+      "Tira el dado que tiene ocho lados.",
+      "Esto es un dado de seis, ¿ya lo viste?",
+      "Dime qué hora es. No, ya no me digas.",
+      "No, lo del chiste era broma, déjalo.",
+      "Cancela lo de pasarme la mantequilla.",
+      "No quiero que me cuentes un dato curioso."
+    ]
+  }
+}
