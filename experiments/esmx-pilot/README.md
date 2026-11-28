@@ -420,3 +420,24 @@ python3 experiments/esmx-pilot/late_cancel_replay.py "$lab/capture" "$d6_ald_wav
 El control toma dos WAV de Ald, una orden afirmativa de D6 y una frase de cancelación. Concatena las voces con pausas de 250, 880 y 950 ms, tres niveles de amplitud para la segunda frase y ambos brazos de VAD. En la evaluación se usaron «No, mejor no lo tires», «No, cancela» y «No lo tires». De 54 controles, 30 llegaron a inferencia y 24 excedieron la ventana del modelo. Las 30 inferencias quedaron en abstención. En una comparación host con la misma captura y el reconocedor de `451d185`, previo a la guardia, 14 de esas 30 inferencias despacharon D6. Se clasifica ambigüedad acústica en las tomas sintéticas. Falta medir las cancelaciones humanas.
 
 El arnés añade una cola digital de ceros. Si el AFE real produce ruido no nulo durante el segundo de retención y los 1,2 s de confirmación, esa cola puede ocupar unos 2,2 s de la ventana de cuatro. Quedarían unos 1,8 s para la voz y sus pausas, frente a unos 2,7 s con la ventana anterior bajo los mismos supuestos. Un segundo de cola artificial de pico de 1 unidad PCM sobre `public-81` bastó para que el nuevo capturador se abstuviera por longitud en ambos brazos. Se requiere audio del AFE para decidir el recorte tolerable y verificar latencia en placa. Las cancelaciones fuera del mismo turno se quedan para otra prueba.
+
+## Contraste de Mantequilla en escritorio
+
+El experimento calibra plantillas de la orden completa y mediciones locales de sustantivo, verbo y negación. Contrasta pedidos con otros ingredientes, mención de recetas, cancelaciones y conversación. Usa el mismo banco fonético y las particiones de locutor ya auditadas en CHM150. Los pares sintéticos separan voces y enunciados completos de ajuste, desarrollo y prueba. Las listas de rasgos incluyen formas léxicas compartidas entre particiones. Las etiquetas de prueba no fijan coeficientes ni umbrales.
+
+El replay consulta el piloto integrado. Comprueba el cambio hipotético solo cuando el piloto quedó en `NoMatch` y ningún respaldo anterior dio una intención. La toma de *Angelina* se reproduce como diagnóstico conocido y su audio queda fuera del ajuste. El experimento queda fuera del firmware.
+
+```sh
+butter=experiments/esmx-pilot/butter_turn_lab.py
+"$training_python" -B "$butter" generate "$lab/butter-challenge"
+"$training_python" -B "$butter" freeze "$lab/butter-challenge" \
+  --bank "$bank" --espeak "$espeak_ng" --frontend "$kws" \
+  --synthetic "$synthetic_features" --chm "$lab/chm150"
+"$training_python" -B experiments/esmx-pilot/butter_turn_replay.py \
+  --recipe "$lab/butter-challenge/freeze.json" --bank "$bank" --frontend "$kws" \
+  --pilot "$lab/host" --capture "$lab/capture" --root "$experiment_root" \
+  --chm "$lab/chm150" --angelina "$angelina_diagnostic" --ffmpeg "$ffmpeg" \
+  --pilot-sha256 "$host_sha256" --capture-sha256 "$capture_sha256" --ffmpeg-sha256 "$ffmpeg_sha256"
+```
+
+Los hashes esperados de los ejecutables vinculan el replay con su recibo de compilación. La comparación por hash detecta duplicados exactos. El informe de CHM150 cuenta activaciones nuevas respecto al piloto y muestra por separado las tiradas D6 que ya existían. El contraste exige recuperar afirmaciones en prueba y conservar la abstención de los controles antes de proponer su integración.
