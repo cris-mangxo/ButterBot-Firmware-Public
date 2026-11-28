@@ -32,7 +32,7 @@ def word_intervals(tiers):
     for start, end, text in intervals:
         tokens = normalized_words(text)
         if tokens:
-            # A multi-token entry cannot be attributed to one clip.
+            # Keep multi-word entries together so they cannot match one label.
             observed.append((" ".join(tokens), round(start * SAMPLE_RATE), round(end * SAMPLE_RATE)))
     return observed
 
@@ -40,7 +40,7 @@ def word_intervals(tiers):
 def target_span(tiers, word, transcript, sample_count):
     observed = word_intervals(tiers)
     labels = [item[0] for item in observed]
-    if labels.count(word) != 1:
+    if labels.count(word) != 1 or transcript.count(word) != 1:
         return None, "target_missing_or_repeated"
     actual, expected = labels.index(word), transcript.index(word)
     for step in (-1, 1):
