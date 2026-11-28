@@ -420,3 +420,22 @@ python3 experiments/esmx-pilot/late_cancel_replay.py "$lab/capture" "$d6_ald_wav
 El control toma dos WAV de Ald, una orden afirmativa de D6 y una frase de cancelación. Concatena las voces con pausas de 250, 880 y 950 ms, tres niveles de amplitud para la segunda frase y ambos brazos de VAD. En la evaluación se usaron «No, mejor no lo tires», «No, cancela» y «No lo tires». De 54 controles, 30 llegaron a inferencia y 24 excedieron la ventana del modelo. Las 30 inferencias quedaron en abstención. En una comparación host con la misma captura y el reconocedor de `451d185`, previo a la guardia, 14 de esas 30 inferencias despacharon D6. Se clasifica ambigüedad acústica en las tomas sintéticas. Falta medir las cancelaciones humanas.
 
 El arnés añade una cola digital de ceros. Si el AFE real produce ruido no nulo durante el segundo de retención y los 1,2 s de confirmación, esa cola puede ocupar unos 2,2 s de la ventana de cuatro. Quedarían unos 1,8 s para la voz y sus pausas, frente a unos 2,7 s con la ventana anterior bajo los mismos supuestos. Un segundo de cola artificial de pico de 1 unidad PCM sobre `public-81` bastó para que el nuevo capturador se abstuviera por longitud en ambos brazos. Se requiere audio del AFE para decidir el recorte tolerable y verificar latencia en placa. Las cancelaciones fuera del mismo turno se quedan para otra prueba.
+
+## Ajuste de una proyección fonética para D6
+
+Este laboratorio conserva el codificador compacto y su salida de negación. Compara la proyección de fonemas original con cuatro cabezas de 32 salidas sobre las mismas 28 activaciones. Se ajusta cada cabeza con un contraste CTC entre el turno afirmativo completo y alternativas como negaciones, explicaciones, otras caras y varios dados. Cada cabeza adaptada se evalúa tras cuantizar sus pesos a int8 por fila. Los pesos, escalas y sesgos ocupan en conjunto 1 152 bytes por variante antes de incluir el decodificador.
+
+Se fijan los umbrales con los locutores y controles de desarrollo. La prueba sintética usa otras voces y enunciados completos. Parte del léxico se comparte entre las particiones y la forma cortés «tíreme» se conocía por diagnósticos previos. El replay conserva las decisiones del piloto integrado, aplica una política estricta en abstenciones `NoMatch` y muestra por separado el efecto hipotético de examinar un conflicto de negación de D6. En ninguno de los dos brazos se habilitan los vetos terminales ni se modifica la aplicación. Las tomas 88 y 89 son comparaciones históricas fuera del ajuste acústico.
+
+```sh
+head_lab=experiments/esmx-pilot/dice_ctc_head_lab.py
+"$training_python" -B "$head_lab" generate "$lab/d6-head"
+"$training_python" -B "$head_lab" fit "$lab/d6-head" \
+  --bank "$bank" --speech "$synthetic_features" --labelled "$labelled_turns" \
+  --chm "$lab/chm150" --frontend "$kws" --espeak "$espeak_ng"
+"$training_python" -B experiments/esmx-pilot/dice_ctc_head_replay.py \
+  --recipe "$lab/d6-head/freeze.json" --bank "$bank" --frontend "$kws" \
+  --speech "$synthetic_features" --labelled "$labelled_turns" --chm "$lab/chm150" \
+  --pilot "$lab/host" --capture "$lab/capture" --ffmpeg "$ffmpeg" --root "$experiment_root" \
+  --pilot-sha256 "$host_sha256" --capture-sha256 "$capture_sha256" --ffmpeg-sha256 "$ffmpeg_sha256"
+```
