@@ -1,4 +1,5 @@
 #include "Kernel.h"
+#include "Alignment.h"
 #include "student_bank.h"
 #include "student_tests.h"
 
@@ -31,6 +32,7 @@ bool compare(std::span<const float> values, std::span<const float> expected, flo
 
 extern "C" void app_main() {
     unsigned failures = 0;
+    unsigned alignmentFailures = 0;
     std::printf("PHONEME_BANK %s %u\n", FrozenSha256, static_cast<unsigned>(sizeof(Bank)));
     for(const auto& fixture : Test::Cases) {
         const auto start = esp_timer_get_time();
@@ -43,11 +45,25 @@ extern "C" void app_main() {
                             & compare(std::span(&output.negation, 1), fixture.logits.last(1), maximumError);
         const bool equal = valid && logits && output.intentId == fixture.intentId;
         failures += !equal;
+        // Use the frozen reference logits to test alignment independently of the CNN.
+        const auto alignStart = esp_timer_get_time();
+        const auto actual = align(fixture.logits.first(phonemeCount), Test::AlignmentTarget);
+        const auto alignElapsed = esp_timer_get_time() - alignStart;
+        const auto& expected = fixture.alignment;
+        const bool aligned = actual.has_value() == expected.has_value() &&
+                             (!actual || (actual->deficitPerPhone == expected->deficitPerPhone &&
+                                          actual->beginFrame == expected->beginFrame &&
+                                          actual->endFrame == expected->endFrame));
+        alignmentFailures += !aligned;
         std::printf("PHONEME_CASE %.*s %u %u %u %.8g %" PRId64 "\n",
                     static_cast<int>(fixture.name.size()), fixture.name.data(),
                     static_cast<unsigned>(output.intentId), static_cast<unsigned>(fixture.intentId),
                     static_cast<unsigned>(logits), static_cast<double>(maximumError), elapsed);
+        std::printf("ALIGN_CASE %.*s %u %" PRId64 "\n",
+                    static_cast<int>(fixture.name.size()), fixture.name.data(),
+                    static_cast<unsigned>(aligned), alignElapsed);
     }
+    std::printf("ALIGN_DONE %u %u\n", static_cast<unsigned>(std::size(Test::Cases)), alignmentFailures);
     std::printf("PHONEME_DONE %u %u\n", static_cast<unsigned>(std::size(Test::Cases)), failures);
     std::fflush(stdout);
 }

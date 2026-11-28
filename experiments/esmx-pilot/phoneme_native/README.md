@@ -55,6 +55,17 @@ IDF_COMPONENT_MANAGER=0 idf.py -C "$native/qemu" -B "$output/build" \
 
 La línea `PHONEME_DONE` informa el número de pruebas y el número de discrepancias. Las líneas `PHONEME_CASE` incluyen el tiempo que reporta el emulador. El tiempo real en el robot y el incremento del ejecutable de fábrica requieren medición propia.
 
+`ALIGN_DONE` comprueba el costo y el intervalo de alineación CTC sobre logits de referencia. Usa una secuencia con fonemas repetidos y un espacio de estados acotado. `ALIGN_CASE` registra las mediciones del emulador. La inferencia y la alineación se comprueban por separado.
+
+En Mac se puede contrastar también una selección más amplia de secuencias con empates, repeticiones y límites de entrada.
+
+```sh
+c++ -std=c++20 -O2 -ffp-contract=off -I"$native" \
+  "$native/Alignment.cpp" "$native/alignment_probe.cpp" -o "$scratch/align"
+"$training_python" -B "$native/check_alignment.py" "$scratch/align" "$bank" \
+  --cache "$synthetic_features"
+```
+
 Si guardas la salida en un registro, se puede reducir a un informe que sella el banco, el binario y la imagen emulada.
 
 ```sh

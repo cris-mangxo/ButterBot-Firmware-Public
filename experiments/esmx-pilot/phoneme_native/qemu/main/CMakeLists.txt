@@ -1,4 +1,4 @@
-idf_component_register(SRCS "bench.cpp" "../../Kernel.cpp" INCLUDE_DIRS "../.."
+idf_component_register(SRCS "bench.cpp" "../../Kernel.cpp" "../../Alignment.cpp" INCLUDE_DIRS "../.."
                        REQUIRES esp_timer)
 
 foreach(header IN ITEMS student_bank.h student_tests.h)
