@@ -71,6 +71,8 @@ python3.12 experiments/esmx-pilot/transcript_reference.py \
 
 En cinco tomas humanas reservadas o complementarias, una segunda ejecución de cada brazo simulado extrae el PCM entregado a la inferencia. Las modalidades `--pcm` y `--pcm-with-hangover` producen el audio binario para el diagnóstico local. En este panel los dos brazos entregaron PCM idéntico por toma y las decisiones de los modelos de referencia coincidieron con las del WAV completo. La anotación textual de tres tomas de Hora permite comparar por separado palabras transcritas y cobertura de gramática. Para D6 no se cuenta con esa anotación y se conserva la procedencia de la etiqueta humana. Los alias adicionales de Hora forman parte de este diagnóstico, que consultó las tres anotaciones. Las cinco tomas siguen excluidas del entrenamiento y calibración del compacto. Los resultados de la referencia sobre ellas son diagnósticos.
 
+La referencia de D6 admite imperativos de usted y una «y» inicial opcional. Conserva el análisis del turno completo, el rechazo de negaciones, otros tipos de dado y cantidades múltiples. La comparación de transcripciones automáticas de las tomas 88 y 89 permite estudiar errores de gramática y permanece separada de la aceptación del reconocedor compacto. Esta gramática de referencia queda fuera del piloto compilado para el robot.
+
 Dentro del subconjunto humano sin casos marcados como desarrollo (19 órdenes), el compacto acertó 0, Small 1 y Turbo 4. Este tamaño no establece superioridad estadística. El panel de 36 negativos quedó en abstención para las tres rutas, incluido el veto de «Dato curioso». Micrófono, AFE, movimiento y altavoz físicos quedan fuera de la medición.
 
 ## Diagnóstico de etapas de D6

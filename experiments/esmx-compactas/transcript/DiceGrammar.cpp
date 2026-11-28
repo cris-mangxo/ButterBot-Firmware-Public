@@ -14,10 +14,10 @@ constexpr std::array Negation{
 	"no"sv, "nunca"sv, "jamas"sv, "tampoco"sv, "ni"sv, "sin"sv, "nada"sv,
 };
 constexpr std::array Verbs{
-	"tira"sv, "tirar"sv, "tiras"sv, "tirame"sv, "tirarme"sv, "tires"sv,
-	"lanza"sv, "lanzar"sv, "lanzas"sv, "lanzame"sv, "lanzarme"sv, "lances"sv,
-	"avienta"sv, "aventar"sv, "avientas"sv, "avientame"sv, "avientes"sv,
-	"echa"sv, "echar"sv, "echas"sv, "echame"sv, "eche"sv, "eches"sv,
+	"tira"sv, "tirar"sv, "tiras"sv, "tirame"sv, "tirarme"sv, "tires"sv, "tire"sv, "tireme"sv,
+	"lanza"sv, "lanzar"sv, "lanzas"sv, "lanzame"sv, "lanzarme"sv, "lances"sv, "lance"sv, "lanceme"sv,
+	"avienta"sv, "aventar"sv, "avientas"sv, "avientame"sv, "avientes"sv, "aviente"sv, "avienteme"sv,
+	"echa"sv, "echar"sv, "echas"sv, "echame"sv, "eche"sv, "echeme"sv, "eches"sv,
 	"rueda"sv, "rodar"sv, "ruedas"sv,
 };
 constexpr std::array Articles{
@@ -136,6 +136,7 @@ bool politeness(Words& words){
 }
 
 bool validPredicate(Words& words){
+	words.take("y");
 	words.phrase({"a", "ver"}) || words.take("oye") || words.take("ahorita");
 	politeness(words);
 	words.phrase({"te", "pido", "que"}) || words.phrase({"vamos", "a"}) ||

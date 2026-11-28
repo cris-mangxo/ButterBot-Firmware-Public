@@ -17,7 +17,9 @@ int main(){
 	for(auto phrase : {"  ¿PODRÍAS lanzarme ese dado de 6 caras?  "sv,
 	                   "Oye, echa por fa tu dado de seis lados."sv,
 	                   "Haz rodar este dado de seis."sv, "Tira un D6."sv,
-	                   "A ver, ¿puedes tirar el dado de seis?"sv}){
+	                   "A ver, ¿puedes tirar el dado de seis?"sv,
+	                   "Y tíreme un dado de seis por favor."sv, "Aviente un dado de 6 caras."sv,
+	                   "Lánceme un D6, porfa."sv, "Écheme un dado de seis."sv}){
 		require(isDice6Request(phrase));
 	}
 	for(auto phrase : {"No tires un dado de seis."sv, "Tira un dado de seis. No, espera."sv,
@@ -26,6 +28,10 @@ int main(){
 	                   "Ese dado de seis lados es rojo."sv, "Si puedes, tira un dado de seis."sv,
 	                   "Él dijo: tira un dado de seis."sv, "\"Tira un dado de seis.\""sv,
 	                   "¿Cuántos lados tiene un dado de seis?"sv, "tira un dado de seis\ny después"sv,
+	                   "Y no me tire un dado de seis."sv, "Y tíreme un dado de seis, mejor no."sv,
+	                   "Y tíreme dos dados de seis."sv, "Y lánceme un dado de veinte."sv,
+	                   "Y de tu habilidad tienes que tirar un dado de seis caras."sv,
+	                   "Y y tíreme un dado de seis."sv, "Y dijo que le tire un dado de seis."sv,
 	                   "Tira un dado de seis. Tira otro."sv, "Tira un dado de seis\xc3"sv, ""sv}){
 		require(!isDice6Request(phrase));
 	}
