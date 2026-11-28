@@ -24,7 +24,10 @@ WEIGHT_NAME = "word-transfer-host.npz"
 WORD_LABELS = tuple(range(len(word_train.WORDS)))
 UNUSED = -100
 MASK_FLOOR = -100.0
-ANAHUAC_ALIGNMENT_SHA = "79851e2ea743c1312d6a0c58eb4e0751bab618b1de02dfde2240371d0a9529bc"
+ANAHUAC_ALIGNMENT_SHAS = {
+    "79851e2ea743c1312d6a0c58eb4e0751bab618b1de02dfde2240371d0a9529bc",
+    "034c733f848559b34b996babf069762019665d6232a57487ca6efbfbf338ce1e",
+}
 CIEMPIESS_ALIGNMENT_SHA = "4804e4a4cfc24ae54436f477e5c13cf820c8f1b360b22acfe131fff4331970a2"
 
 
@@ -161,7 +164,7 @@ def added_words(args):
     # a routine: none of these crops is a whole turn.
     selected = []
     if args.anahuac_words:
-        if file_digest(args.anahuac_words) != ANAHUAC_ALIGNMENT_SHA:
+        if file_digest(args.anahuac_words) not in ANAHUAC_ALIGNMENT_SHAS:
             raise ValueError("Anáhuac development manifest digest mismatch")
         data = json.loads(args.anahuac_words.read_text())
         if data["license"] != "CC0-1.0" or any(

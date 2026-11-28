@@ -154,6 +154,21 @@ La variante con `--anahuac-words` y `--ciempiess-words` añade recortes humanos 
 
 Las dos variantes se descartaron y quedaron fuera del firmware. Ambas obtuvieron 0/8 en Mantequilla, Chiste y Hora y 0/12 en D6 en el panel sintético de prueba. Obtuvieron 0/2 en Hora humana y 0/2 en D6 humano. Asignaron Chiste a la orden D6 `public-89` y activaron indebidamente una negación sintética. Los 112 casos históricos incluyen los cuatro casos de Hora y D6 que se reportan como desgloses. Los cuatro quedaron fuera del ajuste y ya se consultaron, por lo que una comparación futura ciega requiere tomas nuevas. Los 5 081 bytes son de datos de pesos y escalas en disco. No se midió inferencia entera, memoria ni latencia en ESP32-S3. El replay registra abstención del compacto cuando el PCM supera su ventana y conserva ese caso en el panel.
 
+### Alineación con la transcripción de Anáhuac
+
+`mfa_cv27_compare.py` usa la transcripción del corpus para estimar el comienzo y el final de cada palabra. Reutiliza la selección fijada de `cv27_word_prep.py` y compara el resultado con el `alignment.json` de los dos decodificadores. Requiere [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/installation.html) 3.4.0, el [modelo acústico español 2.0.0a](https://github.com/MontrealCorpusTools/mfa-models/releases/tag/acoustic-spanish_mfa-v2.0.0a) y el [diccionario para Latinoamérica 2.0.0](https://github.com/MontrealCorpusTools/mfa-models/releases/tag/dictionary-spanish_latin_america_mfa-v2.0.0). Los modelos y la referencia se verifican por SHA-256. Ejecuta la alineación local sin red ni acceso al puerto serie.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/mfa_cv27_compare.py \
+  --source "$anahuac" --reference "$lab/anahuac/alignment.json" \
+  --ffmpeg "$ffmpeg" --mfa "$mfa" --acoustic "$acoustic" --dictionary "$dictionary" \
+  --mswc "$experiment_root/autonomous-v3/human-words" --output "$lab/anahuac-mfa"
+```
+
+Se admitieron 48 de 49 recortes para desarrollo, siete de ellos de «mantequilla». La opción `--mswc` mide el solapamiento y error de límites con 16 montajes de palabras de la partición de calibración de MSWC. Obtuvo al menos media unión temporal en 51 de 55 palabras y 42,281 ms de error absoluto mediano por límite. Esa medición corresponde a montajes, mientras que Anáhuac contiene habla continua sin marcas manuales. Dos ejecuciones aceptaron los mismos recortes pero variaron los límites de cuatro entre 10 y 60 ms. El experimento de transferencia admite el manifiesto fijado de la primera ejecución. Sus WAV y manifiesto se conservan localmente. Una nueva alineación puede producir hashes diferentes. Ningún recorte cuenta como orden completa ni como prueba de un locutor reservado.
+
+La variante con el manifiesto fijado y los dos recortes CIEMPIESS produjo rasgos válidos para 46 de los 50 recortes candidatos. Como respaldo, recuperó una orden pública histórica de D6 y una sintética. Sumó tres despachos incorrectos con WAV y dos con la captura de escritorio. En el desglose de voces reservadas obtuvo 0/2 para Hora y 0/2 para D6, con una activación incorrecta de Chiste. También activó una negación sintética. Esta variante queda fuera de la aplicación.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
