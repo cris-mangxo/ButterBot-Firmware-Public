@@ -24,4 +24,6 @@ La prueba de un reconocedor externo de escritorio usa `--observed-intent`. Lee u
 experiments/esmx-pilot/routine_host.sh "$voice_dir" --observed-intent time < "$observed_label_file"
 ```
 
+Para una traza de un episodio acertado, `BB_ROUTINE_HOST_AAC_OUT` indica un archivo nuevo donde el arnés guarda los bytes de todas las reproducciones AAC del episodio, en el orden original. `BB_ROUTINE_HOST_BINARY_HASH_OUT` indica un archivo nuevo para el SHA-256 del ejecutable de esa corrida. Las dos variables son opcionales. Los archivos existentes provocan un error y conservan sus datos.
+
 Las pruebas sustituyen los servicios del SDK, reloj, comunicación, reproductor, entrada de escucha en inglés, archivo del efecto y generador aleatorio del ESP32. El punto de entrada de la tabla OEM se sustituye por las tres filas ejercitadas. El firmware ESP32-S3 contiene su tabla completa. El reloj y el resultado del dado son deterministas en la prueba. El alcance del resultado es la rutina y sus solicitudes de reproducción, con verificación separada del códec mediante `voice_validate.sh`. El micrófono, el procesamiento de señal del ESP32, la comunicación por radio, el altavoz y el funcionamiento con el mando siguen pendientes de comprobación física.

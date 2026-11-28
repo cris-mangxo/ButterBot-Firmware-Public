@@ -165,8 +165,8 @@ def compare_features(model, rows, patterns, thresholds):
 def freeze(args, model, source):
     vocabulary, speech = load_cache(args.cache)
     patterns = templates(args.espeak, vocabulary, args.clock_context)
-    # Thresholds use affirmative synthetic training turns. Human and synthetic
-    # development are measured only after the thresholds have been fixed.
+    # Synthetic training and the optional human anchors set the thresholds.
+    # The separate development panels are measured with those fixed values.
     thresholds, fitted_counts = thresholds_for(model, speech["train"], patterns)
     anchors = {}
     if args.human_anchors:
@@ -186,7 +186,7 @@ def freeze(args, model, source):
                   model, ((0, False, frames) for frames in negative["dev"]), patterns, thresholds,
               )}
     if anchors:
-        report["human_development_anchors"] = anchors
+        report["human_fitting_anchors"] = anchors
     if args.clock_context:
         report["clock_context"] = list(CLOCK_CONTEXT)
     with args.guard.open("x") as out:
@@ -208,7 +208,7 @@ def parameters(args, vocabulary):
                                                    for symbol in path) for path in group) for group in patterns.values())
             or any(not np.isfinite(limit) or limit < 0 for limit in thresholds.values())):
         raise ValueError("Invalid CTC template or deficit limit")
-    anchor_pcm = {item["native_pcm_sha256"] for item in data.get("human_development_anchors", {}).values()}
+    anchor_pcm = {item["native_pcm_sha256"] for item in data.get("human_fitting_anchors", {}).values()}
     return patterns, thresholds, anchor_pcm
 
 
@@ -223,8 +223,9 @@ def replay(args, model, source):
     adjustment = {row["pcm_sha256"] for row in source["records"].values()}
     rows = list(evaluate(args, model, adjustment, anchors, predict=prediction))
     original = list(evaluate(args, model, adjustment, anchors))
-    pure = {row["id"] for row in rows[:112]
-            if not any(row[mode]["matches_adjustment_pcm"] for mode in ("raw", "retained"))}
+    excluded_pcm = [row["id"] for row in rows[:112]
+                    if any(row[mode]["matches_adjustment_pcm"] for mode in ("raw", "retained"))]
+    pure = {row["id"] for row in rows[:112]} - set(excluded_pcm)
     panels = {"historical_without_exact_adjustment_pcm": pure}
     for key in ("public_reserved_time", "public_reserved_d6", "supplemental_human_time"):
         panels[key] = {row["id"] for row in rows if row["split"] == key}
@@ -245,7 +246,8 @@ def replay(args, model, source):
             intent, cost = observe(model, native_frames(args.features, sample), patterns)
             diag[mode] = {"initial": intent, "ctc_cost": cost, "verified": confirmed(intent, cost, thresholds)}
         diagnostics.append(diag)
-    return {"guard_sha256": file_digest(args.guard), "summary": summaries, "diagnostic": diagnostics,
+    return {"guard_sha256": file_digest(args.guard), "historical_excluded_pcm": excluded_pcm,
+            "summary": summaries, "diagnostic": diagnostics,
             "episodes": [row for row in rows if row["id"] in {
                 "mty-042-04-15", "coerll-int02c-hora-esmx", "public-03", "public-37", "public-81",
                 "public-88", "public-89", "veto-fact",

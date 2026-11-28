@@ -72,6 +72,10 @@ fi
 
 "${CXX:-c++}" "${flags[@]}" "${sources[@]}" -o "$scratch/routine_host"
 
+if [[ -n "${BB_ROUTINE_HOST_BINARY_HASH_OUT:-}" ]]; then
+    (set -o noclobber && shasum -a 256 "$scratch/routine_host" | cut -d' ' -f1 > "$BB_ROUTINE_HOST_BINARY_HASH_OUT")
+fi
+
 if [[ -n "${models:-}" ]]; then
     "$scratch/routine_host" "$expected"
 elif [[ $# == 3 ]]; then

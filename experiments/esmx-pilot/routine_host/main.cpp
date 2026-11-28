@@ -19,6 +19,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <initializer_list>
 #include <iostream>
 #include <iterator>
@@ -202,6 +203,26 @@ std::optional<Intent> expectedIntent(std::string_view requested){
     return expected->second;
 }
 
+bool exportEpisodeAudio(){
+    const char* path = std::getenv("BB_ROUTINE_HOST_AAC_OUT");
+    if(path == nullptr){
+        return true;
+    }
+    FILE* out = std::fopen(path, "wbx");
+    if(out == nullptr){
+        return false;
+    }
+    bool written = true;
+    for(const auto& event : events){
+        const auto* playback = std::get_if<Playback>(&event);
+        if(playback != nullptr && playback->source == Source::Aac){
+            const auto& bytes = playback->bytes;
+            written = std::fwrite(bytes.data(), 1, bytes.size(), out) == bytes.size() && written;
+        }
+    }
+    return std::fclose(out) == 0 && written;
+}
+
 int testEpisode(Intent observed, Intent expected){
     if(observed != expected){
         std::printf("{\"recognized_label\":%u,\"expected_label\":%u,\"real_ticks\":0}\n",
@@ -221,6 +242,10 @@ int testEpisode(Intent observed, Intent expected){
             std::puts("{\"recognized_label\":0,\"real_ticks\":0,\"abstained\":true}");
             return 0;
         default: return 2;
+    }
+    if(!exportEpisodeAudio()){
+        std::fputs("Could not create the requested AAC trace\n", stderr);
+        return 2;
     }
     std::printf("{\"recognized_label\":%u,\"real_ticks\":1,\"stock_payload_verified\":true,"
                 "\"matching_aac_clips\":true}\n", static_cast<unsigned>(observed));
