@@ -192,6 +192,25 @@ Requiere Transformers 4.57.6 y PyTorch 2.9.1. El maestro se carga desde el direc
 
 El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El respaldo reconoció una de dos tomas humanas reservadas de Hora en ambas entradas. En el panel histórico añadió 16 activaciones incorrectas por WAV y 17 con la captura retenida. Esos conteos se mantienen al retirar tres duplicados sintéticos exactos del ajuste o desarrollo. El resultado impide incorporarlo al firmware. La opción `--episode` emite la decisión de una toma humana sellada para pasarla al [arnés de rutinas](routine_host/README.md).
 
+### Rechazo de conversación fuera de dominio
+
+`phoneme_chm150_lab.py` fija 90 hablantes de ajuste, 30 de desarrollo y 30 reservados. La preparación solo extrae audio de los dos primeros grupos y guarda rasgos del extractor nativo. `phoneme_reject_lab.py` parte del banco anterior y añade los turnos humanos fuera de dominio como rechazo de intención. La pérdida de fonemas y cancelación sigue usando las grabaciones sintéticas etiquetadas. El banco mantiene la misma arquitectura.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/phoneme_chm150_lab.py prepare \
+  --corpus "$chm150_parquet" --ffmpeg "$ffmpeg" --features "$kws" --output "$lab/chm150"
+"$training_python" -B experiments/esmx-pilot/phoneme_reject_lab.py \
+  --cache "$lab/phone-targets" --base "$lab/phone-student" \
+  --negatives "$lab/chm150/native-negative-features" --speaker-split "$lab/chm150/speaker-roles.json" \
+  --output "$lab/phone-rejection"
+"$training_python" -B experiments/esmx-pilot/phoneme_chm150_lab.py replay \
+  --corpus "$chm150_parquet" --ffmpeg "$ffmpeg" --features "$kws" --reference "$lab/recognize" \
+  --speaker-split "$lab/chm150/speaker-roles.json" --negatives "$lab/chm150/native-negative-features" \
+  --base "$lab/phone-student" --adapted "$lab/phone-rejection" --split heldout
+```
+
+La preparación y la evaluación CHM150 requieren DuckDB 1.4.4. Se usa la [conversión Parquet fijada](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr/tree/7decd77dc38db34bb1125ca66bf5727cc91f05ab). Para correr el panel histórico con el banco adaptado, usa `--frozen "$lab/phone-rejection"` y añade `--negatives "$lab/chm150/native-negative-features"` a `phoneme_replay_lab.py`. En el control de 536 turnos de locutores reservados, el ajuste redujo las activaciones añadidas al compacto de 223 a 26. Perdió las dos tomas humanas de Hora que reconocía el banco inicial. El banco adaptado queda fuera de la aplicación.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.

@@ -2,7 +2,10 @@
 
 import json
 from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -10,6 +13,8 @@ import torch
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
 from phoneme_replay_lab import overlaps_adjustment, summarize
+from phoneme_reject_lab import load_negatives
+from time_lab import file_digest
 
 
 class PhonemeLabTest(unittest.TestCase):
@@ -72,6 +77,28 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertEqual(report["new_wrong"], ["two"])
         self.assertEqual(report["new_wrong_intent"], {5: 1})
         self.assertEqual(report["matching_adjustment_pcm"], ["one"])
+
+    def test_negative_cache_excludes_reserved_speakers_even_with_valid_archive_seal(self):
+        with TemporaryDirectory() as work:
+            directory = Path(work)
+            split = directory / "speakers.json"
+            split.write_text(json.dumps({"parquet_sha256": "corpus", "speaker_roles": {"a": "heldout"}}))
+            item = directory / "clip.npz"
+            np.savez_compressed(item, features=np.zeros((8, 20), dtype=np.int8))
+            manifest = directory / "index.json"
+            manifest.write_text(json.dumps({
+                "schema": "bb-chm150-negative-frames-1", "split_sha256": file_digest(split),
+                "source_sha256": "corpus", "extractor_sha256": "frontend",
+                "records": {"clip": {"split": "train", "speaker": "a", "frames": 8,
+                                     "label": "out_of_domain", "feature_sha256": file_digest(item)}},
+            }))
+            with patch("phoneme_reject_lab.NEGATIVE_CACHE_SHA256", file_digest(manifest)):
+                with self.assertRaisesRegex(ValueError, "designated training or development speaker"):
+                    load_negatives(directory, split, "frontend")
+
+    def test_replay_detects_pcm_overlap_in_native_human_cache(self):
+        pcm = np.full(640, 1600, dtype="<i2").tobytes()
+        self.assertTrue(overlaps_adjustment(pcm, set(), {sha256(pcm).hexdigest()}))
 
 
 if __name__ == "__main__":

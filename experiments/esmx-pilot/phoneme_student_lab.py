@@ -102,6 +102,17 @@ def pack(samples):
     return frames, lengths, widths, targets, labels, denied, phones
 
 
+def supervised_loss(model, batch, class_weights):
+    x, n, widths, teacher, expected, denied, phones = pack(batch)
+    logits, intent, negation = model(x, n)
+    logprobs = logits.log_softmax(dim=-1)
+    valid = torch.arange(x.shape[-1])[None, :] < n[:, None]
+    soft = F.kl_div(logprobs[valid], teacher[valid], reduction="batchmean")
+    hard = F.ctc_loss(logprobs.transpose(0, 1), phones, n, widths)
+    loss = soft + 0.35 * hard + F.cross_entropy(intent, expected, weight=class_weights)
+    return loss + 0.5 * F.binary_cross_entropy_with_logits(negation, denied)
+
+
 def fit(labels, samples):
     torch.manual_seed(SEED)
     model = Student(len(labels))
@@ -114,14 +125,7 @@ def fit(labels, samples):
         order = torch.randperm(len(samples)).tolist()
         for offset in range(0, len(order), BATCH):
             batch = [samples[i] for i in order[offset:offset + BATCH]]
-            x, n, widths, teacher, expected, denied, phones = pack(batch)
-            logits, intent, negation = model(x, n)
-            logprobs = logits.log_softmax(dim=-1)
-            valid = torch.arange(x.shape[-1])[None, :] < n[:, None]
-            soft = F.kl_div(logprobs[valid], teacher[valid], reduction="batchmean")
-            hard = F.ctc_loss(logprobs.transpose(0, 1), phones, n, widths)
-            loss = soft + 0.35 * hard + F.cross_entropy(intent, expected, weight=class_weights)
-            loss += 0.5 * F.binary_cross_entropy_with_logits(negation, denied)
+            loss = supervised_loss(model, batch, class_weights)
             if not loss.isfinite():
                 raise ValueError("Invalid distillation loss")
             optimizer.zero_grad()

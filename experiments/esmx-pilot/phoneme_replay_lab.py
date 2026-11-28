@@ -40,27 +40,39 @@ def frozen_model(directory):
     return model, report
 
 
-@torch.inference_mode()
-def student_intent(model, features, pcm):
+def native_frames(features, pcm):
     segment = kw.trimmed(pcm)
     if len(segment) < 800:
-        return 0
+        return None
     stdout = invoke(features, segment, "word-frames")
     if len(stdout) % kw.BANDS:
         raise ValueError("Native audio frontend produced an incomplete frame")
-    tensor = np.frombuffer(stdout, dtype=np.int8).astype(np.float32).reshape(-1, kw.BANDS)
-    if len(tensor) < 8:
+    frames = np.frombuffer(stdout, dtype=np.int8).reshape(-1, kw.BANDS)
+    return frames if len(frames) >= 8 else None
+
+
+@torch.inference_mode()
+def intent_from_frames(model, frames):
+    if frames is None:
         return 0
+    tensor = frames.astype(np.float32)
     _, intents, denial = model(torch.from_numpy(tensor.T[None] / 32.0), torch.tensor([len(tensor)]))
     return kw.LABELS[int(gate(intents, denial).item())]
 
 
-def overlaps_adjustment(pcm, hashes):
-    trimmed = np.frombuffer(kw.trimmed(pcm), dtype="<i2").astype(np.float32) / 32_768
+def student_intent(model, features, pcm):
+    return intent_from_frames(model, native_frames(features, pcm))
+
+
+def overlaps_adjustment(pcm, hashes, native_hashes=()):
+    segment = kw.trimmed(pcm)
+    if sha256(segment).hexdigest() in native_hashes:
+        return True
+    trimmed = np.frombuffer(segment, dtype="<i2").astype(np.float32) / 32_768
     return sha256(trimmed.tobytes()).hexdigest() in hashes
 
 
-def evaluate(args, model, adjustment_hashes):
+def evaluate(args, model, adjustment_hashes, negative_hashes=()):
     rows = list(recordings(args.root))
     if len(rows) != 112:
         raise ValueError("Historical comparison panel must contain 112 rows")
@@ -71,9 +83,9 @@ def evaluate(args, model, adjustment_hashes):
         outcome = {"id": identifier, "split": split, "category": category, "expected": expected}
         captured = invoke(args.capture, pcm, "--pcm-with-hangover")
         for mode, sample in (("raw", pcm), ("retained", captured)):
-            same_pcm = overlaps_adjustment(sample, adjustment_hashes)
+            same_pcm = overlaps_adjustment(sample, adjustment_hashes, negative_hashes)
             if same_pcm and split.startswith(("public", "supplemental")):
-                raise ValueError(f"Human evaluation intersects synthetic adjustment: {identifier}")
+                raise ValueError(f"Human evaluation intersects the fitting or development cache: {identifier}")
             baseline = candidate = 0
             if 0 < len(sample) <= 128_000:
                 baseline = int(invoke(args.reference, sample))
@@ -110,9 +122,9 @@ def summarize(rows, mode):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("root", "features", "reference", "capture", "frozen", "cache", "coerll-supplemental"):
+    for name in ("root", "features", "reference", "capture", "frozen", "cache", "coerll-supplemental", "negatives"):
         parser.add_argument("--" + name, type=lambda p: Path(p).resolve(strict=True),
-                            required=name != "coerll-supplemental")
+                            required=name not in ("coerll-supplemental", "negatives"))
     parser.add_argument("--episode", help="Output only the decision from one reserved human turn after capture")
     args = parser.parse_args()
     torch.set_num_threads(2)
@@ -122,7 +134,12 @@ def main():
     cache = json.loads((args.cache / "index.json").read_text())
     if cache["frontend_sha256"] != file_digest(args.features):
         raise ValueError("Frozen audio frontend differs")
-    rows = list(evaluate(args, model, {row["pcm_sha256"] for row in cache["records"].values()}))
+    negative_index = args.negatives / "index.json" if args.negatives else None
+    if data.get("negative_cache_sha256") != (file_digest(negative_index) if negative_index else None):
+        raise ValueError("Frozen model negative speech provenance differs")
+    negative_records = json.loads(negative_index.read_text())["records"] if negative_index else {}
+    negative_hashes = {row["effective_pcm_sha256"] for row in negative_records.values()}
+    rows = list(evaluate(args, model, {row["pcm_sha256"] for row in cache["records"].values()}, negative_hashes))
     if args.episode:
         reserved = [row for row in rows if row["id"] == args.episode and row["split"] in {
             "public_reserved_time", "public_reserved_d6", "supplemental_human_time",
