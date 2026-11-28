@@ -19,6 +19,34 @@ extern "C" int bb_fsg_opposing_pool_active(const ps_decoder_t*);
 #include <cstdio>
 #include <cstring>
 
+#ifdef BB_ESMX_BUTTER_APP_FAIL_STAGE
+#include <pocketsphinx.h>
+
+namespace {
+unsigned butterInstallErrors = 0;
+}
+extern "C" int __real_ps_add_kws(ps_decoder_t*, const char*, const char*);
+extern "C" int __real_ps_add_jsgf_string(ps_decoder_t*, const char*, const char*);
+
+extern "C" int __wrap_ps_add_kws(ps_decoder_t* decoder, const char* name, const char* path) {
+    if (BB_ESMX_BUTTER_APP_FAIL_STAGE == 1 && std::strcmp(name, "bb-butter-keywords") == 0) {
+        ++butterInstallErrors;
+        return -1;
+    }
+    return __real_ps_add_kws(decoder, name, path);
+}
+
+extern "C" int __wrap_ps_add_jsgf_string(ps_decoder_t* decoder, const char* name, const char* grammar) {
+    constexpr auto Stage = BB_ESMX_BUTTER_APP_FAIL_STAGE;
+    constexpr const char* Search = Stage == 2 ? "bb-butter-affirm" : "bb-butter-oppose";
+    if (Stage != 1 && std::strcmp(name, Search) == 0) {
+        ++butterInstallErrors;
+        return -1;
+    }
+    return __real_ps_add_jsgf_string(decoder, name, grammar);
+}
+#endif
+
 namespace {
 using namespace EsMx::Pilot;
 
@@ -66,16 +94,29 @@ extern "C" void app_main() {
     const auto internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     const auto psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     std::printf("BB_CLOCK_HEAP_BEFORE %zu %zu\n", internal, psram);
+#ifdef BB_ESMX_BUTTER_APP_EXPERIMENT
+    std::printf("BB_BUTTER_LARGEST_BEFORE %zu\n", heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+#endif
     const auto coldStart = esp_timer_get_time();
     if (!prepareAcousticClock()) {
         std::puts("BB_CLOCK_FAIL");
         return;
     }
     std::printf("BB_CLOCK_WARMUP %lld\n", static_cast<long long>(esp_timer_get_time() - coldStart));
+#ifdef BB_ESMX_BUTTER_APP_EXPERIMENT
+    std::printf("BB_BUTTER_WARM_PSRAM %zu %zu\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+#endif
 #ifdef BB_ESMX_EXPECT_OPPOSING_POOL
     const bool poolActive = bb_fsg_opposing_pool_active(sharedAcousticDecoder());
     std::printf("BB_BUTTER_POOL active=%u\n", static_cast<unsigned>(poolActive));
+#ifdef BB_ESMX_BUTTER_APP_FAIL_STAGE
+    std::printf("BB_BUTTER_INSTALL_ERROR %u %u\n", static_cast<unsigned>(BB_ESMX_BUTTER_APP_FAIL_STAGE),
+                butterInstallErrors);
+    if (poolActive || butterInstallErrors != 1) {
+#else
     if (!poolActive) {
+#endif
         std::puts("BB_CLOCK_FAIL");
         return;
     }

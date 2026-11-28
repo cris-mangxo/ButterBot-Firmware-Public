@@ -76,7 +76,7 @@ idf.py -B "$app_out" -D "SDKCONFIG=$app_sdkconfig" \
 ```
 
 El perfil abre el respaldo acústico solo cuando el grupo opositor está
-disponible. Si falla la instalación opcional de sus búsquedas, Hora
+disponible. Si el registro de una búsqueda devuelve error, Hora
 conserva su decodificador y Mantequilla se abstiene. El arnés de ESP32-S3
 admite `BB_ESMX_BUTTER_APP_EXPERIMENT=ON` con Mantequilla acústica,
 las mismas bibliotecas y los mismos activos. Configura `BB_ESMX_EXPECT_OPPOSING_POOL=ON`
@@ -85,6 +85,13 @@ opciones del arnés `BB_ESMX_D6_SCOPE_BENCH`, `BB_ESMX_BUTTER_WEAK_CONFLICT`
 y `BB_ESMX_BUTTER_CEPSTRA`. El perfil ya selecciona las opciones de
 Mantequilla. En el manifiesto de comparación identifica los casos que
 dependían del alcance D6 y su expectativa al quedar apagado.
+
+Para comprobar errores de registro, repite el mismo arnés con
+`BB_ESMX_BUTTER_APP_FAIL_STAGE=1` (palabras clave), `2` (gramática afirmativa)
+o `3` (gramática opositora). Conserva Hora y las demás expectativas.
+Marca las entradas de Mantequilla como abstenciones en estos manifiestos.
+El arnés verifica que se interceptó exactamente un registro y que el grupo
+opositor quedó apagado. La inyección opera solo en el arnés.
 
 Se evalúan por separado la aplicación completa, el reconocedor aislado en
 ESP32-S3 y la ejecución de rutinas en la Mac. La latencia y la memoria con
