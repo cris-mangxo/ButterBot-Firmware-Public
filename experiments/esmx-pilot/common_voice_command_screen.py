@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import csv
+from hashlib import sha256
 import io
 import json
 from pathlib import Path, PurePosixPath
@@ -30,32 +31,55 @@ def normalize(text):
     return " ".join(re.findall(r"\w+", letters))
 
 
-def screen(archive_path):
+class DigestReader:
+    def __init__(self, stream):
+        self.stream = stream
+        self.digest = sha256()
+        self.size = 0
+
+    def read(self, size=-1):
+        block = self.stream.read(size)
+        self.digest.update(block)
+        self.size += len(block)
+        return block
+
+
+def read_roles(archive):
     counts = {}
-    with tarfile.open(archive_path, mode="r|gz") as archive:
-        for member in archive:
-            name = PurePosixPath(member.name).name
-            if not member.isfile() or name not in ROLES:
-                continue
-            if name in counts or member.size > 50_000_000:
-                raise ValueError("Unexpected metadata size or duplicate role")
-            with archive.extractfile(member) as stream:
-                table = io.StringIO(stream.read().decode("utf-8-sig"), newline="")
-            rows = csv.DictReader(table, delimiter="\t")
-            if "sentence" not in (rows.fieldnames or ()):
-                raise ValueError("Expected Common Voice sentence column")
-            totals = Counter()
-            for row in rows:
-                text = normalize(row["sentence"])
-                totals["rows"] += 1
-                for suffix, patterns in (("mention", MENTIONS), ("phrase", COMMANDS)):
-                    for intent, pattern in patterns.items():
-                        if re.search(pattern, text):
-                            totals[f"{intent}_{suffix}"] += 1
-            counts[name] = totals
+    for member in archive:
+        name = PurePosixPath(member.name).name
+        if not member.isfile() or name not in ROLES:
+            continue
+        if name in counts or member.size > 50_000_000:
+            raise ValueError("Unexpected metadata size or duplicate role")
+        with archive.extractfile(member) as stream:
+            table = io.StringIO(stream.read().decode("utf-8-sig"), newline="")
+        rows = csv.DictReader(table, delimiter="\t")
+        if "sentence" not in (rows.fieldnames or ()):
+            raise ValueError("Expected Common Voice sentence column")
+        totals = Counter()
+        for row in rows:
+            text = normalize(row["sentence"])
+            totals["rows"] += 1
+            for suffix, patterns in (("mention", MENTIONS), ("phrase", COMMANDS)):
+                for intent, pattern in patterns.items():
+                    if re.search(pattern, text):
+                        totals[f"{intent}_{suffix}"] += 1
+        counts[name] = totals
     if set(counts) != ROLES:
         raise ValueError("Missing Common Voice train/dev/test metadata")
-    return {"archive_bytes": archive_path.stat().st_size, "counts": counts,
+    return counts
+
+
+def screen(archive_path):
+    with archive_path.open("rb") as stream:
+        reader = DigestReader(stream)
+        with tarfile.open(fileobj=reader, mode="r|gz") as archive:
+            counts = read_roles(archive)
+        # Include any archive padding that tarfile did not have to consume.
+        while reader.read(1024 * 1024):
+            pass
+    return {"archive_bytes": reader.size, "archive_sha256": reader.digest.hexdigest(), "counts": counts,
             "phrase_matches": sum(count for totals in counts.values() for key, count in totals.items()
                                   if key.endswith("_phrase"))}
 
@@ -63,4 +87,8 @@ def screen(archive_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
-    print(json.dumps(screen(parser.parse_args().archive), indent=2))
+    parser.add_argument("--declared-release", required=True)
+    parser.add_argument("--declared-locale", required=True)
+    args = parser.parse_args()
+    print(json.dumps({"declared_release": args.declared_release, "declared_locale": args.declared_locale,
+                      **screen(args.archive)}, indent=2))

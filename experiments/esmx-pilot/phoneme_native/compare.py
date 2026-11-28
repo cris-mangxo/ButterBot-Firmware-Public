@@ -73,7 +73,7 @@ def run(executable, model, name, frames):
     np.testing.assert_allclose(native, reference, rtol=RTOL, atol=ATOL, err_msg=name)
     if binary[-1] != expected:
         raise ValueError(f"Gate mismatch {name}: native {binary[-1]}, expected {expected}")
-    return {"case": name, "frames": len(frames), "intent": expected,
+    return {"case": name, "frames": len(frames), "intent": binary[-1], "expected_intent": expected,
             "max_abs_logit_error": float(np.abs(native - reference).max())}
 
 

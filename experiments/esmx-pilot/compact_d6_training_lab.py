@@ -374,6 +374,7 @@ def replay(args, scorer):
               "public_reserved_d6_diagnostic": [row for row in clean if row["split"] == "public_reserved_d6"]}
     return {**scorer.seal(), "items": len(rows),
             "excluded_exact_overlap": [row["id"] for row in rows if row.get("overlap")],
+            "panel_counts": {key: len(group) for key, group in groups.items()},
             "summary": {key: {mode: summarize(group, mode) for mode in ("raw", "retained")}
                         for key, group in groups.items()},
             "episodes": [row for row in rows if row["id"] in {
