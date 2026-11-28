@@ -267,6 +267,21 @@ set common --root "$experiment_root" --teacher "$teacher" --student "$lab/phone-
 
 El maestro de 1,26 GB y esta comparación se ejecutan en la Mac. El ajuste no modifica los pesos ni la aplicación ESP32-S3.
 
+### Contexto exterior a la orden de D6
+
+El contraste de alcance congela el guard fonético anterior. Mide cuántos fonemas predice el maestro fuera del intervalo de menor costo CTC de la orden, con los repetidos de CTC colapsados y el blanco retirado. Una racha de un mismo símbolo que cruza el borde se cuenta como parte del intervalo. Ajusta un límite entre las órdenes de desarrollo y el primer control que pasaba la referencia. Si ese conjunto carece de separación, la vía de respaldo se abstiene. El compacto conserva sus entradas y decisiones.
+
+El archivo `d6_turn_scope_cases.json` fija peticiones coloquiales, menciones, explicaciones y cancelaciones. El ajuste y la prueba nueva se sintetizan con voces y frases distintas. El guard verifica el SHA del guard anterior y del archivo de casos. La comparación histórica y CHM150 conservan sus mismas fuentes.
+
+```fish
+"$training_python" -B experiments/esmx-pilot/d6_teacher_guard_lab.py freeze-scope $common \
+  --scope-guard "$lab/d6-scope.json"
+"$training_python" -B experiments/esmx-pilot/d6_teacher_guard_lab.py replay-scope-test $common \
+  --scope-guard "$lab/d6-scope.json"
+```
+
+Para comparar WAV, captura y CHM150, añade `--scope-guard "$lab/d6-scope.json"` a los comandos `replay` y `replay-chm` de la referencia. La cuenta describe salidas del maestro. La comprobación carece de transcripción humana de los fonemas exteriores y se ejecuta en la Mac.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.

@@ -11,12 +11,13 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
-from d6_teacher_guard_lab import Scorer, accepted as d6_accepted, eligible_pcm, select_limit
+from d6_teacher_guard_lab import Scorer, accepted as d6_accepted, eligible_pcm, permitted, scope_cap, select_limit
+from d6_teacher_guard_lab import exterior_phone_counts
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
 from phoneme_replay_lab import overlaps_adjustment, strip_digital_edges, summarize
 from phoneme_reject_lab import load_negatives
-from phoneme_confirm_lab import checked_bank, confirmed, local_ctc_cost
+from phoneme_confirm_lab import checked_bank, confirmed, local_ctc_alignment, local_ctc_cost
 from phoneme_ctc_adapt_lab import METHOD as ADAPTATION, TARGET_SHA256
 from time_lab import file_digest
 
@@ -126,6 +127,15 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertEqual(local_ctc_cost(logits, (1, 1)), 0.0)
         self.assertTrue(np.isinf(local_ctc_cost(logits[[0, 2]], (1, 1))))
 
+    def test_local_ctc_aligns_inside_a_turn_without_changing_cost(self):
+        logits = np.array([[0, 0, 0, 9], [0, 9, 0, 0], [9, 0, 0, 0],
+                           [0, 0, 9, 0], [0, 0, 0, 9]], dtype=np.float32)
+        aligned = local_ctc_alignment(logits, (1, 2), track_span=True)
+        self.assertEqual(aligned, (local_ctc_cost(logits, (1, 2)), (1, 4)))
+        score, interval = local_ctc_alignment(logits[1:2], (1, 1), track_span=True)
+        self.assertTrue(np.isinf(score))
+        self.assertIsNone(interval)
+
     def test_lexical_veto_only_removes_an_intention(self):
         cutoff = {5: 2.0}
         self.assertEqual(confirmed(0, None, cutoff), 0)
@@ -158,6 +168,25 @@ class PhonemeLabTest(unittest.TestCase):
                 self.assertIsNone(scorer.run(sample))
             predict.assert_not_called()
         self.assertTrue(eligible_pcm(bytes(128_000)))
+
+    def test_d6_scope_has_no_fit_when_a_control_has_no_exterior_phones(self):
+        valid = {"scope": {"before": 1, "after": 2}, "cost": 0.3, "margin": 0.5, "veto": False}
+        control = dict(valid, scope={"before": 0, "after": 0})
+        orders = [{"positive": True, "score": valid}]
+        self.assertIsNone(scope_cap(orders + [{"positive": False, "score": control}]))
+        control["scope"]["after"] = 7
+        cap = scope_cap(orders + [{"positive": False, "score": control}])
+        self.assertEqual(cap, 4)
+        self.assertTrue(permitted(valid, 0.5, 0.4, {"outside_ceiling": cap}))
+        self.assertFalse(permitted(control, 0.5, 0.4, {"outside_ceiling": cap}))
+        self.assertFalse(permitted(dict(valid, veto=True), 0.5, 0.4, {"outside_ceiling": cap}))
+
+    def test_d6_scope_preserves_whole_ctc_phones_at_both_edges(self):
+        greedy = np.array([1, 1, 2, 2])
+        self.assertEqual(exterior_phone_counts(greedy, 1, 3), (0, 0))
+        # A blank separates a repeated symbol into a different phone.
+        greedy = np.array([1, 0, 1, 2, 2, 0, 2])
+        self.assertEqual(exterior_phone_counts(greedy, 2, 4), (1, 1))
 
     def test_adapted_bank_cannot_change_the_intent_head(self):
         with TemporaryDirectory() as work:

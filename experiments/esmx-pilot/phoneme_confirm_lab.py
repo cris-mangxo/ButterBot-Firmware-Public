@@ -37,6 +37,11 @@ HUMAN_MANIFESTS = {
 
 def local_ctc_cost(logits, tokens):
     """Minimum deficit from framewise maxima for a completion anywhere in the turn."""
+    return local_ctc_alignment(logits, tokens)[0]
+
+
+def local_ctc_alignment(logits, tokens, *, track_span=False):
+    """Return cost and half-open frame interval when requested."""
     labels = np.zeros(2 * len(tokens) - 1, dtype=np.int64)
     labels[::2] = tokens
     skips = np.zeros(len(labels), dtype=bool)
@@ -44,14 +49,32 @@ def local_ctc_cost(logits, tokens):
     deficits = logits.max(axis=1, keepdims=True) - logits[:, labels]
     state = np.full(len(labels), np.inf)
     best = np.inf
-    for costs in deficits:
+    interval = None
+    if track_span:
+        starts = np.zeros(len(labels), dtype=np.int64)
+        indices = np.arange(len(labels))
+    for frame, costs in enumerate(deficits):
         # Starting at this frame is free. Internal skips must respect CTC repeats.
         advance = np.concatenate(([0.0], state[:-1]))
         skip = np.full_like(state, np.inf)
         skip[2:] = np.where(skips[2:], state[:-2], np.inf)
-        state = np.minimum(np.minimum(state, advance), skip) + costs
-        best = min(best, state[-1])
-    return float(best / len(tokens))
+        walk = np.minimum(state, advance)
+        if track_span:
+            # Prefer an older start on equal predecessor costs. At the last
+            # state the first equally good completion keeps its end.
+            advance_start = np.concatenate(([frame], starts[:-1]))
+            skip_start = starts[np.maximum(indices - 2, 0)]
+            chosen = np.where(state < advance, starts, np.where(
+                state > advance, advance_start, np.minimum(starts, advance_start)))
+            chosen = np.where(skip < walk, skip_start, np.where(
+                skip == walk, np.minimum(chosen, skip_start), chosen))
+            starts = chosen
+        state = np.minimum(walk, skip) + costs
+        if state[-1] < best:
+            best = state[-1]
+            if track_span:
+                interval = (int(starts[-1]), frame + 1)
+    return float(best / len(tokens)), interval
 
 
 def templates(espeak, vocabulary, clock_context=False):

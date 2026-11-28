@@ -1,0 +1,32 @@
+{
+  "development": {
+    "orders": [
+      "Porfa, tira un dado de seis.",
+      "Tira un dado de seis, gracias.",
+      "Avienta un dado de seis, por favor.",
+      "Lanza un dado de seis para mí."
+    ],
+    "controls": [
+      "El manual dice: tira un dado de seis cuando ataques.",
+      "Lee esta instrucción: lanza un dado de seis al empezar.",
+      "Si abres el cofre, tira un dado de seis y suma tu fuerza.",
+      "El mensaje era: avienta un dado de seis cuando sea tu turno.",
+      "Tira un dado de seis. No, olvídalo, cancela la tirada."
+    ]
+  },
+  "test": {
+    "orders": [
+      "Oye, tírame un dado de seis, por fa.",
+      "Te toca: lanza un dado de seis, porfa.",
+      "Por favor, avienta un dado de seis ahorita.",
+      "Tira un dado de seis, plis."
+    ],
+    "controls": [
+      "Con ventaja, avienta un dado de seis y anótalo.",
+      "Aquí dice: tire un dado de seis para atacar.",
+      "La tarjeta avisa: tira un dado de seis si pierdes.",
+      "El reglamento dice: tira un dado de seis al entrar.",
+      "Avienta un dado de seis. No, cancela la tirada."
+    ]
+  }
+}

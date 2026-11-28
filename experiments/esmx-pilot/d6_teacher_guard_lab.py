@@ -6,6 +6,7 @@ from hashlib import sha256
 import json
 from math import isfinite
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 import numpy as np
@@ -13,13 +14,20 @@ import torch
 
 from capture_replay import pcm_from, recordings
 import keyword_lab as kw
-from phoneme_confirm_lab import local_ctc_cost, model_output
+from phoneme_confirm_lab import local_ctc_alignment, local_ctc_cost, model_output
 from phoneme_replay_lab import frozen_model, native_frames, strip_digital_edges
-from phoneme_teacher_lab import WEIGHTS_SHA256, load_teacher, phonemes, prepared_pcm
+from phoneme_teacher_lab import WEIGHTS_SHA256, collapse, load_teacher, phonemes, prepared_pcm
 from time_lab import file_digest, invoke
 
 
 SCHEMA = "bb-d6-full-ctc-reference-1"
+SCOPE_SCHEMA = "bb-d6-turn-scope-1"
+SCOPE_CASES = Path(__file__).with_name("d6_turn_scope_cases.json")
+SCOPE_BASE_SHA256 = "46878f2616f4c8ba18574e460d62190ab716a9f0e4c3d2948808c1de3f4deded"
+SCOPE_VOICES = {
+    "development": (("Grandpa (Español (México))", 178), ("Shelley (Español (México))", 190)),
+    "test": (("Reed (Español (México))", 174), ("Grandma (Español (México))", 185)),
+}
 SYNTHETIC_SHA256 = "df9a9dac5e3003469516a0996242df70c887ebcd7f9ba22071216bfe1d8d44d4"
 HUMAN_SHA256 = "37722cb8ce5a4cc3a4284126841d6e048cd84a62f704609b758daaf89eb1a93a"
 STUDENT_SHA256 = "1785628e682569e77cdc4e934da8714cf5021b518a2bf745abc76aa24cfd0619"
@@ -37,22 +45,68 @@ def paths(espeak, vocabulary):
                    for phrase in phrases] for role, phrases in PHRASES.items()}
 
 
-def observation(scores, templates, negated):
-    costs = {kind: min(local_ctc_cost(scores, seq) for seq in options)
-             for kind, options in templates.items()}
-    command = costs["order"]
+def exterior_phone_counts(greedy, start, end):
+    # A nonblank run that crosses an interval edge is one CTC phone.
+    while start > 0 and greedy[start] != 0 and greedy[start - 1] == greedy[start]:
+        start -= 1
+    while end < len(greedy) and greedy[end - 1] != 0 and greedy[end] == greedy[end - 1]:
+        end += 1
+    return len(collapse(greedy[:start].tolist())), len(collapse(greedy[end:].tolist()))
+
+
+def observation(scores, templates, negated, track_scope=False):
+    if track_scope:
+        command, interval = min((local_ctc_alignment(scores, seq, track_span=True)
+                                for seq in templates["order"]), key=lambda item: item[0])
+    else:
+        command = min(local_ctc_cost(scores, seq) for seq in templates["order"])
+    costs = {"order": command}
+    costs.update({kind: min(local_ctc_cost(scores, seq) for seq in options)
+                  for kind, options in templates.items() if kind != "order"})
     if not all(isfinite(value) for value in costs.values()):
         return None
     competitor = min(value for key, value in costs.items() if key != "order")
-    return {"cost": command, "margin": competitor - command, "veto": negated, "costs": costs}
+    result = {"cost": command, "margin": competitor - command, "veto": negated, "costs": costs}
+    if track_scope:
+        start, end = interval
+        greedy = scores.argmax(axis=1)
+        before, after = exterior_phone_counts(greedy, start, end)
+        result["scope"] = {"before": before, "after": after, "match": [start, end], "frames": len(greedy)}
+    return result
 
 
 def accepted(item, limit, margin):
-    return bool(item and not item["veto"] and item["cost"] <= limit and item["margin"] >= margin)
+    return bool(item and limit is not None and not item["veto"]
+                and item["cost"] <= limit and item["margin"] >= margin)
 
 
 def eligible_pcm(data):
     return 0 < len(data) <= 128_000 and len(data) % 2 == 0
+
+
+def outside_phones(item):
+    return item["scope"]["before"] + item["scope"]["after"]
+
+
+def scope_cap(base_passes):
+    controls = [outside_phones(row["score"]) for row in base_passes if not row["positive"]]
+    if controls:
+        first_control = min(controls)
+        positives = [outside_phones(row["score"]) for row in base_passes
+                     if row["positive"] and outside_phones(row["score"]) < first_control]
+        if positives:
+            # Balance clearance from the last retained order and first control.
+            return (max(positives) + first_control - 1) // 2
+    return None
+
+
+def permitted(item, limit, margin, scope):
+    if not accepted(item, limit, margin):
+        return False
+    if scope is None:
+        return True
+    ceiling = scope["outside_ceiling"]
+    return ceiling is not None and outside_phones(item) <= ceiling
 
 
 def select_limit(development):
@@ -87,6 +141,7 @@ class Scorer:
             raise ValueError("Unexpected compact negation model")
         self.templates = paths(args.espeak, vocabulary)
         self.features = args.features
+        self.track_scope = args.stage in ("freeze-scope", "replay-scope-test") or bool(getattr(args, "scope_guard", None))
         self.seal = {"teacher": WEIGHTS_SHA256, "student": STUDENT_SHA256,
                      "frontend": file_digest(args.features), "espeak": file_digest(args.espeak),
                      "templates": self.templates}
@@ -110,7 +165,7 @@ class Scorer:
         samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32_768
         packed = self.extractor(samples, sampling_rate=16_000, return_tensors="pt")
         logits = self.teacher(**packed).logits[0].numpy()
-        return observation(logits, self.templates, bool(denial.item() >= 0))
+        return observation(logits, self.templates, bool(denial.item() >= 0), self.track_scope)
 
 
 def prepare(args, scorer):
@@ -161,6 +216,75 @@ def frozen_guard(args, scorer):
     return limit, margin, development_pcm
 
 
+def scope_cases(role, scorer):
+    data = json.loads(SCOPE_CASES.read_text())[role]
+    with TemporaryDirectory(prefix="bb-scope-esmx-") as directory:
+        for kind, phrases in data.items():
+            for number, phrase in enumerate(phrases):
+                for variant, (voice, rate) in enumerate(SCOPE_VOICES[role]):
+                    identifier = f"scope-{role}-{kind}-{number:02}-{variant}"
+                    wav = kw.render(Path(directory), identifier, voice, phrase, rate)
+                    pcm = pcm_from(wav)
+                    if not eligible_pcm(pcm):
+                        raise ValueError(f"Scope fixture is overlong or invalid: {identifier}")
+                    yield {"id": identifier, "positive": kind == "orders", "score": scorer.run(pcm),
+                           "pcm_sha256": pcm_seals(pcm), "input_bytes": len(pcm)}
+
+
+def scope_seal(args):
+    if file_digest(args.guard) != SCOPE_BASE_SHA256:
+        raise ValueError("Turn scope requires the reviewed D6 reference guard")
+    return {"base_guard_sha256": SCOPE_BASE_SHA256, "fixture_sha256": file_digest(SCOPE_CASES),
+            "voice_roles": {role: [list(item) for item in voices] for role, voices in SCOPE_VOICES.items()}}
+
+
+def scope_results(rows, limit, margin, scope):
+    outcomes = Counter((row["positive"], accepted(row["score"], limit, margin),
+                        permitted(row["score"], limit, margin, scope)) for row in rows)
+    return [[*key, total] for key, total in sorted(outcomes.items())]
+
+
+def freeze_scope(args, scorer):
+    seal = scope_seal(args)
+    limit, margin, previous = frozen_guard(args, scorer)
+    data = list(scope_cases("development", scorer))
+    if any(not previous.isdisjoint(row["pcm_sha256"]) for row in data):
+        raise ValueError("Context development intersects the existing D6 limit fit")
+    passed = [row for row in data if accepted(row["score"], limit, margin)]
+    report = {"schema": SCOPE_SCHEMA, "seal": seal, "outside_ceiling": scope_cap(passed), "development": data}
+    report["counts"] = scope_results(data, limit, margin, report)
+    with args.scope_guard.open("x") as output:
+        output.write(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    return {"scope_guard_sha256": file_digest(args.scope_guard), "outside_ceiling": report["outside_ceiling"],
+            "counts": report["counts"]}
+
+
+def checked_scope(args, development_pcm, limit, margin):
+    if not args.scope_guard:
+        return None
+    data = json.loads(args.scope_guard.read_text())
+    if data["schema"] != SCOPE_SCHEMA or data["seal"] != scope_seal(args):
+        raise ValueError("Scope guard provenance changed")
+    cap = data["outside_ceiling"]
+    if cap is not None and (type(cap) is not int or cap < 0):
+        raise ValueError("Invalid exterior phone limit")
+    passed = [row for row in data["development"] if accepted(row["score"], limit, margin)]
+    if cap != scope_cap(passed):
+        raise ValueError("Exterior phone limit differs from its development data")
+    development_pcm.update(checksum for row in data["development"] for checksum in row["pcm_sha256"])
+    return data
+
+
+def replay_scope_test(args, scorer):
+    limit, margin, adjustment = frozen_guard(args, scorer)
+    scope = checked_scope(args, adjustment, limit, margin)
+    data = list(scope_cases("test", scorer))
+    if any(not adjustment.isdisjoint(row["pcm_sha256"]) for row in data):
+        raise ValueError("Synthetic scope test overlaps development")
+    return {"scope_guard_sha256": file_digest(args.scope_guard), "counts": scope_results(data, limit, margin, scope),
+            "cases": data}
+
+
 def summarize(rows):
     report = {}
     for mode in ("raw", "retained"):
@@ -177,6 +301,7 @@ def summarize(rows):
 
 def replay(args, scorer):
     limit, margin, development_pcm = frozen_guard(args, scorer)
+    scope = checked_scope(args, development_pcm, limit, margin)
     panel = list(recordings(args.root))
     if len(panel) != 112:
         raise ValueError("Historical comparison panel must contain 112 rows")
@@ -191,12 +316,13 @@ def replay(args, scorer):
                 raise ValueError(f"Public case {identifier} overlaps development PCM")
             compact = int(invoke(args.reference, data)) if eligible else 0
             score = scorer.run(data) if eligible and not compact and not overlap else None
-            decision = 6 if limit is not None and accepted(score, limit, margin) else 0
+            decision = 6 if permitted(score, limit, margin, scope) else 0
             row[mode] = {"compact": compact, "combined": compact or decision,
                          "score": score, "overlap": overlap, "input_bytes": len(data), "eligible": eligible}
         cases.append(row)
     public = [row for row in cases if row["split"].startswith("public")]
-    return {"guard_sha256": file_digest(args.guard), "summary": {"historical": summarize(cases),
+    scope_seal_value = {"scope_guard_sha256": file_digest(args.scope_guard)} if scope else {}
+    return {"guard_sha256": file_digest(args.guard), **scope_seal_value, "summary": {"historical": summarize(cases),
             "public": summarize(public)}, "cases": cases}
 
 
@@ -205,6 +331,7 @@ def chm_replay(args, scorer):
     from phoneme_chm150_lab import CORPUS_SHA256, SPEAKER_SPLIT_SHA256, decode, eligible_rows
 
     limit, margin, development_pcm = frozen_guard(args, scorer)
+    scope = checked_scope(args, development_pcm, limit, margin)
     if file_digest(args.corpus) != CORPUS_SHA256 or file_digest(args.speaker_split) != SPEAKER_SPLIT_SHA256:
         raise ValueError("Unexpected separate CHM150 corpus or speaker split")
     assignment = json.loads(args.speaker_split.read_text())["speaker_roles"]
@@ -226,9 +353,10 @@ def chm_replay(args, scorer):
                 compact += 1
             elif limit is not None:
                 score = scorer.run(data)
-                if accepted(score, limit, margin):
+                if permitted(score, limit, margin, scope):
                     added.append({"pcm_sha256": sha256(data).hexdigest(), "score": score})
-    return {"guard_sha256": file_digest(args.guard), "utterances": count, "speakers": len(speakers),
+    scope_seal_value = {"scope_guard_sha256": file_digest(args.scope_guard)} if scope else {}
+    return {"guard_sha256": file_digest(args.guard), **scope_seal_value, "utterances": count, "speakers": len(speakers),
             "compact_activations": compact, "added_d6": len(added), "added": added, "omitted": omitted,
             "ffmpeg_sha256": file_digest(args.ffmpeg)}
 
@@ -253,10 +381,15 @@ def main():
     chm = stages.add_parser("replay-chm", parents=[common])
     for name in ("reference", "corpus", "speaker-split", "ffmpeg"):
         chm.add_argument("--" + name, type=existing, required=True)
+    for command in (evaluation, chm):
+        command.add_argument("--scope-guard", type=existing)
+    stages.add_parser("freeze-scope", parents=[common]).add_argument("--scope-guard", type=Path, required=True)
+    stages.add_parser("replay-scope-test", parents=[common]).add_argument("--scope-guard", type=existing, required=True)
     args = parser.parse_args()
     torch.set_num_threads(4)
     scorer = Scorer(args)
-    prepared = {"freeze": prepare, "replay": replay, "replay-chm": chm_replay}[args.stage]
+    prepared = {"freeze": prepare, "replay": replay, "replay-chm": chm_replay,
+                "freeze-scope": freeze_scope, "replay-scope-test": replay_scope_test}[args.stage]
     print(json.dumps(prepared(args, scorer), indent=2, allow_nan=False))
 
 
