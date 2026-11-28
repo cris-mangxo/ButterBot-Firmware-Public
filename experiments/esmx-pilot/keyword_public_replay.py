@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from capture_replay import pcm_from
-from keyword_lab import BANK_KIND, decode, digest, encode, file_digest, invoke, raw_scores, read_model, recipe
+from keyword_lab import BANK_KIND, decode, digest, encode, environment, file_digest, invoke, raw_scores, read_model, recipe
 
 
 CONTROLS_SHA256 = "03e23ff84f35516233d424f3ed7e4ea4690b4f5a558b46c8d93119e5eff6a244"
@@ -25,7 +25,7 @@ def recordings(manifest, key, expected_hash, filename, label, split):
 def run(args):
     config = json.loads((args.bank / "frozen.json").read_text())
     weights = args.bank / "keyword-host.npz"
-    if (config["kind"] != BANK_KIND or config["recipe"] != recipe()
+    if (config["kind"] != BANK_KIND or config["recipe"] != recipe() or config["environment"] != environment()
             or config["features_sha256"] != file_digest(args.features)
             or config["weight_sha256"] != file_digest(weights)):
         raise ValueError("frozen keyword experiment does not match its manifest")

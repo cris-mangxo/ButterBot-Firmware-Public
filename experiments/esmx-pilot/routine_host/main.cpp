@@ -1,5 +1,9 @@
 #include "stubs.h"
 
+#ifdef NDEBUG
+#error "The routine host harness requires assertions"
+#endif
+
 #include "Audio/EsMxPilot/Dispatch.h"
 #ifdef ROUTINE_HOST_RECOGNITION
 #include "Audio/EsMxPilot/Recognition.h"

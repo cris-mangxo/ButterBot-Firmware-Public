@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import platform
 import sys
 from tempfile import TemporaryDirectory
 
@@ -280,7 +281,17 @@ def decode(values, limits):
 
 
 def recipe():
-    return {path.name: file_digest(path) for path in (Path(__file__), FIXTURE, EXTRA)}
+    pilot_dir = Path(__file__).resolve().parent
+    files = (Path(__file__), FIXTURE, EXTRA, pilot_dir / "time_lab.py",
+             pilot_dir / "capture_replay.py", pilot_dir / "replay.py",
+             pilot_dir.parent / "esmx-compactas" / "pilot.py")
+    return {path.name: file_digest(path) for path in files}
+
+
+def environment():
+    return {"python": platform.python_version(), "numpy": np.__version__,
+            "torch": str(torch.__version__), "macos": platform.mac_ver()[0],
+            "synthetic_voices": {split: list(map(list, voices)) for split, voices in VOICE_SPLITS.items()}}
 
 
 def freeze(args):
@@ -302,7 +313,8 @@ def freeze(args):
     refs, x, n, _, _, _ = batch(models["dev"])
     measured = [(row.intent, decode(values, limits)) for row, values in zip(refs, scores(float_from_int8, x, n))]
     report = {
-        "kind": BANK_KIND, "recipe": recipe(), "features_sha256": file_digest(args.features),
+        "kind": BANK_KIND, "recipe": recipe(), "environment": environment(),
+        "features_sha256": file_digest(args.features),
         "weight_sha256": file_digest(weights), "weight_bytes_int8_plus_scales": weight_memory,
         "host_container_bytes": weights.stat().st_size, "seed": SEED,
         "calibration": limits, "development_correct_per_label": {
@@ -327,7 +339,7 @@ def raw_scores(model, vector):
 def replay(args):
     config = json.loads((args.output / "frozen.json").read_text())
     weights = args.output / "keyword-host.npz"
-    if (config["kind"] != BANK_KIND or config["recipe"] != recipe()
+    if (config["kind"] != BANK_KIND or config["recipe"] != recipe() or config["environment"] != environment()
             or config["features_sha256"] != file_digest(args.features)
             or config["weight_sha256"] != file_digest(weights)):
         raise ValueError("Frozen bank or recipe hash mismatch")
@@ -353,6 +365,7 @@ def replay(args):
         raw = evaluate_pcm(pcm)
         capture = evaluate_pcm(invoke(args.capture, pcm, "--pcm-with-hangover"))
         result.append({"id": key, "split": split, "category": category, "expected": expected,
+                       "pcm_sha256": digest(pcm),
                        "seen_pcm": seen, "raw": raw, "retained_capture": capture})
 
     # Read or render synthetic test only after validating the frozen recipe/model.
@@ -361,14 +374,16 @@ def replay(args):
             raise ValueError(f"Frozen synthetic test overlapped training/development: {row.key}")
         verdict = decode(raw_scores(model, features), limits)
         result.append({"id": row.key, "split": "synthetic_test", "expected": row.intent,
+                       "pcm_sha256": pcm_hash,
                        "negation": bool(row.denied()), "candidate": verdict})
 
     synthetic = [row for row in result if row["split"] == "synthetic_test"]
     modes = ("raw", "retained_capture")
     panels = {
         "historical_112": result[:112],
-        "public_unseen": [row for row in result if row["split"].startswith("public")],
-        "human_natural_reserved": [row for row in result if row["split"] == "public_reserved_time"],
+        "public_historical_includes_development": [row for row in result if row["split"].startswith("public")],
+        "human_time_held_out_from_fit": [row for row in result if row["split"] == "public_reserved_time"],
+        "human_d6_held_out_from_fit": [row for row in result if row["split"] == "public_reserved_d6"],
         "human_supplemental": [row for row in result if row["split"] == "supplemental_human_time"],
     }
     summary = {set_name: {mode: {
@@ -381,7 +396,8 @@ def replay(args):
         "denominators": dict(Counter(row["expected"] for row in cohort)),
     } for mode in modes} for set_name, cohort in panels.items()}
     print(json.dumps({
-        "weight_sha256": config["weight_sha256"], "summary": summary,
+        "weight_sha256": config["weight_sha256"], "reference_sha256": file_digest(args.reference),
+        "capture_sha256": file_digest(args.capture), "summary": summary,
         "synthetic_test": {label: [sum(row["expected"] == label == row["candidate"] for row in synthetic),
                                    sum(row["expected"] == label for row in synthetic)] for label in LABELS},
         "synthetic_negation_activated": [row["id"] for row in synthetic if row["negation"] and row["candidate"]],
