@@ -73,6 +73,17 @@ En cinco tomas humanas reservadas o complementarias, una segunda ejecución de c
 
 Dentro del subconjunto humano sin casos marcados como desarrollo (19 órdenes), el compacto acertó 0, Small 1 y Turbo 4. Este tamaño no establece superioridad estadística. El panel de 36 negativos quedó en abstención para las tres rutas, incluido el veto de «Dato curioso». Micrófono, AFE, movimiento y altavoz físicos quedan fuera de la medición.
 
+## Diagnóstico de etapas de D6
+
+```sh
+bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/stages" --dice-stages
+python3.12 -B experiments/esmx-pilot/dice_stage_replay.py \
+  --stages "$lab/stages" --recognizer "$lab/recognize" --capture "$lab/capture" \
+  --experiment-root "$experiment_root" > "$lab/dice-stages.json"
+```
+
+En Mac, la sonda ejecuta el reconocedor de siempre y consulta de forma separada las mismas funciones del clasificador, el veto de frase, los bancos léxicos y el consenso. Las señales auxiliares pueden incluir bancos que el runtime no visita por una guarda previa. El verificador comprueba la decisión final contra el ejecutable normal en el panel de 112 casos, y contra el resultado de la captura inmediata y con retención en siete casos fijados. El informe guarda decisiones, banderas y hashes, sin incluir muestras ni palabras inferidas.
+
 ## Repetición a través de la captura y comparación de un respaldo
 
 El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. En el checkpoint anterior, la retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. En el checkpoint anterior, entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.

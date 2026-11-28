@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 3 || ( $# -eq 3 && $3 != --capture ) ]]; then
-    printf 'Usage: %s GENERATED_ASSETS_DIR OUTPUT_EXECUTABLE [--capture]\n' "$0" >&2
+if [[ $# -lt 2 || $# -gt 3 || ( $# -eq 3 && $3 != --capture && $3 != --dice-stages ) ]]; then
+    printf 'Usage: %s GENERATED_ASSETS_DIR OUTPUT_EXECUTABLE [--capture|--dice-stages]\n' "$0" >&2
     exit 2
 fi
 
@@ -27,6 +27,8 @@ if [[ ${3:-} == --capture ]]; then
         -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \
         -c "${recognition[0]}" -o "$scratch/recognition.o"
     recognition=(experiments/esmx-pilot/capture_pcm_probe.cpp "$scratch/recognition.o")
+elif [[ ${3:-} == --dice-stages ]]; then
+    entry=(experiments/esmx-pilot/dice_stage_probe.cpp)
 fi
 ${CXX:-c++} "${flags[@]}" \
     -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \
