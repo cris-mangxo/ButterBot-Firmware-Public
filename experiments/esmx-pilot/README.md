@@ -100,6 +100,27 @@ La referencia de D6 admite imperativos de usted y una «y» inicial opcional. Co
 
 Dentro del subconjunto humano sin casos marcados como desarrollo (19 órdenes), el compacto acertó 0, Small 1 y Turbo 4. Este tamaño no establece superioridad estadística. El panel de 36 negativos quedó en abstención para las tres rutas, incluido el veto de «Dato curioso». Micrófono, AFE, movimiento y altavoz físicos quedan fuera de la medición.
 
+## Ajuste fonético con conversación transcrita de México
+
+El experimento compara ajustar el estudiante cuantizado con el rechazo de habla general y añadir supervisión CTC sobre esa misma habla. Reutiliza el extractor de firmware, el banco fonético original y la partición por locutor de CHM150. Las transcripciones se convierten a secuencias fonéticas con eSpeak NG para español latinoamericano. La distancia de edición se mide contra esa referencia automática. Los turnos generales se usan como desconocidos por el clasificador de intención. El entrenamiento sintético sigue suministrando las etiquetas de orden y negación. La división reservada se abre en un proceso separado para verificar las propuestas del modelo y su impacto hipotético después de `NoMatch`.
+
+Desde la raíz del repositorio, en el entorno de entrenamiento de fonemas con DuckDB disponible y acceso de lectura a los archivos públicos fijados:
+
+```sh
+"$training_python" -B experiments/esmx-pilot/chm_transcript_ctc_lab.py \
+  --corpus "$lab/chm150/corpus.parquet" --speakers "$lab/chm150/speaker-roles.json" \
+  --speech "$initial_synthetic_features" --bank "$initial_bank" --frontend "$kws" \
+  --ffmpeg "$ffmpeg" --espeak "$espeak_ng" --output "$lab/chm-transcript"
+"$training_python" -B experiments/esmx-pilot/chm_transcript_ctc_replay.py \
+  --corpus "$lab/chm150/corpus.parquet" --speakers "$lab/chm150/speaker-roles.json" \
+  --speech "$initial_synthetic_features" --base "$initial_bank" \
+  --adaptations "$lab/chm-transcript" --root "$experiment_root" --frontend "$kws" \
+  --ffmpeg "$ffmpeg" --host "$lab/host" --capture "$lab/capture" \
+  --butter-diagnostic "$angelina_sealed_wav" > "$lab/chm-transcript-replay.json"
+```
+
+Usar el host y la captura del perfil vigente con Chiste y Hora activados. Los manifiestos locales contienen hashes de entrada y de pesos. El recorte de Mantequilla de *Angelina* es un diagnóstico leído y se informa aparte de las voces mexicanas reservadas. El ensayo trabaja en la Mac y mantiene los pesos, las entradas y los ejecutables en almacenamiento local. [CHM150](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr).
+
 ## Diagnóstico de etapas de D6
 
 ```sh
