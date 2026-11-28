@@ -222,6 +222,14 @@ BB_ESMX_JOKE_FALLBACK=1 bash experiments/esmx-pilot/routine_host.sh "$assets" "$
 
 `$assets` reúne los encabezados locales habituales, los dos de Chiste y la voz generada para el piloto. Para compilar el mismo perfil con ESP-IDF, agrega `-D BB_ESMX_JOKE_FALLBACK=ON` al build piloto con `BB_ESMX_PILOT=ON`. Ambos perfiles están desactivados por defecto. Infiere Chiste solo en los turnos completos que el piloto declara elegibles. `--decision` sigue explicando la decisión del piloto antes de evaluar el respaldo. La prueba PCM con la rutina comprueba el reconocimiento, el despacho y la respuesta de voz y cuenta aparte los estímulos de ensayo inyectados por etiqueta.
 
+El respaldo reutiliza el analizador LogMel y el espacio de rasgos de la tarea de reconocimiento. Extrae los rasgos otra vez sobre el tramo recortado que requiere el estudiante. La PSRAM temporal conserva los búferes propios del estudiante y se libera al terminar el turno.
+
+### Contraste de Hora, agenda y D6
+
+`clock_token_order_lab.py` compara peticiones completas de hora local contra menciones, agenda, negaciones y el vocabulario de D6. Tiene pasos `freeze`, `replay` y `conversation`. Usa el banco fonético congelado, sus conjuntos sintéticos, el manifiesto sellado CHM150 y un manifiesto local de controles humanos. Como prueba adicional puede incluir un ancla humana de desarrollo, separada de las reservas. Se elige el brazo con los resultados sintéticos de desarrollo.
+
+El replay compara primero el perfil vigente, incluido su respaldo de Chiste, y después dos condiciones de laboratorio para Hora. `strict` solo considera un turno apto para respaldo. `conflict_lab` también examina conflictos acústicos sin veto terminal. Las dos condiciones preservan los vetos detectados y las intenciones del perfil previo. Este contraste se conserva como laboratorio y queda fuera de la aplicación.
+
 `phoneme_student_lab.py` entrena convoluciones temporales separables con señales de fonemas, intención y negación. Exporta los pesos int8 por canal junto con escalas y sesgos. El replay de escritorio convierte los pesos otra vez a flotante. La inferencia entera y el consumo en la placa quedan pendientes.
 
 ```sh

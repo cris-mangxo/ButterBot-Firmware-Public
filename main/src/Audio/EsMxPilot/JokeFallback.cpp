@@ -70,8 +70,6 @@ std::span<const int16_t> trimTurn(std::span<const int16_t> pcm){
 }
 
 struct Scratch {
-    bb::asr::LogMel frontend;
-    Kws::WordFeatures words;
     std::array<int8_t, MaxFrames * Bands> features;
     Workspace workspace;
     Output output;
@@ -98,24 +96,24 @@ void freeScratch(Scratch* scratch){
 
 }
 
-bool matchesJokeFallback(std::span<const int16_t> pcm){
+bool matchesJokeFallback(bb::asr::LogMel& frontend, Kws::WordFeatures& words,
+                         std::span<const int16_t> pcm){
     const auto trimmed = trimTurn(pcm);
     if(trimmed.size() < MinFeatureSamples){
         return false;
     }
 
     std::unique_ptr<Scratch, decltype(&freeScratch)> scratch(allocateScratch(), &freeScratch);
-    if(!scratch || !bb::asr::logmel_init(&scratch->frontend) ||
-       !Kws::extractWordFeatures(scratch->frontend, trimmed, scratch->words)){
+    if(!scratch || !Kws::extractWordFeatures(frontend, trimmed, words)){
         return false;
     }
 
-    const size_t count = scratch->words.count;
+    const size_t count = words.count;
     if(count < MinFrames || count > MaxFrames){
         return false;
     }
     auto features = std::span(scratch->features).first(count * Bands);
-    std::memcpy(features.data(), scratch->words.frames.data(), features.size_bytes());
+    std::memcpy(features.data(), words.frames.data(), features.size_bytes());
     return infer(features, Frozen, scratch->workspace, scratch->output) &&
            confirmsJoke(scratch->output, count, FrozenJoke);
 }

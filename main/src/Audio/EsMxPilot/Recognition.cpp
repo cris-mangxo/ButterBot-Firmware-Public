@@ -19,10 +19,12 @@
 namespace EsMx::Pilot {
 namespace {
 
+// The pilot owns a single recognition task, including its optional fallback.
+bb::asr::LogMel frontend;
+Kws::WordFeatures words;
+
 RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
 	using namespace Kws;
-	static bb::asr::LogMel frontend;
-	static WordFeatures words;
 	static const bool ready = bb::asr::logmel_init(&frontend);
 	constexpr const WordBank* supplements[]{&PilotWordExtra, &PilotWordAdapted};
 
@@ -102,7 +104,7 @@ RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
 Kws::Intent recognize(std::span<const int16_t> pcm){
 	const auto decision = recognizeDetailed(pcm);
 #ifdef BB_ESMX_JOKE_FALLBACK
-	if(decision.allowsFallback() && matchesJokeFallback(pcm)){
+	if(decision.allowsFallback() && matchesJokeFallback(frontend, words, pcm)){
 		return Kws::Intent::Joke;
 	}
 #endif
