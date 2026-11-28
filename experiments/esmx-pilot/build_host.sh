@@ -57,7 +57,7 @@ fi
 if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 ]]; then
     recognition+=("${joke[@]}")
 fi
-"${CXX:-c++}" "${flags[@]}" \
+${CXX:-c++} "${flags[@]}" \
     -I main/src -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous" -I "$assets" \
     "${entry[@]}" "${recognition[@]}" \
     "$kws/Compact.cpp" "$kws/logmel.cpp" "$experiments/guard/PhraseGate.cpp" \

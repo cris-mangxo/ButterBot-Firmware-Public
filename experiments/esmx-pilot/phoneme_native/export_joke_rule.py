@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 GROUPS = ("word", "request", "denial", "positive", "negative")
+NATIVE_SCORE_MARGIN = 1e-4
 
 
 def main():
@@ -27,12 +28,14 @@ def main():
     if len(coefficients) != 9 or not all(math.isfinite(x) for x in
                                        [*coefficients, rule["intercept"], rule["threshold"]]):
         raise ValueError("Invalid coefficient or threshold")
+    threshold = rule["threshold"] + NATIVE_SCORE_MARGIN
     weights = data["seals"]["weights"]
     if len(weights) != 64 or any(char not in "0123456789abcdef" for char in weights):
         raise ValueError("Invalid bank digest")
     with args.header.open("x") as header:
         header.write('#pragma once\n#include "JokeGuard.h"\n\nnamespace EsMx::PhonemeNative {\n')
         header.write(f'inline constexpr char JokeBankSha256[] = "{weights}";\n')
+        header.write(f'inline constexpr char JokeRecipeSha256[] = "{args.sha256}";\n')
         for group in GROUPS:
             paths = data["paths"][group]
             if not paths or len(paths) > 32:
@@ -49,7 +52,7 @@ def main():
         values = ", ".join(format(value, ".17g") for value in coefficients)
         header.write('inline constexpr JokeRule FrozenJoke{\n'
                      f'    {", ".join("Joke_" + key for key in GROUPS)},\n'
-                     f'    {{{values}}}, {rule["intercept"]:.17g}, {rule["threshold"]:.17g},\n'
+                     f'    {{{values}}}, {rule["intercept"]:.17g}, {threshold:.17g},\n'
                      '};\n}\n')
 
 

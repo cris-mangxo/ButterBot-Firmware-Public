@@ -23,6 +23,7 @@ static_assert(std::string_view(JokeBankSha256) == std::string_view(FrozenSha256)
               "The es-MX Chiste rule requires its frozen phoneme bank");
 static_assert(Bands == Kws::Bands && MaxFrames == Kws::MaxWordFrames);
 static_assert(sizeof(std::array<int8_t, Bands>) == Bands);
+static_assert(static_cast<unsigned>(Kws::Intent::Joke) == 3);
 
 constexpr size_t TrimWindow = bb::asr::kSampleRate / 50;
 constexpr uint64_t FloorEnergy = 90 * 90 * TrimWindow;
@@ -78,7 +79,8 @@ struct Scratch {
 
 Scratch* allocateScratch(){
 #ifdef ESP_PLATFORM
-    void* memory = heap_caps_malloc(sizeof(Scratch), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    void* memory = heap_caps_aligned_alloc(alignof(Scratch), sizeof(Scratch),
+                                         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     return memory ? new (memory) Scratch : nullptr;
 #else
     return new (std::nothrow) Scratch;
