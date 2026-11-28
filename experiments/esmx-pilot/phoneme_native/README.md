@@ -2,7 +2,7 @@
 
 Este banco comparte el kernel C++ entre Mac y un proyecto ESP-IDF aislado para QEMU. Consume tramas int8 de 20 bandas en orden de trama, como las de `word-frames`. Lee los pesos int8 por canal, recupera sus valores float con las escalas selladas y usa activaciones float. Reproduce las salidas de fonemas, intención y negación del estudiante PyTorch.
 
-La prueba verifica la aritmética sobre matrices artificiales y rasgos sintéticos sellados. El entero que devuelve el ejecutable corresponde a la guardia estándar del banco suministrado. El respaldo D6 calibrado se evalúa en Python. Las matrices artificiales de ceros se suministran directamente al kernel y pueden obtener una etiqueta. El silencio PCM se descarta antes de la extracción de rasgos en la ruta de escritorio. Los filtros de captura, CTC, contexto y despacho conservan sus pruebas separadas.
+La prueba verifica la aritmética sobre matrices artificiales, rasgos sintéticos sellados y, opcionalmente, audio público histórico. El entero que devuelve el ejecutable corresponde a la guardia estándar del banco suministrado. El respaldo D6 calibrado se evalúa en Python. Las matrices artificiales de ceros se suministran directamente al kernel y pueden obtener una etiqueta. El silencio PCM se descarta antes de la extracción de rasgos en la ruta de escritorio. Los filtros de captura, CTC, contexto y despacho conservan sus pruebas separadas.
 
 ## Mac
 
@@ -26,6 +26,18 @@ c++ -std=c++20 -O2 -ffp-contract=off -I"$native" -I"$scratch" \
 ```
 
 `--logits` devuelve, en este orden, 32 valores float32 por trama para fonemas, cinco valores float32 para intenciones, un valor float32 para negación y un byte con el identificador de intención. El transporte se verifica en Mac arm64 con orden little-endian.
+
+### Panel público histórico
+
+El comparador usa las muestras públicas del panel local de `capture_replay.py`. `$public_root` contiene los paneles originales y las voces públicas. `$word_frames_host` expone el comando `word-frames` de `experiments/esmx-compactas/host`. Prepara `$pilot_host` y `$capture_host` con `experiments/esmx-pilot/build_host.sh`, el segundo con `--capture`.
+
+```sh
+"$training_python" -B "$native/compare.py" "$scratch/student" "$bank" \
+  --public-root "$public_root" --frontend "$word_frames_host" \
+  --pilot "$pilot_host" --capture "$capture_host"
+```
+
+`--coerll` admite el manifiesto suplementario sellado de Hora dentro de `primer-candidato-voces`. Cada toma se reproduce como PCM original y a través de la captura simulada con la cola retenida. El informe registra la etiqueta que produce el piloto compilado para escritorio, la etiqueta del estudiante nativo y la concordancia del estudiante con PyTorch cuando se extraen rasgos. Son diagnósticos históricos y cada variante proviene de la misma toma. El uso del estudiante como respaldo del piloto requeriría una prueba de falsos positivos separada.
 
 ## ESP32-S3 emulado
 

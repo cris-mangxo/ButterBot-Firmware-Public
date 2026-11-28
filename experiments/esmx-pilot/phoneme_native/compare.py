@@ -11,9 +11,11 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from phoneme_replay_lab import frozen_model
+from capture_replay import pcm_from, recordings
+from phoneme_replay_lab import frozen_model, native_frames
 from phoneme_student_lab import gate
 from keyword_lab import LABELS
+from time_lab import file_digest, invoke, supplemental
 
 BANDS, PHONES, INTENTS, MAX_FRAMES = 20, 32, 5, 199
 RTOL, ATOL = 1e-5, 2e-4
@@ -77,12 +79,48 @@ def run(executable, model, name, frames):
             "max_abs_logit_error": float(np.abs(native - reference).max())}
 
 
+def public_replay(args, executable, model):
+    rows = [row for row in recordings(args.public_root) if row[1].startswith("public")]
+    if args.coerll:
+        rows.append(supplemental(args.public_root, args.coerll.resolve(strict=True)))
+    result = []
+    for name, split, category, target, path, checksum in rows:
+        pcm = pcm_from(path, checksum)
+        captured = invoke(args.capture, pcm, "--pcm-with-hangover")
+        for mode, audio in (("raw", pcm), ("retained", captured)):
+            frames = native_frames(args.frontend, audio)
+            output = run(executable, model, name, frames) if frames is not None else {
+                "case": name, "frames": 0, "intent": 0,
+            }
+            pilot = int(invoke(args.pilot, audio)) if 0 < len(audio) <= 128_000 else 0
+            result.append({**output, "path": mode, "cohort": split, "category": category,
+                           "pilot_intent": pilot, "target_intent": target})
+    return {
+        "scope": "historical_public_diagnostics",
+        "frontend_sha256": file_digest(args.frontend),
+        "capture_sha256": file_digest(args.capture),
+        "pilot_sha256": file_digest(args.pilot),
+        "student_sha256": file_digest(executable),
+        "rows": result,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path)
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--cache", type=Path)
+    parser.add_argument("--public-root", type=Path)
+    parser.add_argument("--frontend", type=Path)
+    parser.add_argument("--capture", type=Path)
+    parser.add_argument("--pilot", type=Path)
+    parser.add_argument("--coerll", type=Path)
     args = parser.parse_args()
+    if args.public_root:
+        if not (args.frontend and args.capture and args.pilot):
+            parser.error("--public-root requires --frontend, --capture and --pilot")
+    elif args.frontend or args.capture or args.pilot or args.coerll:
+        parser.error("public replay options require --public-root")
     torch.set_num_threads(2)
     torch.use_deterministic_algorithms(True)
     model, report = frozen_model(args.checkpoint)
@@ -93,12 +131,15 @@ def main():
         result = subprocess.run([executable], input=malformed, capture_output=True, timeout=10)
         if result.returncode != 2 or result.stdout:
             raise ValueError("Invalid frame geometry was not rejected cleanly")
-    print(json.dumps({
+    summary = {
         "weight_sha256": report["weights_sha256"], "cases": len(results),
         "gate_parity": len(results), "malformed_cases_rejected": 3, "atol": ATOL, "rtol": RTOL,
         "max_abs_logit_error": max(row["max_abs_logit_error"] for row in results),
         "rows": results,
-    }, indent=2))
+    }
+    if args.public_root:
+        summary["public_replay"] = public_replay(args, executable, model)
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
