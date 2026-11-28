@@ -82,11 +82,11 @@ python3.12 -B experiments/esmx-pilot/dice_stage_replay.py \
   --experiment-root "$experiment_root" > "$lab/dice-stages.json"
 ```
 
-En Mac, la sonda ejecuta el reconocedor de siempre y consulta de forma separada las mismas funciones del clasificador, el veto de frase, los bancos léxicos y el consenso. Las señales auxiliares pueden incluir bancos que el runtime no visita por una guarda previa. El verificador comprueba la decisión final contra el ejecutable normal en el panel de 112 casos, y contra el resultado de la captura inmediata y con retención en siete casos fijados. El informe guarda decisiones, banderas y hashes, sin incluir muestras ni palabras inferidas.
+En Mac, la sonda ejecuta el reconocedor de siempre y consulta de forma separada las mismas funciones del clasificador, el veto de frase, los bancos léxicos y el consenso previo a la guarda de seguimiento ambiguo. Las comprobaciones hipotéticas de cada banco describen qué decidiría por separado. La sonda carece de un registro de ramas ejecutadas. El verificador compara la decisión final con el ejecutable normal en 112 casos y con dos modalidades de captura en siete casos fijados. En cada PCM con firma exige también que el consenso reconstruido coincida con la decisión final. Si un caso nuevo activa la guarda de seguimiento y cambia ese resultado, este verificador exige diagnosticarlo por separado. El informe guarda decisiones, banderas y hashes, sin incluir muestras ni palabras inferidas.
 
 ## Repetición a través de la captura y comparación de un respaldo
 
-El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. El recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`, que pasa con el WAV completo. En el checkpoint anterior, la retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. En el checkpoint anterior, entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
+El segundo ejecutable de Mac hace pasar WAV de laboratorio por `PilotCapture` y el reconocedor real. Simula un detector de energía con ventanas de 20 ms. El informe compara el WAV completo, el detector inmediato y el mismo detector con 1 s de retención tras la última trama activa. Son comprobaciones de recorte, pre-roll y entrega de PCM. En el checkpoint anterior a la retención del turno, el recorte habilitó `public-78`, una ganancia frágil que ya se consultó, y perdió `public-81`. El runtime actual recupera `public-81` en las dos modalidades simuladas. En el checkpoint anterior, la retención de un segundo y la confirmación de fin de 320 ms dejan un máximo de aproximadamente 2.7 s de voz continua dentro del búfer de 4 s, incluso antes de contar pre-roll. Entre 112 casos se descartaron 6 por capacidad con VAD inmediato y 22 con retención. Entre los 33 negativos públicos, el reconocedor recibió 29 con VAD inmediato y 16 con retención. Ambos conjuntos clasificados quedaron en abstención y los demás controles se descartaron antes de inferencia. Ganancia, VAD de Espressif, latencia y acústica del robot requieren placa.
 
 ```sh
 bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/capture" --capture
@@ -105,6 +105,21 @@ Con el Python 3.12 de entrenamiento con PyTorch 2.9.1 y NumPy 2.4.2, el entorno 
 ```
 
 `kws` es el ejecutable de los [experimentos compactos](../esmx-compactas/README.md), con los modos `features` y `acoustic-scores`. Los pesos y parámetros de cuantización ocupan 6 468 bytes. Se guardan localmente con cabecera de laboratorio, fuera del formato de banco D6, junto con el registro previo a la prueba y los WAV. La toma SpanishPod A0056 procede de Praxis Language y se usa para ajuste con licencia CC BY 3.0. [Ficha y licencia de la toma](https://commons.wikimedia.org/wiki/File:SpanishPod_newbie_lesson_A0056_dialogue.ogg).
+
+## Banco binario de Hora para diagnóstico
+
+`time_lab.py` reutiliza los WAV sintéticos de `fallback_lab.py` y las firmas de 24 por 20 del piloto. Usa distancia temporal de turno completo frente a ejemplos de Hora y controles. La fase `freeze` usa desarrollo sintético para fijar radio y margen entre clases. Opcionalmente agrega la toma de ajuste SpanishPod. Escribe el banco y los hashes de procedencia antes de ejecutar `replay` con las voces reservadas. Separa duplicados exactos de los casos sintéticos históricos del panel sin esos duplicados.
+
+```sh
+mkdir -m 0700 "$lab/time"
+"$training_python" -B experiments/esmx-pilot/time_lab.py freeze \
+  --root "$experiment_root" --features "$kws" --wav "$lab/fallback/wav" --bank-dir "$lab/time"
+"$training_python" -B experiments/esmx-pilot/time_lab.py replay \
+  --root "$experiment_root" --features "$kws" --wav "$lab/fallback/wav" --bank-dir "$lab/time" \
+  --reference "$lab/recognize" --capture "$lab/capture" > "$lab/time/replay.json"
+```
+
+El banco de laboratorio mide 19 220 bytes de datos. En las dos voces reservadas de Hora hubo cero rescates. En el panel histórico introdujo cinco activaciones de Hora en otros casos, entre ellos una orden D6 reservada. El resultado descarta integrar este banco. No se midieron memoria total ni latencia en el microcontrolador.
 
 ## Retención del turno y cancelación tardía
 

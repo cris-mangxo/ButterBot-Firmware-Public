@@ -18,10 +18,10 @@ using namespace EsMx::Kws;
 
 void reportAcoustic(std::string_view name, const Signature& signature, const AcousticDice& bank){
     const auto scores = acousticDiceScores(signature, bank);
-    std::cout << ",\"" << name << "\":{\"proposes_d6\":" << proposesDice6(scores, bank)
-              << ",\"competing_negation\":" << hasCompetingNegation(scores, bank)
-              << ",\"prefers_negation\":" << prefersNegation(scores, bank)
-              << ",\"negation_at_score_floor\":" << (scores[DiceNegation] >= bank.minimumScore) << '}';
+    std::cout << '\"' << name << "\":{\"would_propose_d6\":" << proposesDice6(scores, bank)
+              << ",\"would_compete_as_negation\":" << hasCompetingNegation(scores, bank)
+              << ",\"would_prefer_negation\":" << prefersNegation(scores, bank)
+              << ",\"would_meet_negation_floor\":" << (scores[DiceNegation] >= bank.minimumScore) << '}';
 }
 }
 
@@ -58,9 +58,13 @@ int main(){
         // Independent facts on the computed features, even when a guard
         // prevents the runtime from reaching the corresponding bank.
         if(baseline == Intent::Unknown){
+            std::cout << ",\"hypothetical_acoustic_checks\":{";
             reportAcoustic("reference", signature, PilotAcousticDice);
+            std::cout << ',';
             reportAcoustic("candidate", signature, PilotConsensusDice);
+            std::cout << ',';
             reportAcoustic("backup", signature, PilotBackupDice);
+            std::cout << '}';
         }
         std::cout << ",\"lexical_frames\":" << words.count;
         if(words.count){
@@ -71,7 +75,7 @@ int main(){
                                                                      PilotWordExtra, PilotWordAdapted)
                       << ",\"ordered_die\":" << confirmsOrderedDieSix(words, PilotWordDice,
                                                                       PilotWordExtra, PilotWordAdapted)
-                      << ",\"reference_rescue_words\":"
+                      << ",\"would_confirm_words_if_reference_proposed\":"
                       << (confirmContinuousDice(Intent::Unknown, Intent::Dice6, words, PilotWordAdapted,
                                                  DiceConfirmation::OrderedRescue) == Intent::Dice6);
         }

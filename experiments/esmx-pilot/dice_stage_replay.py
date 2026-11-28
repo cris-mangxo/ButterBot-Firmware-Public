@@ -22,6 +22,11 @@ def check(stages, pcm, expected):
     trace = evaluate(stages, pcm)
     if trace["final"] != expected:
         raise ValueError("stage probe diverged from the independent pilot executable")
+    if trace["signature_available"]:
+        if trace["consensus"] != trace["final"]:
+            raise ValueError("fixed panel has a post-consensus change requiring separate diagnosis")
+    elif trace["final"] != 0:
+        raise ValueError("a turn without a signature returned an intent")
     return trace
 
 
@@ -60,6 +65,7 @@ def main():
     print(json.dumps({
         "executables": {name: digest(getattr(args, name))
                         for name in ("stages", "recognizer", "capture")},
+        "raw_without_signature": sum(not row["raw"]["signature_available"] for row in rows),
         "rows": rows,
     }, indent=2))
 
