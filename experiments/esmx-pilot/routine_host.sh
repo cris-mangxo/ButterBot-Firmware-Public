@@ -56,6 +56,7 @@ flags=(-std=c++20 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-comp
        -pthread -DBB_ESMX_PILOT -I "$scratch/include" -I "$fixture" -I "$scratch/generated"
        -I experiments/esmx-pilot/capture_stubs -I experiments/esmx-pilot/dispatch_stubs
        -I main/src -I components/ButterBot-Common/src -I components/CMF/src)
+source experiments/esmx-pilot/clock_acoustic_host.sh
 sources=("$fixture/main.cpp" main/src/Routines/PassTheButterRoutine.cpp main/src/Routines/JokeRoutine.cpp
          main/src/Routines/CurrentTimeRoutine.cpp main/src/Routines/DiceRollRoutine.cpp
          main/src/Audio/EsMxPilot/Dispatch.cpp main/src/Audio/EsMxPilot/Voice.cpp
@@ -106,8 +107,16 @@ if [[ -n "${models:-}" ]]; then
               "$experiments/autonomous/AcousticDice.cpp")
 fi
 
-"${CXX:-c++}" "${flags[@]}" "${sources[@]}" -o "$scratch/routine_host"
+"${CXX:-c++}" "${flags[@]}" "${sources[@]}" ${clock_sources[@]+"${clock_sources[@]}"} ${clock_libraries[@]+"${clock_libraries[@]}"} -o "$scratch/routine_host"
 
+if [[ -n "${BB_ROUTINE_HOST_EXECUTABLE_OUT:-}" ]]; then
+    saved="$BB_ROUTINE_HOST_EXECUTABLE_OUT"
+    if [[ $saved != /* ]]; then
+        saved="./$saved"
+    fi
+    (set -o noclobber && cat "$scratch/routine_host" > "$saved")
+    chmod u+x "$saved"
+fi
 if [[ -n "${BB_ROUTINE_HOST_BINARY_HASH_OUT:-}" ]]; then
     (set -o noclobber && shasum -a 256 "$scratch/routine_host" | cut -d' ' -f1 > "$BB_ROUTINE_HOST_BINARY_HASH_OUT")
 fi

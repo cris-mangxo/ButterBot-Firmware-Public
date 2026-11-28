@@ -1,5 +1,8 @@
 #ifdef BB_ESMX_PILOT
 #include "Recognition.h"
+#ifdef BB_ESMX_CLOCK_ACOUSTIC
+#include "ClockAcoustic.h"
+#endif
 #ifdef BB_ESMX_JOKE_FALLBACK
 #include "JokeFallback.h"
 #endif
@@ -105,7 +108,13 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 	const auto decision = recognizeDetailed(pcm);
 #ifdef BB_ESMX_JOKE_FALLBACK
 	if(decision.allowsFallback()){
-		return recognizePhonemeFallback(frontend, words, pcm);
+		const auto phoneme = recognizePhonemeFallback(frontend, words, pcm);
+#ifdef BB_ESMX_CLOCK_ACOUSTIC
+		if(phoneme == Kws::Intent::Unknown && recognizesAcousticClock(pcm)){
+			return Kws::Intent::Time;
+		}
+#endif
+		return phoneme;
 	}
 #endif
 	return decision.intent;

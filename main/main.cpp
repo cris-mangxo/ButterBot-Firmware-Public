@@ -25,6 +25,9 @@
 #include "Drivers/Output/OutputPWM.h"
 #include "src/Services/LEDModuleControl.h"
 #include "Audio/MicInput.h"
+#ifdef BB_ESMX_CLOCK_ACOUSTIC
+#include "Audio/EsMxPilot/ClockAcoustic.h"
+#endif
 #include "Pins.hpp"
 #include "Util/HardwareConfiguration.h"
 #include "EventBag.h"
@@ -316,6 +319,9 @@ protected:
 		// Because of this, the starting state cannot be passed via constructor but has to be set later
 		stateMachine->transitionTo<IdleState>();
 		ServiceLocator::LEDControlInstance->startIdle();
+#ifdef BB_ESMX_CLOCK_ACOUSTIC
+		EsMx::Pilot::startAcousticClockWarmup();
+#endif
 	}
 
 	virtual void tick(float deltaTime) noexcept override{

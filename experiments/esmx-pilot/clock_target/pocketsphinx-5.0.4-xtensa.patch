@@ -1,0 +1,68 @@
+diff --git a/include/pocketsphinx/prim_type.h b/include/pocketsphinx/prim_type.h
+index ee11fec..5b1d21d 100644
+--- a/include/pocketsphinx/prim_type.h
++++ b/include/pocketsphinx/prim_type.h
+@@ -120 +120,5 @@ typedef union anytype_s {
+-typedef int32_t		int32;
++#if defined(__XTENSA__) && __SIZEOF_INT__ == 4
++typedef int             int32;
++#else
++typedef int32_t         int32;
++#endif
+@@ -123 +127,5 @@ typedef int8_t		int8;
+-typedef uint32_t	uint32;
++#if defined(__XTENSA__) && __SIZEOF_INT__ == 4
++typedef unsigned int    uint32;
++#else
++typedef uint32_t        uint32;
++#endif
+diff --git a/src/pocketsphinx.c b/src/pocketsphinx.c
+index 84cfc4b..f732957 100644
+--- a/src/pocketsphinx.c
++++ b/src/pocketsphinx.c
+@@ -234,0 +235 @@ ps_reinit(ps_decoder_t *ps, ps_config_t *config)
++#ifndef BB_CLOCK_FSG_ONLY
+@@ -238,0 +240,2 @@ ps_reinit(ps_decoder_t *ps, ps_config_t *config)
++#endif
++
+@@ -332,0 +336 @@ ps_reinit(ps_decoder_t *ps, ps_config_t *config)
++#ifndef BB_CLOCK_FSG_ONLY
+@@ -404,0 +409,2 @@ ps_reinit(ps_decoder_t *ps, ps_config_t *config)
++#endif
++
+diff --git a/src/util/ckd_alloc.c b/src/util/ckd_alloc.c
+index 2c86d69..5d45081 100644
+--- a/src/util/ckd_alloc.c
++++ b/src/util/ckd_alloc.c
+@@ -100,0 +101,9 @@
++#if defined(BB_CLOCK_FSG_ONLY) && defined(__XTENSA__)
++extern void *bb_clock_malloc(size_t bytes);
++extern void *bb_clock_calloc(size_t count, size_t bytes);
++extern void *bb_clock_realloc(void *data, size_t bytes);
++#define malloc bb_clock_malloc
++#define calloc bb_clock_calloc
++#define realloc bb_clock_realloc
++#endif
++
+diff --git a/src/util/mmio.c b/src/util/mmio.c
+index 79a792c..40fb7f5 100644
+--- a/src/util/mmio.c
++++ b/src/util/mmio.c
+@@ -68 +68,3 @@
+-# include <sys/mman.h>
++# if !defined(__XTENSA__)
++#  include <sys/mman.h>
++# endif
+@@ -175 +177 @@ mmio_file_ptr(mmio_file_t *mf)
+-#if defined(__ADSPBLACKFIN__) || defined(_WIN32_WP) 
++#if defined(__ADSPBLACKFIN__) || defined(_WIN32_WP) || defined(__XTENSA__) 
+diff --git a/src/util/profile.c b/src/util/profile.c
+index d446cde..520f693 100644
+--- a/src/util/profile.c
++++ b/src/util/profile.c
+@@ -185 +185 @@ ptmr_start(ptmr_t * tm)
+-#if (! defined(_HPUX_SOURCE))  && (! defined(__SYMBIAN32__))
++#if (! defined(_HPUX_SOURCE)) && (! defined(__SYMBIAN32__)) && (! defined(__XTENSA__))
+@@ -224 +224 @@ ptmr_stop(ptmr_t * tm)
+-#if (! defined(_HPUX_SOURCE))  && (! defined(__SYMBIAN32__))
++#if (! defined(_HPUX_SOURCE)) && (! defined(__SYMBIAN32__)) && (! defined(__XTENSA__))

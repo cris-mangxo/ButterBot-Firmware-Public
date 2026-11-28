@@ -16,6 +16,10 @@ idf_component_register(SRCS ${SOURCES} ${LIBS} INCLUDE_DIRS "src")
 option(BB_ESMX_PILOT "Build the experimental es-MX speech pilot" OFF)
 option(BB_ESMX_JOKE_FALLBACK "Build the experimental es-MX Chiste fallback" OFF)
 option(BB_ESMX_CLOCK_FALLBACK "Build the experimental es-MX Hora fallback" OFF)
+option(BB_ESMX_CLOCK_ACOUSTIC "Include the locally supplied acoustic Hora fallback" OFF)
+if(BB_ESMX_CLOCK_ACOUSTIC AND NOT BB_ESMX_JOKE_FALLBACK)
+    message(FATAL_ERROR "BB_ESMX_CLOCK_ACOUSTIC requires BB_ESMX_JOKE_FALLBACK")
+endif()
 if(BB_ESMX_CLOCK_FALLBACK AND NOT BB_ESMX_JOKE_FALLBACK)
     message(FATAL_ERROR "BB_ESMX_CLOCK_FALLBACK requires the shared phoneme bank in BB_ESMX_JOKE_FALLBACK")
 endif()
@@ -60,6 +64,28 @@ if(BB_ESMX_JOKE_FALLBACK)
     target_include_directories(${COMPONENT_LIB} PRIVATE "${ESMX_PHONEME}")
     set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/EsMxPilot/JokeFallback.cpp"
                         ${ESMX_JOKE_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -ffp-contract=off)
+endif()
+
+if(BB_ESMX_CLOCK_ACOUSTIC)
+    foreach(input IN ITEMS BB_ESMX_SPHINX_LIBRARY BB_ESMX_SPHINX_INCLUDE BB_ESMX_SPHINX_GENERATED_INCLUDE
+                           BB_ESMX_CLOCK_PACK)
+        if(NOT IS_ABSOLUTE "${${input}}" OR NOT EXISTS "${${input}}")
+            message(FATAL_ERROR "Missing absolute local path for ${input}")
+        endif()
+    endforeach()
+    if(NOT EXISTS "${BB_ESMX_SPHINX_INCLUDE}/pocketsphinx.h" OR
+       NOT EXISTS "${BB_ESMX_SPHINX_GENERATED_INCLUDE}/pocketsphinx/sphinx_config.h" OR
+       NOT EXISTS "${BB_ESMX_CLOCK_PACK}/ClockModelAssets.h")
+        message(FATAL_ERROR "Missing generated Hora model or PocketSphinx headers")
+    endif()
+    add_prebuilt_library(bb_esmx_pocketsphinx "${BB_ESMX_SPHINX_LIBRARY}")
+    target_link_libraries(${COMPONENT_LIB} PRIVATE bb_esmx_pocketsphinx)
+    target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,-u,__wrap_longjmp")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BB_ESMX_CLOCK_ACOUSTIC)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${BB_ESMX_SPHINX_INCLUDE}"
+                               "${BB_ESMX_SPHINX_GENERATED_INCLUDE}" "${BB_ESMX_CLOCK_PACK}")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/EsMxPilot/ClockModelVfs.cpp"
+                 APPEND PROPERTY COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 spiffs_create_partition_image(storage ../spiffs FLASH_IN_PROJECT)
