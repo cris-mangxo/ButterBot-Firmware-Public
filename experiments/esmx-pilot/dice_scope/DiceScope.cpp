@@ -10,6 +10,9 @@
 #include <cstdio>
 #endif
 #include <cstdlib>
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
+#include <fstream>
+#endif
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -28,6 +31,8 @@ constexpr int MentionFloor = -1900;
 constexpr double VetoMargin = -1.0;
 #if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
 constexpr char RescueWitness[] = "r43_d6_mention";
+constexpr size_t RescueWitnessBytes = 125;
+constexpr uint64_t RescueWitnessFnv1a = 0x93824b7100b50201;
 #endif
 
 struct Span {
@@ -196,14 +201,30 @@ bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords) {
 }
 
 #if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
-void installDiceRescueWitness(ps_decoder_t* decoder, const char* keywords) {
+bool installDiceRescueWitness(ps_decoder_t* decoder, const char* keywords) {
     struct stat info{};
-    if (stat(keywords, &info) == 0 && S_ISREG(info.st_mode)) {
-        ps_add_kws(decoder, RescueWitness, keywords);
+    if (!decoder || stat(keywords, &info) != 0 || !S_ISREG(info.st_mode) ||
+        info.st_size != static_cast<off_t>(RescueWitnessBytes)) {
+        return false;
     }
+    // PocketSphinx can skip unknown keywords without reporting failure.
+    // Check the bytes of this fixed local experiment before registering it.
+    std::ifstream input(keywords, std::ios::binary);
+    std::array<char, RescueWitnessBytes> bytes{};
+    if (!input.read(bytes.data(), bytes.size()) || input.peek() != std::char_traits<char>::eof() || input.bad()) {
+        return false;
+    }
+    uint64_t fingerprint = 0xcbf29ce484222325;
+    for (unsigned char value : bytes) {
+        fingerprint = (fingerprint ^ value) * 0x100000001b3;
+    }
+    return fingerprint == RescueWitnessFnv1a && ps_add_kws(decoder, RescueWitness, keywords) == 0;
 }
 
 bool confirmsDiceRescueWitness(std::span<const int16_t> pcm) {
+#ifdef BB_ESMX_D6_SCOPE_TRACE
+    std::fputs("BB_D6_RESCUE_WITNESS consulted=1\n", stderr);
+#endif
     auto* decoder = sharedAcousticDecoder();
     if (!decodeAcoustic(decoder, RescueWitness, pcm)) {
         return false;

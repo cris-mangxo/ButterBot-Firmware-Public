@@ -8,6 +8,9 @@
 #include "Audio/EsMxKws/Compact.h"
 #include "ClockGrammar.h"
 #include <cstdlib>
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
+#include <cstdio>
+#endif
 #include <memory>
 #include <pocketsphinx.h>
 #include <string>
@@ -105,10 +108,10 @@ Decoder createDecoder() {
     diceScopeInstalled = installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
 #else
 #ifdef BB_ESMX_D6_RESCUE_WITNESS_HOST
-    if (installDiceScopeSearches(decoder.get(), diceKeywords.c_str())) {
-        const std::string witnessPath = std::string(root) + "/dice-rescue-witness.kws";
-        installDiceRescueWitness(decoder.get(), witnessPath.c_str());
-    }
+    const std::string witnessPath = std::string(root) + "/dice-rescue-witness.kws";
+    const bool witnessReady = installDiceScopeSearches(decoder.get(), diceKeywords.c_str()) &&
+                              installDiceRescueWitness(decoder.get(), witnessPath.c_str());
+    std::fprintf(stderr, "BB_D6_RESCUE_WITNESS installed=%d\n", static_cast<int>(witnessReady));
 #else
     installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
 #endif

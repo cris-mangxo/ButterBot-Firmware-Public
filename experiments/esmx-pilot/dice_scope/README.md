@@ -45,7 +45,9 @@ apagado. El testigo reconoce referencias cortas a un dado de seis y solo
 se exige en los dos rescates que recorren las condiciones ordenadas del
 consenso compacto. La decisión de un segundo turno separado se toma antes
 de consultar el testigo. Si falta el recurso, esos rescates se abstienen
-y devuelven `UnconfirmedDice`. Las demás rutas conservan sus prioridades.
+y devuelven `UnconfirmedDice`. Se verifica el contenido del archivo antes
+de registrarlo. El registro de diagnóstico informa `installed=1` si el
+decodificador lo instaló. Las demás rutas conservan sus prioridades.
 
 ## Emulación de ESP32-S3
 
