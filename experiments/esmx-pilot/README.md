@@ -78,6 +78,27 @@ idf.py -B "$lab/clock-pilot" -D "SDKCONFIG=$lab/pilot.sdkconfig" \
 
 El replay del laboratorio reutiliza los argumentos del ajuste y agrega `--pilot` y `--capture` de la referencia previa. El perfil de conflicto del laboratorio se queda fuera de la aplicación. Por ejemplo, la repetición citada `hts-424-current-echo` obtuvo puntaje de Hora alto en la sonda aislada y a la vez quedó en abstención en la aplicación por `DiceNegationConflict` en las dos vistas. Para verificar el recorrido real desde PCM se usan ambas opciones del arnés de rutinas, con `time` como expectativa y sin suministrar una etiqueta observada. Los binarios y audios generados permanecen locales.
 
+### Comparación con el banco fonético original
+
+El laboratorio vuelve a probar esas preguntas con el primer banco fonético congelado. Compara cuatro conjuntos de rasgos, cada uno con y sin el ancla humana de ajuste. Usa el mismo panel de pares, el conjunto CHM150 separado por locutor y los controles de agenda. Fija los umbrales antes de repetir el panel histórico y el conjunto de conversación reservado. Los tres modos hipotéticos preservan cualquier decisión anterior y los vetos terminales. El modo de conflicto débil exige que un banco de D6 detecte competencia, que ambos queden debajo del piso de negación y que la sonda descarte la secuencia léxica de dado y seis. Esa sonda mide los bancos por separado y describe una hipótesis de laboratorio.
+
+```sh
+BB_ESMX_JOKE_FALLBACK=1 BB_ESMX_CLOCK_FALLBACK=1 \
+  bash experiments/esmx-pilot/build_host.sh "$lab/generated" "$lab/stages" --dice-stages
+"$training_python" -B experiments/esmx-pilot/clock_initial_guard_lab.py \
+  --bank "$initial_bank" --speech "$initial_synthetic_features" --pairs "$lab/clock-pairs" \
+  --chm "$lab/chm150" --frontend "$kws" --espeak "$espeak_ng" \
+  --human "$experiment_root/primer-candidato-voces" --agenda "$agenda_calibration" \
+  --out "$lab/clock-initial.json"
+"$training_python" -B experiments/esmx-pilot/clock_initial_replay.py \
+  --root "$experiment_root" --bank "$initial_bank" --speech "$initial_synthetic_features" \
+  --recipe "$lab/clock-initial.json" --chm "$lab/chm150" --frontend "$kws" \
+  --host "$lab/host" --capture "$lab/capture" --stages "$lab/stages" --ffmpeg "$ffmpeg" \
+  > "$lab/clock-initial-replay.json"
+```
+
+Las reglas nuevas no recuperaron las dos preguntas humanas reservadas de Monterrey. Algunas activaron Hora sobre conversación o sobre una orden de dado después de la captura simulada. Las reglas, el diagnóstico de conflicto y los costos de inferencia de este ensayo quedan en Mac. El firmware conserva el modo estricto.
+
 ## Referencia de transcripción en Mac
 
 Este diagnóstico compara la inferencia compacta con dos modelos Whisper locales seguidos de una gramática cerrada y el selector de acciones del fabricante. Requiere las muestras locales selladas del piloto, Python 3.12, `whisper-cli` 1.9.6, los pesos fijados por el script y los encabezados generados en la construcción de escritorio. Los modelos permanecen en la Mac. La salida guarda decisiones, rutas y hashes. El audio capturado y las transcripciones que consume el diagnóstico se procesan en un directorio temporal.
