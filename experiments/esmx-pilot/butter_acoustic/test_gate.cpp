@@ -6,7 +6,7 @@ int main(){
     using namespace EsMx::Pilot;
     ButterEvidence spoken{
         .hitCount = 1, .affirmObject = {50, 124, -50}, .affirmArticle = {}, .affirmScore = -2500,
-        .frames = 125, .lastSpeech = 100, .affirmative = true, .complete = true, .ranFsg = true,
+        .frames = 125, .lastSpeech = 100, .affirmative = true, .complete = true, .ranFsg = true, .terminalNo = {},
     };
     spoken.hits[0] = {ButterTerm::Object, {48, 92, -1400}};
     assert(acceptsAcousticButter(spoken));

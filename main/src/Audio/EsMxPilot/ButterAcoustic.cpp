@@ -159,19 +159,60 @@ bool recordHits(ps_decoder_t* decoder, ButterEvidence& evidence){
     return true;
 }
 
+bool voicedFrame(std::span<const int16_t> pcm, size_t frame){
+    const auto begin = frame * FrameSamples;
+    if(begin >= pcm.size()){
+        return false;
+    }
+    const auto samples = pcm.subspan(begin, std::min(FrameSamples, pcm.size() - begin));
+    uint64_t energy = 0;
+    for(const int32_t value : samples){
+        energy += static_cast<uint64_t>(value * value);
+    }
+    return energy >= FloorEnergy;
+}
+
 int lastSpeechFrame(std::span<const int16_t> pcm){
     for(size_t end = (pcm.size() + FrameSamples - 1) / FrameSamples; end > 0; --end){
-        const auto begin = (end - 1) * FrameSamples;
-        const auto samples = pcm.subspan(begin, std::min(FrameSamples, pcm.size() - begin));
-        uint64_t energy = 0;
-        for(const int32_t value : samples){
-            energy += static_cast<uint64_t>(value * value);
-        }
-        if(energy >= FloorEnergy){
+        if(voicedFrame(pcm, end - 1)){
             return static_cast<int>(end - 1);
         }
     }
     return -1;
+}
+
+void validateTerminalNo(ps_decoder_t* decoder, std::string_view hypothesis,
+                        std::span<const int16_t> pcm, ButterEvidence& evidence){
+    if(!evidence.opposing || !endsPhrase(hypothesis, "mantequillabb no")){
+        return;
+    }
+
+    int count = 0;
+    ButterSegment cue;
+    for(auto* segment = ps_seg_iter(decoder); segment; segment = ps_seg_next(segment)){
+        if(std::string_view(ps_seg_word(segment)) == "no"){
+            ++count;
+            cue = segmentInfo(decoder, segment);
+        }
+    }
+    if(count != 1 || cue.start > cue.end){
+        return;
+    }
+
+    evidence.terminalNo = cue;
+    const auto frameCount = static_cast<int>((pcm.size() + FrameSamples - 1) / FrameSamples);
+    const auto lastAvailable = std::min(cue.end, frameCount - 1);
+    int supported = 0;
+    for(int frame = std::max(cue.start, 0); frame <= lastAvailable; ++frame){
+        supported += voicedFrame(pcm, static_cast<size_t>(frame));
+    }
+
+    // Use the original PCM only. A partially or entirely padded segment cannot
+    // count those frames as spoken support for the single terminal "no".
+    if(2 * supported < cue.end - cue.start + 1){
+        evidence.opposing = false;
+        evidence.unsupportedTerminalNo = true;
+    }
 }
 
 void* allocSamples(size_t size){
@@ -282,6 +323,7 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
     if(const auto* hyp = ps_get_hyp(decoder, &score); hyp){
         result.opposing = semanticOpposition(hyp);
         result.opposeScore = calibratedScore(decoder, score);
+        validateTerminalNo(decoder, hyp, pcm, result);
     }
     result.frames = ps_get_n_frames(decoder);
     result.complete = true;

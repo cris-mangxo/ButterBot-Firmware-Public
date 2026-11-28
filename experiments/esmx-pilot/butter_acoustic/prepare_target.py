@@ -20,7 +20,7 @@ def main():
         parser.add_argument("--" + key, required=True, type=Path)
     args = parser.parse_args()
     cases = json.loads(args.cases.read_text())
-    model = json.loads(args.model.read_text())["ci32"]
+    model = json.loads(args.model.read_text())["ci16"]
     if not cases or len({row["id"] for row in cases}) != len(cases):
         raise ValueError("Empty or duplicate fixture IDs")
     for name in ("means", "variances"):

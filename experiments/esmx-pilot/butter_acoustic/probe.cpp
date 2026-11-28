@@ -34,6 +34,8 @@ int main(){
               << "],\"accepted\":" << Pilot::acceptsAcousticButter(butter)
               << ",\"article\":[" << butter.affirmArticle.start << ',' << butter.affirmArticle.end << ']'
               << ",\"ran_fsg\":" << butter.ranFsg
+              << ",\"unsupported_terminal_no\":" << butter.unsupportedTerminalNo
+              << ",\"terminal_no\":[" << butter.terminalNo.start << ',' << butter.terminalNo.end << ']'
               << ",\"profile_enabled\":" << Pilot::ButterModelAssets::ValidationEnabled
               << ",\"hits\":[";
     const auto hits = std::span(butter.hits).first(butter.hitCount);

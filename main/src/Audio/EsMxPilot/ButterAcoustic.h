@@ -32,6 +32,8 @@ struct ButterEvidence {
     bool opposing = false;
     bool complete = false;
     bool ranFsg = false;
+    bool unsupportedTerminalNo = false;
+    ButterSegment terminalNo;
 };
 
 ButterEvidence measureAcousticButter(std::span<const int16_t> pcm);

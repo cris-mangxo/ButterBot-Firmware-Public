@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare local R36 searches for the shared CI32 PocketSphinx decoder."""
+"""Prepare local R36 searches for the shared CI16 PocketSphinx decoder."""
 
 import argparse
 from hashlib import sha256
@@ -21,11 +21,11 @@ VALIDATED_R37 = {
 VALIDATED_PROFILE = {
     "feat.params": "6ad725f620b3f0c1d82bba878498630e8be4fa1f0b0bf035a7fe9ffb36f5a735",
     "mdef": "0296ecd8d4220fc6e361c599536a50b34653d95bb7b6fe30cc38d14cf4c0a5af",
-    "means": "82fb3cf8b8c0655c5e6929b8ac2c9612d7a01f70a3609fc5c6158e87224ff093",
-    "mixture_weights": "667fa282b96e747e38815be24ba5c4f45ed78d166f381e784f6ea28872425cae",
+    "means": "715a333849a01125d259ec1c254954358023ff250072c9b7f9e5646796237db9",
+    "mixture_weights": "b1db3c1936a455f4313872414b516a31f570e0f68b6209998832d8e9a8083cab",
     "noisedict": "f9f30e70167dfb43605a1d68f86e15c0874655055e0488e34251789b668cf819",
     "transition_matrices": "c42587630dde772ef349fea9c050cdd8adcb360b919cfc460c3a18749b08ec24",
-    "variances": "e504372628bcabba2b810e3af563f834a90a014ab22fb3f459d60359ce941e32",
+    "variances": "f38374414ab7e87454109bb905fed9314a6d3233210b0884dd078ff544871fd7",
 }
 VALIDATED_CLOCK_DICTIONARY = "68b218e5fbd2f381944cea5bf33b4267905bde66bec022a17d7a84ee1cf46ccf"
 
@@ -83,9 +83,9 @@ def main():
     a = p.parse_args()
     for name in ("means", "variances"):
         tail = (a.clock_model / name).read_bytes().split(b"endhdr\n", 1)[1]
-        expect = (0x11223344, 90, 1, 32, 39, 90 * 32 * 39)
+        expect = (0x11223344, 90, 1, 16, 39, 90 * 16 * 39)
         if struct.unpack_from("<6I", tail) != expect:
-            raise ValueError("Expected the 32-density CI32 acoustic profile")
+            raise ValueError("Expected the 16-density CI16 acoustic profile")
     sources = {name: a.r36_searches / name for name in ("butter.dict", "focus.kws", "affirm.gram", "oppose.gram")}
     clock_dict = a.clock_model / "clock.dict"
     merged = merge(clock_dict, sources["butter.dict"])
@@ -97,7 +97,7 @@ def main():
     r37_seal = {name: seal(path) for name, path in sources.items()}
     if a.validation and (profile_seal != VALIDATED_PROFILE or r37_seal != VALIDATED_R37
                          or clock_seal != VALIDATED_CLOCK_DICTIONARY):
-        raise ValueError("The experimental R37 profile requires the sealed CI32-Q8 and locative grammar")
+        raise ValueError("The experimental R37 profile requires the sealed CI16-Q8 and locative grammar")
 
     a.out.mkdir(parents=True, exist_ok=False)
     for file in (*MODEL, "clock.dict"):
@@ -117,7 +117,7 @@ def main():
         encoding="utf-8",
     )
     receipt = {
-        "ci32": profile_seal,
+        "ci16": profile_seal,
         "clock_dictionary_sha256": clock_seal,
         "searches": r37_seal,
         "header_sha256": seal(header),
