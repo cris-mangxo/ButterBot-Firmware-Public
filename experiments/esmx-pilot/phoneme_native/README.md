@@ -2,7 +2,7 @@
 
 Este banco comparte el kernel C++ entre Mac y un proyecto ESP-IDF aislado para QEMU. Consume tramas int8 de 20 bandas en orden de trama, como las de `word-frames`. Lee los pesos int8 por canal, recupera sus valores float con las escalas selladas y usa activaciones float. Reproduce las salidas de fonemas, intención y negación del estudiante PyTorch.
 
-La prueba verifica la aritmética sobre matrices artificiales y rasgos sintéticos sellados. El entero que devuelve el ejecutable corresponde a la guardia del estudiante base. Los filtros de captura, CTC, contexto y despacho se ejecutan por separado en sus respectivos arneses. Los arreglos artificiales de ceros son pruebas de igualdad del kernel y no representan audio aceptado por el robot.
+La prueba verifica la aritmética sobre matrices artificiales y rasgos sintéticos sellados. El entero que devuelve el ejecutable corresponde a la guardia estándar del banco suministrado. El respaldo D6 calibrado se evalúa en Python. Las matrices artificiales de ceros se suministran directamente al kernel y pueden obtener una etiqueta. El silencio PCM se descarta antes de la extracción de rasgos en la ruta de escritorio. Los filtros de captura, CTC, contexto y despacho conservan sus pruebas separadas.
 
 ## Mac
 

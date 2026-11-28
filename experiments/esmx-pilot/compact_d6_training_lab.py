@@ -214,6 +214,17 @@ def development(model, speech, labelled, negatives):
     return {"ceiling": ceiling, "counts": [[*key, value] for key, value in sorted(counts.items())]}
 
 
+def preservation_regressions(before, after):
+    regressions = []
+    for metric in ("raw_confusion", "guarded_confusion"):
+        for label in kw.LABELS[1:]:
+            key = f"{label}:{label}"
+            prior, current = before[metric].get(key, 0), after[metric].get(key, 0)
+            if current < prior:
+                regressions.append({"intent": label, "metric": metric, "before": prior, "after": current})
+    return regressions
+
+
 def train(args):
     source = synthetic_source(args.cache / "index.json")
     labels, speech = load_cache(args.cache)
@@ -231,16 +242,20 @@ def train(args):
     bank = args.output / "student-int8-weights.npz"
     np.savez_compressed(bank, **arrays)
     measured = load_int8_weights(bank, len(labels))
+    after_all = measure(measured, speech["dev"])
+    regressions = preservation_regressions(before_all, after_all)
     report = {"schema": RECIPE, "procedure": PROCEDURE, "teacher_cache_sha256": SYNTHETIC_SHA256,
               "labelled_cache_sha256": file_digest(args.labelled / "index.json"),
               "negative_cache_sha256": file_digest(args.negatives / "index.json"),
               "initial_weights_sha256": STUDENT_SHA256,
               "weights_sha256": file_digest(bank), "labels": len(labels), "bytes": sum(a.nbytes for a in arrays.values()),
               "seed": SEED, "epochs": EPOCHS, "train_counts": [len(speech["train"]), len(labelled["train"]), len(negatives["train"])],
-              "initial_development": before,
-              "development": development(measured, speech["dev"], labelled["dev"], negatives["dev"]),
+              "initial_calibration": before,
+              "calibration": development(measured, speech["dev"], labelled["dev"], negatives["dev"]),
               "initial_all_intents_synthetic_development": before_all,
-              "all_intents_synthetic_development": measure(measured, speech["dev"])}
+              "all_intents_synthetic_development": after_all,
+              "application_decision": {"eligible": False, "preservation_regressions": regressions,
+                                       "human_end_to_end_validation_pending": True}}
     (args.output / "report.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return report
 
@@ -283,7 +298,7 @@ def calibrate_context(args, scorer):
     groups = Counter((group, expected, context_accepted(row, limits)) for expected, group, row in rows)
     report = {"schema": CONTEXT_SCHEMA, "bank_sha256": scorer.bank_sha256,
               "espeak_sha256": file_digest(args.espeak), "patterns": patterns, "limits": limits,
-              "counts": [[*key, value] for key, value in sorted(groups.items())]}
+              "calibration_counts": [[*key, value] for key, value in sorted(groups.items())]}
     with args.output.open("x") as output:
         output.write(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return {**report, "context_sha256": file_digest(args.output)}
@@ -301,7 +316,7 @@ class ReplayScorer:
             raise ValueError("Unexpected replay bank, sources or frontend")
         self.features = args.features
         self.bank_sha256 = report["weights_sha256"]
-        self.ceiling = report["development"]["ceiling"]
+        self.ceiling = report["calibration"]["ceiling"]
         if not 0 <= self.ceiling <= 1:
             raise ValueError("Invalid frozen D6 probability limit")
         labelled = json.loads((args.labelled / "index.json").read_text())["records"].values()
@@ -337,7 +352,8 @@ class ReplayScorer:
         return context_accepted(row, self.context["limits"]) if self.context else accepted(row, self.ceiling)
 
     def seal(self):
-        return {"bank_sha256": self.bank_sha256, "context_sha256": self.context_sha256}
+        limits = self.context["limits"] if self.context else {"probability": self.ceiling}
+        return {"bank_sha256": self.bank_sha256, "context_sha256": self.context_sha256, "limits": limits}
 
 
 def replay(args, scorer):
@@ -352,8 +368,11 @@ def replay(args, scorer):
             row["overlap"] = True
     clean = [row for row in rows if not row.get("overlap")]
     groups = {"historical_without_exact_overlap": clean,
-              "public": [row for row in clean if row["split"].startswith("public")]}
-    return {**scorer.seal(), "ceiling": scorer.ceiling, "items": len(rows),
+              "public_historical_excluding_reserved_d6": [
+                  row for row in clean if row["split"].startswith("public") and row["split"] != "public_reserved_d6"
+              ],
+              "public_reserved_d6_diagnostic": [row for row in clean if row["split"] == "public_reserved_d6"]}
+    return {**scorer.seal(), "items": len(rows),
             "excluded_exact_overlap": [row["id"] for row in rows if row.get("overlap")],
             "summary": {key: {mode: summarize(group, mode) for mode in ("raw", "retained")}
                         for key, group in groups.items()},

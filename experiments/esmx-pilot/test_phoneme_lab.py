@@ -12,12 +12,12 @@ import numpy as np
 import torch
 
 from compact_d6_training_lab import accepted as compact_accepted, calibrate as calibrate_compact_d6
-from compact_d6_training_lab import context_accepted, select_context_limits
+from compact_d6_training_lab import context_accepted, preservation_regressions, select_context_limits
 from d6_teacher_guard_lab import Scorer, accepted as d6_accepted, eligible_pcm, permitted, scope_cap, select_limit
 from d6_teacher_guard_lab import exterior_phone_counts
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
-from phoneme_replay_lab import overlaps_adjustment, strip_digital_edges, summarize
+from phoneme_replay_lab import native_frames, overlaps_adjustment, strip_digital_edges, summarize
 from phoneme_reject_lab import load_negatives
 from phoneme_confirm_lab import checked_bank, confirmed, local_ctc_alignment, local_ctc_cost
 from phoneme_ctc_adapt_lab import METHOD as ADAPTATION, TARGET_SHA256
@@ -216,6 +216,18 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertFalse(context_accepted(quote, limits))
         self.assertFalse(context_accepted(equally_short_control, limits))
         self.assertFalse(context_accepted(dict(order, veto=True), limits))
+
+    def test_compact_reports_losses_for_a_non_d6_intent(self):
+        prior = {"raw_confusion": {"5:5": 5}, "guarded_confusion": {"5:5": 4}}
+        current = {"raw_confusion": {"5:5": 6}, "guarded_confusion": {"5:5": 1}}
+        self.assertEqual(preservation_regressions(prior, current), [
+            {"intent": 5, "metric": "guarded_confusion", "before": 4, "after": 1},
+        ])
+
+    def test_pcm_silence_stops_before_native_feature_extraction(self):
+        with patch("phoneme_replay_lab.invoke") as invoke:
+            self.assertIsNone(native_frames("frontend", bytes(128_000)))
+            invoke.assert_not_called()
 
     def test_adapted_bank_cannot_change_the_intent_head(self):
         with TemporaryDirectory() as work:
