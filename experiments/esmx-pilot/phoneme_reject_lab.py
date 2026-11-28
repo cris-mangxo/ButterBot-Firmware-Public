@@ -75,7 +75,11 @@ def adapt(model, commands, negatives):
     torch.manual_seed(SEED)
     model.train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.00075, weight_decay=0.001)
-    class_counts = torch.bincount(torch.tensor([kw.LABELS.index(row["intent"]) for row, *_ in commands]))
+    class_counts = torch.bincount(
+        torch.tensor([kw.LABELS.index(row["intent"]) for row, *_ in commands]), minlength=len(kw.LABELS),
+    )
+    if (class_counts == 0).any():
+        raise ValueError("The synthetic replay must retain all intention classes")
     weights = class_counts.float().rsqrt()
     for _ in range(EPOCHS):
         speech_order = torch.randperm(len(commands)).tolist()

@@ -209,7 +209,7 @@ El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El res
   --base "$lab/phone-student" --adapted "$lab/phone-rejection" --split heldout
 ```
 
-La preparación y la evaluación CHM150 requieren DuckDB 1.4.4. Se usa la [conversión Parquet fijada](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr/tree/7decd77dc38db34bb1125ca66bf5727cc91f05ab). Para correr el panel histórico con el banco adaptado, usa `--frozen "$lab/phone-rejection"` y añade `--negatives "$lab/chm150/native-negative-features"` a `phoneme_replay_lab.py`. En el control de 536 turnos de locutores reservados, el ajuste redujo las activaciones añadidas al compacto de 223 a 26. Perdió las dos tomas humanas de Hora que reconocía el banco inicial. El banco adaptado queda fuera de la aplicación.
+La preparación y la evaluación CHM150 requieren DuckDB 1.4.4. Se usa la [conversión Parquet fijada](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr/tree/7decd77dc38db34bb1125ca66bf5727cc91f05ab). Para correr el panel histórico con el banco adaptado, usa `--frozen "$lab/phone-rejection"` y añade `--negatives "$lab/chm150/native-negative-features"` a `phoneme_replay_lab.py`. En el control de 536 turnos de locutores reservados, el ajuste redujo las activaciones añadidas al compacto de 223 a 26. Perdió una toma humana de Hora reservada y una suplementaria que reconocía el banco inicial. El banco adaptado queda fuera de la aplicación.
 
 ## Rutinas de fábrica en Mac
 
