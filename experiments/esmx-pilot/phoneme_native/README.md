@@ -37,7 +37,9 @@ El comparador usa las muestras públicas del panel local de `capture_replay.py`.
   --pilot "$pilot_host" --capture "$capture_host"
 ```
 
-`--coerll` admite el manifiesto suplementario sellado de Hora dentro de `primer-candidato-voces`. Cada toma se reproduce como PCM original y a través de la captura simulada con la cola retenida. El informe registra la etiqueta que produce el piloto compilado para escritorio, la etiqueta del estudiante nativo y la concordancia del estudiante con PyTorch cuando se extraen rasgos. Son diagnósticos históricos y cada variante proviene de la misma toma. El uso del estudiante como respaldo del piloto requeriría una prueba de falsos positivos separada.
+`--include-past-reserves` incorpora filas de reservas ya consultadas solo para regresión histórica. `--coerll` agrega por separado el manifiesto suplementario sellado de Hora dentro de `primer-candidato-voces`. Cada toma se reproduce como PCM original y a través de la captura simulada con la cola retenida.
+
+El informe distingue la etiqueta anotada (`target_intent`), el piloto compilado para escritorio (`pilot_intent`), el estudiante nativo (`intent`) y la referencia numérica PyTorch (`oracle_intent`). `null` indica que el recorrido no produjo una decisión evaluable. El sello del panel cubre las etiquetas, cohortes y huellas PCM de las filas efectivamente leídas. Cada par de variantes proviene de una sola toma. El uso del estudiante como respaldo del piloto requiere validar falsos positivos.
 
 ## ESP32-S3 emulado
 

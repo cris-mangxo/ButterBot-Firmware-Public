@@ -80,23 +80,34 @@ def run(executable, model, name, frames):
 
 
 def public_replay(args, executable, model):
-    rows = [row for row in recordings(args.public_root) if row[1].startswith("public")]
+    rows = [row for row in recordings(args.public_root)
+            if row[1].startswith("public") and (args.include_past_reserves or "_reserved_" not in row[1])]
     if args.coerll:
         rows.append(supplemental(args.public_root, args.coerll.resolve(strict=True)))
     result = []
+    panel_seal = sha256()
     for name, split, category, target, path, checksum in rows:
         pcm = pcm_from(path, checksum)
+        panel_seal.update(json.dumps([name, split, category, target, sha256(pcm).hexdigest()]).encode("utf-8"))
         captured = invoke(args.capture, pcm, "--pcm-with-hangover")
         for mode, audio in (("raw", pcm), ("retained", captured)):
             frames = native_frames(args.frontend, audio)
-            output = run(executable, model, name, frames) if frames is not None else {
-                "case": name, "frames": 0, "intent": 0,
-            }
-            pilot = int(invoke(args.pilot, audio)) if 0 < len(audio) <= 128_000 else 0
-            result.append({**output, "path": mode, "cohort": split, "category": category,
+            output = {"case": name, "frames": 0, "intent": None, "oracle_intent": None}
+            if frames is not None:
+                output = run(executable, model, name, frames)
+                output["oracle_intent"] = output.pop("expected_intent")
+            pilot = None
+            if 0 < len(audio) <= 128_000:  # PCM16 in bytes, four seconds at 16 kHz.
+                label = invoke(args.pilot, audio)
+                if label:
+                    pilot = int(label)
+            result.append({**output, "mode": mode, "cohort": split, "category": category,
                            "pilot_intent": pilot, "target_intent": target})
     return {
         "scope": "historical_public_diagnostics",
+        "past_reserves_included": args.include_past_reserves,
+        "panel_sha256": panel_seal.hexdigest(),
+        "supplemental_manifest_sha256": file_digest(args.coerll) if args.coerll else None,
         "frontend_sha256": file_digest(args.frontend),
         "capture_sha256": file_digest(args.capture),
         "pilot_sha256": file_digest(args.pilot),
@@ -115,11 +126,13 @@ def main():
     parser.add_argument("--capture", type=Path)
     parser.add_argument("--pilot", type=Path)
     parser.add_argument("--coerll", type=Path)
+    parser.add_argument("--include-past-reserves", action="store_true",
+                        help="Include previously inspected reserved rows for historical regression only")
     args = parser.parse_args()
     if args.public_root:
         if not (args.frontend and args.capture and args.pilot):
             parser.error("--public-root requires --frontend, --capture and --pilot")
-    elif args.frontend or args.capture or args.pilot or args.coerll:
+    elif args.frontend or args.capture or args.pilot or args.coerll or args.include_past_reserves:
         parser.error("public replay options require --public-root")
     torch.set_num_threads(2)
     torch.use_deterministic_algorithms(True)
