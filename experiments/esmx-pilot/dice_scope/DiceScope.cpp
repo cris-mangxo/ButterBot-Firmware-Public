@@ -30,16 +30,19 @@ struct Span {
     int count;
 };
 
+double frameRms(std::span<const int16_t> frame) {
+    uint64_t sum = 0;
+    for (const int32_t sample : frame) sum += uint64_t(sample * sample);
+    return std::sqrt(static_cast<double>(sum) / Frame);
+}
+
 std::optional<Span> voicedSpan(std::span<const int16_t> pcm) {
     const auto count = static_cast<int>(pcm.size() / Frame);
     if (count <= 0 || count > MaxFrames) return std::nullopt;
-    std::array<double, MaxFrames> power{};
+    std::array<double, MaxFrames> ranking{};
     for (int k = 0; k < count; ++k) {
-        uint64_t sum = 0;
-        for (const int32_t sample : pcm.subspan(k * Frame, Frame)) sum += uint64_t(sample * sample);
-        power[k] = std::sqrt(static_cast<double>(sum) / Frame);
+        ranking[k] = frameRms(pcm.subspan(k * Frame, Frame));
     }
-    auto ranking = power;
     std::sort(ranking.begin(), ranking.begin() + count);
     const auto index = (count - 1) * .85;
     const auto below = static_cast<int>(index);
@@ -48,7 +51,7 @@ std::optional<Span> voicedSpan(std::span<const int16_t> pcm) {
     int first = -1;
     int last = -1;
     for (int k = 0; k < count; ++k) {
-        if (power[k] < floor) continue;
+        if (frameRms(pcm.subspan(k * Frame, Frame)) < floor) continue;
         if (first < 0) first = k;
         last = k;
     }
