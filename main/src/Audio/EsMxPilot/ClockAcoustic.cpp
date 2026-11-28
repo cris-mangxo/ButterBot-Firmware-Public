@@ -1,6 +1,9 @@
 #ifdef BB_ESMX_CLOCK_ACOUSTIC
 #include "ClockAcoustic.h"
 #include "AcousticSearch.h"
+#if defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+#include "DiceScope.h"
+#endif
 
 #include "Audio/EsMxKws/Compact.h"
 #include "ClockGrammar.h"
@@ -84,6 +87,11 @@ Decoder createDecoder() {
     if (!installButterAcousticSearches(decoder.get(), keywords.c_str())) {
         return {nullptr, &ps_free};
     }
+#endif
+#if defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+    const std::string diceKeywords = std::string(root) + "/dice-scope.kws";
+    // An unavailable optional D6 pack leaves the existing decoder usable.
+    installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
 #endif
     return decoder;
 }

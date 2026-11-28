@@ -33,3 +33,13 @@ elif [[ ${BB_ESMX_BUTTER_WEAK_CONFLICT:-0} == 1 ]]; then
     printf 'BB_ESMX_BUTTER_WEAK_CONFLICT=1 requires BB_ESMX_BUTTER_ACOUSTIC=1.\n' >&2
     exit 2
 fi
+
+if [[ ${BB_ESMX_D6_SCOPE_HOST:-0} == 1 ]]; then
+    if [[ ${BB_ESMX_CLOCK_ACOUSTIC:-0} != 1 ]]; then
+        printf 'BB_ESMX_D6_SCOPE_HOST=1 requires the shared Hora decoder.\n' >&2
+        exit 2
+    fi
+    dice_scope=experiments/esmx-pilot/dice_scope
+    flags+=(-DBB_ESMX_D6_SCOPE_HOST -I "$dice_scope")
+    clock_sources+=("$dice_scope/DiceScope.cpp")
+fi
