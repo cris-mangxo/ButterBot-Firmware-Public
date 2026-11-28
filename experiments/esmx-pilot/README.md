@@ -119,7 +119,7 @@ mkdir -m 0700 "$lab/time"
   --reference "$lab/recognize" --capture "$lab/capture" > "$lab/time/replay.json"
 ```
 
-El banco de laboratorio mide 19 220 bytes de datos. En las dos voces reservadas de Hora hubo cero rescates. En el panel histórico introdujo cinco activaciones de Hora en otros casos, entre ellos una orden D6 reservada. El resultado descarta integrar este banco. No se midieron memoria total ni latencia en el microcontrolador.
+El banco de laboratorio mide 19 220 bytes en disco. El estimado de 200 bytes corresponde solo a dos filas de enteros de 32 bits para comparar una plantilla por vez. Quedan aparte el extractor, la firma de consulta y la pila. No se midieron memoria total ni latencia en el microcontrolador. En las dos voces reservadas de Hora hubo cero rescates. En el panel histórico introdujo cinco activaciones de Hora en otros casos, entre ellos una orden D6 reservada. El resultado descarta integrar este banco.
 
 ## Retención del turno y cancelación tardía
 

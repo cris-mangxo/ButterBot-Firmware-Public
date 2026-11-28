@@ -179,8 +179,9 @@ def freeze(args):
                             config["radius"] | (int(config["centered"]) << 31), config["min_margin"]) + templates.tobytes()
     if len(blob) > BUDGET:
         raise ValueError(f"Bank exceeds the {BUDGET} byte limit")
-    config.update({"bank_sha256": digest(blob), "flash_bytes": len(blob),
-                   "dtw_workspace_bytes": 2 * (FRAMES + 1) * 4,
+    config.update({"bank_sha256": digest(blob), "bank_file_bytes": len(blob),
+                   "dtw_rows_bytes_per_template_estimate": 2 * (FRAMES + 1) * 4,
+                   "esp32s3_memory_and_latency_measured": False,
                    "feature_tool_sha256": file_digest(args.features), "recipe_sha256": file_digest(Path(__file__)),
                    "fixture_sha256": file_digest(FIXTURE), "split_counts": counts, "unusable": exclusions,
                    "training_pcm_hashes": hashes, "backend": "integer host DTW over production C++ features"})
@@ -273,7 +274,8 @@ def replay(args):
                 "non_time_total": sum(row["expected"] != TIME for row in members),
                 "new_time_false_activations": [row["id"] for row in members if row["expected"] != TIME and row[mode]["rescued"]],
             }
-    print(json.dumps({"bank_sha256": config["bank_sha256"], "flash_bytes": len(blob),
+    print(json.dumps({"bank_sha256": config["bank_sha256"], "bank_file_bytes": len(blob),
+                      "esp32s3_memory_and_latency_measured": False,
                       "capture_tool_sha256": file_digest(args.capture), "reference_sha256": file_digest(args.reference),
                       "synthetic_regression_seen_pcm_ids": [row["id"] for row in seen],
                       "summary": summary, "rows": rows}, indent=2))
