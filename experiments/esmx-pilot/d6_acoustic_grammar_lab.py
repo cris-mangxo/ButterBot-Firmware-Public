@@ -14,6 +14,7 @@ import duckdb
 from pocketsphinx import Decoder
 
 from capture_replay import pcm_from, recordings
+from d6_acoustic_provenance import clock_reference, model_hashes
 from phoneme_chm150_lab import CORPUS_SHA256, SPEAKER_SPLIT_SHA256, decode, eligible_rows
 from time_lab import file_digest, invoke
 
@@ -45,6 +46,8 @@ POSITIVE = re.compile(
     r"(?: por favor| porfa)?"
 )
 THREAD = threading.local()
+KNOWN = {"public-03", "public-37", "public-81", "public-88", "public-89", "public-90", "public-91",
+         "veto-fact", "test-0379"}
 PRONUNCIATION_ADDITIONS = {"tíreme": "t i_7 r( e m e", "porfa": "p o_7 r( f a"}
 
 
@@ -94,17 +97,25 @@ def row(args, key, expected, pcm, source):
 
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
-    for name in ("model", "source_dictionary", "historical", "capture", "host", "roles", "corpus", "ffmpeg", "output"):
+    for name in ("model", "source_dictionary", "historical", "capture", "host", "roles", "corpus", "ffmpeg",
+                 "baseline_evidence", "output"):
         cli.add_argument("--" + name.replace("_", "-"), type=Path, required=True)
     args = cli.parse_args()
     acoustic_clock = Path(os.environ["BB_ESMX_CLOCK_ACOUSTIC_DIR"])
-    if not (acoustic_clock / "clock.dict").is_file():
-        raise ValueError("Enable the existing acoustic clock profile for the baseline")
+    reference = clock_reference(args.baseline_evidence, acoustic_clock, args.host, args.capture)
+    repository = Path(__file__).resolve().parents[2]
+    if args.output.resolve().is_relative_to(repository):
+        raise ValueError("Keep recording hypotheses outside the repository")
     if file_digest(args.roles) != SPEAKER_SPLIT_SHA256 or file_digest(args.corpus) != CORPUS_SHA256:
         raise ValueError("CHM150 dataset or speaker split differs from the sealed panel")
     args.output.mkdir(mode=0o700)
     args.dictionary = args.output / "d6-reduced.dict"
     prepare_dictionary(args.source_dictionary, args.dictionary)
+    modules = ("capture_replay.py", "replay.py", "time_lab.py", "phoneme_chm150_lab.py", "d6_acoustic_provenance.py")
+    source = Path(__file__).parent
+    report = {"reference": reference, "candidate": model_hashes(args.model, args.dictionary),
+              "recipe_sha256": file_digest(Path(__file__)),
+              "local_modules_sha256": {name: file_digest(source / name) for name in modules}}
     corpus_roles = json.loads(args.roles.read_text())["speaker_roles"]
     history = ((key, expected, pcm_from(wav, pin), split)
                for key, split, _, expected, wav, pin in recordings(args.historical))
@@ -121,13 +132,19 @@ def main():
         return row(args, key, expected, pcm, source)
     with ThreadPoolExecutor(max_workers=8) as ex:
         rows = list(ex.map(evaluate, samples))
-    report = {"host_sha256": file_digest(args.host), "capture_sha256": file_digest(args.capture),
-              "dictionary_sha256": file_digest(args.dictionary), "recipe_sha256": file_digest(Path(__file__)),
-              "acoustic_files_sha256": {name: file_digest(args.model / name) for name in
-                                        ("mdef", "means", "variances", "mixture_weights", "transition_matrices",
-                                         "feat.params", "noisedict")},
-              "rows": rows}
-    (args.output / "replay.local.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    raw_results = args.output / "replay.local.json"
+    raw_results.write_text(json.dumps(rows, ensure_ascii=False, indent=2))
+    report["local_replay_sha256"] = file_digest(raw_results)
+    report["known_regressions"] = [
+        {"id": item["id"], "expected": item["expected"], "views": {
+            view: {"baseline_disposition": decision["disposition"], "baseline_label": decision["selected"],
+                   "allows_fallback": decision["allows_fallback"], "search_ran": bool(decision["search"]),
+                   "would_add_d6": decision["search"].get("strict", False)}
+            for view, decision in item["views"].items()}}
+        for item in rows if item["id"] in KNOWN
+    ]
+    if {item["id"] for item in report["known_regressions"]} != KNOWN:
+        raise ValueError("Expected historical witness is missing")
     summaries = {}
     for source, count in sorted(Counter(item["source"] for item in rows).items()):
         records = [item for item in rows if item["source"] == source]
@@ -138,7 +155,8 @@ def main():
             )]
             summaries[source][view] = {"expected_d6": sum(item["expected"] == 6 for item in additions),
                                        "false_positives": sum(item["expected"] != 6 for item in additions)}
-    print(json.dumps(summaries, indent=2))
+    report["groups"] = summaries
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

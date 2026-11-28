@@ -9,9 +9,10 @@ diagnóstico de estabilidad, ya que el despacho trabaja con el PCM retenido.
 
 - `d6_acoustic_grammar_lab.py` recibe el modelo local de PocketSphinx 5.0.4,
   el diccionario Mexbet comprimido, los binarios de referencia del perfil
-  activo, el histórico y el corpus CHM150 con su división sellada. Usa el
-  perfil acústico original en `BB_ESMX_CLOCK_ACOUSTIC_DIR`. La salida pública
-  de la herramienta son conteos por grupo. El directorio de salida nuevo
+  activo, el histórico y el corpus CHM150 con su división sellada. Requiere
+  la evidencia publicada de R32 y valida los hashes de sus binarios y del
+  perfil acústico original en `BB_ESMX_CLOCK_ACOUSTIC_DIR`. La salida reducida
+  incluye conteos, hashes y testigos de veto sin hipótesis transcritas. El directorio de salida nuevo
   contiene hipótesis por toma y se conserva local.
 - `d6_acoustic_pack4.py` transforma un CI32-Q8 derivado localmente en dos
   variantes de cuatro bits. Conserva los archivos auxiliares y prepara
@@ -19,9 +20,9 @@ diagnóstico de estabilidad, ya que el despacho trabaja con el PCM retenido.
   medir tamaño. La variante `global` usa una escala por dimensión y la
   variante `state` usa una por estado y dimensión.
 - `d6_acoustic_clock_compat.py` compara el perfil original y el modelo de
-  escritorio alternativo sobre el panel Heroico ya atestado. Copia
-  `clock.dict` del modelo de referencia al directorio alternativo antes de
-  ejecutar la comparación.
+  escritorio alternativo sobre el panel Heroico ya atestado. Antes de ejecutar la comparación,
+  el operador debe copiar `clock.dict` del modelo de referencia al
+  directorio alternativo. El programa verifica que el diccionario coincida.
 
 `--help` detalla las rutas de entrada. Los tres programas son herramientas
 de laboratorio. Los resultados de esta rama dejan el perfil instalado en
