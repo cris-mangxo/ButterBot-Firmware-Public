@@ -1,6 +1,7 @@
 """Check temporal geometry and rejection behavior for the phoneme prototype."""
 
 import json
+from hashlib import sha256
 import unittest
 
 import numpy as np
@@ -8,6 +9,7 @@ import torch
 
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
+from phoneme_replay_lab import overlaps_adjustment, summarize
 
 
 class PhonemeLabTest(unittest.TestCase):
@@ -53,6 +55,23 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertEqual(arrays["input.weight.scale"].shape, (WIDTH, 1, 1))
         error = (restored.input.weight - model.input.weight).abs()
         self.assertLessEqual(float(error.detach().max()), float(arrays["input.weight.scale"].max()) / 2 + 1e-6)
+
+    def test_replay_records_waveform_overlap_and_wrong_intent(self):
+        pcm = np.full(640, 1600, dtype="<i2")
+        match = sha256((pcm.astype(np.float32) / 32_768).tobytes()).hexdigest()
+        self.assertTrue(overlaps_adjustment(pcm.tobytes(), {match}))
+        self.assertFalse(overlaps_adjustment((pcm + 1).tobytes(), {match}))
+        rows = [
+            {"id": "one", "expected": 6, "raw": {
+                "baseline": 0, "candidate": 6, "combined": 6, "matches_adjustment_pcm": True}},
+            {"id": "two", "expected": 0, "raw": {
+                "baseline": 0, "candidate": 5, "combined": 5, "matches_adjustment_pcm": False}},
+        ]
+        report = summarize(rows, "raw")
+        self.assertEqual(report["new_correct"], ["one"])
+        self.assertEqual(report["new_wrong"], ["two"])
+        self.assertEqual(report["new_wrong_intent"], {5: 1})
+        self.assertEqual(report["matching_adjustment_pcm"], ["one"])
 
 
 if __name__ == "__main__":

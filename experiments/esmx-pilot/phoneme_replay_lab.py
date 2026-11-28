@@ -55,6 +55,11 @@ def student_intent(model, features, pcm):
     return kw.LABELS[int(gate(intents, denial).item())]
 
 
+def overlaps_adjustment(pcm, hashes):
+    trimmed = np.frombuffer(kw.trimmed(pcm), dtype="<i2").astype(np.float32) / 32_768
+    return sha256(trimmed.tobytes()).hexdigest() in hashes
+
+
 def evaluate(args, model, adjustment_hashes):
     rows = list(recordings(args.root))
     if len(rows) != 112:
@@ -66,13 +71,17 @@ def evaluate(args, model, adjustment_hashes):
         outcome = {"id": identifier, "split": split, "category": category, "expected": expected}
         captured = invoke(args.capture, pcm, "--pcm-with-hangover")
         for mode, sample in (("raw", pcm), ("retained", captured)):
-            if split.startswith(("public", "supplemental")):
-                trimmed_audio = np.frombuffer(kw.trimmed(sample), dtype="<i2").astype(np.float32) / 32_768
-                if sha256(trimmed_audio.tobytes()).hexdigest() in adjustment_hashes:
-                    raise ValueError(f"Evaluation intersects synthetic adjustment: {identifier}")
-            baseline = int(invoke(args.reference, sample)) if 0 < len(sample) <= 128_000 else 0
-            candidate = student_intent(model, args.features, sample)
-            outcome[mode] = {"baseline": baseline, "candidate": candidate, "combined": baseline or candidate}
+            same_pcm = overlaps_adjustment(sample, adjustment_hashes)
+            if same_pcm and split.startswith(("public", "supplemental")):
+                raise ValueError(f"Human evaluation intersects synthetic adjustment: {identifier}")
+            baseline = candidate = 0
+            if 0 < len(sample) <= 128_000:
+                baseline = int(invoke(args.reference, sample))
+                candidate = student_intent(model, args.features, sample)
+            outcome[mode] = {
+                "baseline": baseline, "candidate": candidate, "combined": baseline or candidate,
+                "matches_adjustment_pcm": same_pcm,
+            }
         yield outcome
 
 
@@ -92,7 +101,11 @@ def summarize(rows, mode):
             else:
                 wrong.append(row["id"])
                 wrong_intent[observed["combined"]] += 1
-    return {"correct": correct, "new_correct": extra, "new_wrong": wrong, "new_wrong_intent": wrong_intent}
+    overlap = [row["id"] for row in rows if row[mode]["matches_adjustment_pcm"]]
+    return {
+        "correct": correct, "new_correct": extra, "new_wrong": wrong, "new_wrong_intent": wrong_intent,
+        "matching_adjustment_pcm": overlap,
+    }
 
 
 def main():
@@ -118,7 +131,13 @@ def main():
             parser.error("episode must refer to one sealed human evaluation recording")
         print(reserved[0]["retained"]["combined"])
         return
-    groups = {"historical_112": rows[:112]}
+    historical = rows[:112]
+    groups = {
+        "historical_112": historical,
+        "historical_without_matching_adjustment_pcm": [
+            row for row in historical if not any(row[mode]["matches_adjustment_pcm"] for mode in ("raw", "retained"))
+        ],
+    }
     for name in ("public_reserved_time", "public_reserved_d6", "supplemental_human_time"):
         groups[name] = [row for row in rows if row["split"] == name]
     report = {

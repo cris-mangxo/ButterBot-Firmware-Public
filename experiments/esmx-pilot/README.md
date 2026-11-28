@@ -190,7 +190,7 @@ La variante con el manifiesto fijado y los dos recortes CIEMPIESS produjo rasgos
 
 Requiere Transformers 4.57.6 y PyTorch 2.9.1. El maestro se carga desde el directorio local con `weights_only=True`. El replay verifica el sello del banco y del extractor y compara con el compacto que ya usa el piloto. El respaldo solo actúa si el piloto se abstiene. El resultado de escritorio distingue las nuevas órdenes acertadas de las activaciones incorrectas.
 
-El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El respaldo reconoció una de dos tomas humanas reservadas de Hora en ambas entradas. En el panel histórico añadió 16 activaciones incorrectas por WAV y 17 con la captura retenida. El resultado impide incorporarlo al firmware. La opción `--episode` emite la decisión de una toma humana sellada para pasarla al [arnés de rutinas](routine_host/README.md).
+El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El respaldo reconoció una de dos tomas humanas reservadas de Hora en ambas entradas. En el panel histórico añadió 16 activaciones incorrectas por WAV y 17 con la captura retenida. Esos conteos se mantienen al retirar tres duplicados sintéticos exactos del ajuste o desarrollo. El resultado impide incorporarlo al firmware. La opción `--episode` emite la decisión de una toma humana sellada para pasarla al [arnés de rutinas](routine_host/README.md).
 
 ## Rutinas de fábrica en Mac
 

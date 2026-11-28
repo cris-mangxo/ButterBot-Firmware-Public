@@ -233,10 +233,10 @@ int testExternalEpisode(Intent expected){
     if(!(std::cin >> label) || (std::cin >> trailing) || std::cin.bad()){
         return 2;
     }
-    const auto observed = std::ranges::find_if(EpisodeLabels, [&](auto entry){
-        return static_cast<unsigned>(entry.second) == label;
-    });
-    return observed == EpisodeLabels.end() ? 2 : testEpisode(observed->second, expected);
+    if(label >= static_cast<unsigned>(Intent::Count)){
+        return 2;
+    }
+    return testEpisode(static_cast<Intent>(label), expected);
 }
 
 #ifdef ROUTINE_HOST_RECOGNITION
