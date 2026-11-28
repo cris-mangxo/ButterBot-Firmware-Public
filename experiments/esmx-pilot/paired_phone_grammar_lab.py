@@ -111,14 +111,18 @@ def prepare_models(args):
     synthetic_sha = file_digest(args.speech)
     manifest = args.adaptations / "local-input.json"
     manifest_sha = file_digest(manifest)
-    for name in BANKS:
-        folder = args.base if name == "initial" else args.adaptations / name
+    folders = {name: args.base if name == "initial" else args.adaptations / name for name in BANKS}
+    if args.wide_bank:
+        folders["wide_96"] = args.wide_bank
+    for name, folder in folders.items():
         model, report = frozen_model(folder)
         if report["teacher_cache_sha256"] != synthetic_sha:
             raise ValueError("Model has another synthetic cache")
         if name != "initial" and (report["initial_weights_sha256"] != hashes["initial"]
                                   or report["human_manifest_sha256"] != manifest_sha):
             raise ValueError("Adapted model has another initialization or voice partition")
+        if name == "wide_96" and report.get("width") != 96:
+            raise ValueError("Wide grammar evaluation requires a 96-channel bank")
         hashes[name] = report["weights_sha256"]
         models[name] = model
     return models, hashes, manifest
@@ -263,6 +267,7 @@ def main():
     for key in ("recipe", "base", "adaptations", "speech", "frontend", "corpus", "speakers", "ffmpeg", "espeak",
                 "butter-pairs", "clock-pairs", "d6-pairs", "root", "host", "capture", "butter-diagnostic"):
         parser.add_argument("--" + key, required=True, type=Path)
+    parser.add_argument("--wide-bank", type=Path)
     args = parser.parse_args()
     torch.set_num_threads(2)
     torch.use_deterministic_algorithms(True)

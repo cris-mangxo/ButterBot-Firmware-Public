@@ -24,23 +24,23 @@ SEED = 20261127
 
 
 class PhoneBlock(nn.Module):
-    def __init__(self, dilation):
+    def __init__(self, dilation, width=WIDTH):
         super().__init__()
-        self.temporal = nn.Conv1d(WIDTH, WIDTH, 5, padding=2 * dilation, dilation=dilation, groups=WIDTH)
-        self.channel = nn.Conv1d(WIDTH, WIDTH, 1)
+        self.temporal = nn.Conv1d(width, width, 5, padding=2 * dilation, dilation=dilation, groups=width)
+        self.channel = nn.Conv1d(width, width, 1)
 
     def forward(self, sequence):
         return F.relu(sequence + self.channel(self.temporal(sequence)))
 
 
 class Student(nn.Module):
-    def __init__(self, labels):
+    def __init__(self, labels, width=WIDTH):
         super().__init__()
-        self.input = nn.Conv1d(kw.BANDS, WIDTH, 5, padding=2)
-        self.blocks = nn.ModuleList(PhoneBlock(dilation) for dilation in (1, 2, 4))
-        self.phones = nn.Conv1d(WIDTH, labels, 1)
-        self.intent = nn.Linear(WIDTH * 5, len(kw.LABELS))
-        self.negation = nn.Linear(WIDTH * 5, 1)
+        self.input = nn.Conv1d(kw.BANDS, width, 5, padding=2)
+        self.blocks = nn.ModuleList(PhoneBlock(dilation, width) for dilation in (1, 2, 4))
+        self.phones = nn.Conv1d(width, labels, 1)
+        self.intent = nn.Linear(width * 5, len(kw.LABELS))
+        self.negation = nn.Linear(width * 5, 1)
 
     def forward(self, frames, lengths):
         positions = torch.arange(frames.shape[-1])[None, :]

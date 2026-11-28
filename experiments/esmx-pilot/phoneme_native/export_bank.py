@@ -12,28 +12,33 @@ WIDTH = 28
 LABELS = 32
 INTENTS = 5
 SCHEMA = "bb-phoneme-student-1"
-LAYERS = [
-    ("input", (WIDTH, 20, 5)),
-    *((f"blocks.{i}.{key}", (WIDTH, inputs, taps)) for i in range(3)
-      for key, inputs, taps in (("temporal", 1, 5), ("channel", WIDTH, 1))),
-    ("phones", (LABELS, WIDTH, 1)),
-    ("intent", (INTENTS, WIDTH * 5)),
-    ("negation", (1, WIDTH * 5)),
-]
+BANK_BYTES = {28: 9180, 96: 50320}
+
+
+def layers(width):
+    return [
+        ("input", (width, 20, 5)),
+        *((f"blocks.{i}.{key}", (width, inputs, taps)) for i in range(3)
+          for key, inputs, taps in (("temporal", 1, 5), ("channel", width, 1))),
+        ("phones", (LABELS, width, 1)),
+        ("intent", (INTENTS, width * 5)),
+        ("negation", (1, width * 5)),
+    ]
 
 
 def read_bank(directory):
     report = json.loads((directory / "report.json").read_text())
     weights_path = directory / "student-int8-weights.npz"
     checksum = sha256(weights_path.read_bytes()).hexdigest()
+    width = report.get("width", WIDTH)
     if (report["schema"] != SCHEMA or report["labels"] != LABELS
-            or report["weights_sha256"] != checksum):
+            or report["weights_sha256"] != checksum or type(width) is not int or width not in BANK_BYTES):
         raise ValueError("Frozen Student checkpoint does not match its report")
 
     ordered = {}
     names = set()
     with np.load(weights_path, allow_pickle=False) as bank:
-        for layer, shape in LAYERS:
+        for layer, shape in layers(width):
             weight, scale, bias = layer + ".weight", layer + ".weight.scale", layer + ".bias"
             names.update((weight, scale, bias))
             weights, scales, biases = bank[weight], bank[scale], bank[bias]
@@ -48,9 +53,9 @@ def read_bank(directory):
         if len(bank.files) != len(names) or set(bank.files) != names:
             raise ValueError("Unexpected Student weight names")
     size = sum(array.nbytes for tensors in ordered.values() for array in tensors)
-    if size != 9180:
+    if size != BANK_BYTES[width]:
         raise ValueError(f"Unexpected bank size: {size}")
-    return checksum, ordered, size
+    return checksum, ordered, size, width
 
 
 def write_array(out, key, data, spaces):
@@ -72,9 +77,10 @@ def write_layer(out, member, values, spaces):
     out.write(f"{prefix}}},\n")
 
 
-def write_header(out, checksum, bank):
+def write_header(out, checksum, bank, width):
     out.write('#pragma once\n#include "Kernel.h"\n\n'
               'namespace EsMx::PhonemeNative {\n')
+    out.write(f'static_assert(Width == {width}, "Native width does not match the checkpoint");\n')
     out.write(f'inline constexpr char FrozenSha256[] = "{checksum}";\n')
     out.write('inline constexpr Bank Frozen{\n')
     write_layer(out, "input", bank["input"], 4)
@@ -95,10 +101,10 @@ def main():
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("header", type=Path)
     args = parser.parse_args()
-    checksum, bank, size = read_bank(args.checkpoint)
+    checksum, bank, size, width = read_bank(args.checkpoint)
     with args.header.open("x") as out:
-        write_header(out, checksum, bank)
-    print(json.dumps({"weight_sha256": checksum, "bank_bytes": size}))
+        write_header(out, checksum, bank, width)
+    print(json.dumps({"weight_sha256": checksum, "bank_bytes": size, "width": width}))
 
 
 if __name__ == "__main__":

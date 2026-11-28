@@ -56,10 +56,13 @@ def main():
     args = parser.parse_args()
     text = args.log.read_bytes()
     (bank, size), rows = parse(text.decode("utf-8").splitlines(), args.expected_cases)
-    if bank != json.loads(args.bank_report.read_text())["weights_sha256"] or size != 9180:
+    report = json.loads(args.bank_report.read_text())
+    width = report.get("width", 28)
+    expected_size = {28: 9180, 96: 50320}.get(width)
+    if bank != report["weights_sha256"] or size != expected_size:
         raise ValueError("QEMU result disagrees with the requested frozen bank")
     result = {
-        "target": "esp32s3-qemu", "weight_sha256": bank, "bank_bytes": size,
+        "target": "esp32s3-qemu", "weight_sha256": bank, "bank_bytes": size, "width": width,
         "benchmark_binary_sha256": checksum(args.benchmark_binary),
         "benchmark_binary_bytes": args.benchmark_binary.stat().st_size,
         "qemu_log_sha256": sha256_bytes(text), "case_count": len(rows), "checks_failed": 0,

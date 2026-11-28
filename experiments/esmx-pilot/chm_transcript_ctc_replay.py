@@ -46,6 +46,7 @@ def main():
     for key in ("corpus", "speakers", "speech", "base", "adaptations", "root",
                 "frontend", "ffmpeg", "host", "capture", "butter-diagnostic"):
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--wide-bank", type=Path)
     args = parser.parse_args()
     torch.set_num_threads(2)
     torch.use_deterministic_algorithms(True)
@@ -84,6 +85,14 @@ def main():
             raise ValueError("Adaptation weights are not tied to the declared inputs")
         models[arm] = model
         hashes[arm] = report["weights_sha256"]
+    if args.wide_bank:
+        model, report = frozen_model(args.wide_bank)
+        if (report.get("width") != 96 or report["initial_weights_sha256"] != hashes["initial"]
+                or report["teacher_cache_sha256"] != speech_hash
+                or report["human_manifest_sha256"] != file_digest(index)):
+            raise ValueError("Wide model is outside the pinned experiment")
+        models["wide_96"] = model
+        hashes["wide_96"] = report["weights_sha256"]
 
     seen = set()
     historical = {}

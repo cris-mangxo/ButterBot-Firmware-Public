@@ -11,7 +11,7 @@ import torch
 
 import keyword_lab as kw
 from capture_replay import pcm_from, recordings
-from phoneme_student_lab import RECIPE, Student, gate
+from phoneme_student_lab import RECIPE, WIDTH, Student, gate
 from time_lab import file_digest, invoke, supplemental
 
 
@@ -20,11 +20,13 @@ def frozen_model(directory):
     weight_path = directory / "student-int8-weights.npz"
     if report["schema"] != RECIPE or file_digest(weight_path) != report["weights_sha256"]:
         raise ValueError("Frozen checkpoint differs from its seal")
-    return load_int8_weights(weight_path, report["labels"]), report
+    return load_int8_weights(weight_path, report["labels"], report.get("width", WIDTH)), report
 
 
-def load_int8_weights(weight_path, labels):
-    model = Student(labels).eval()
+def load_int8_weights(weight_path, labels, width=WIDTH):
+    if type(width) is not int or width not in (WIDTH, 96):
+        raise ValueError("Unsupported sealed Student width")
+    model = Student(labels, width=width).eval()
     values = {}
     with np.load(weight_path, allow_pickle=False) as weights:
         for name, tensor in model.state_dict().items():

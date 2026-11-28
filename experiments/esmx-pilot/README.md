@@ -140,6 +140,20 @@ done
 
 Los directorios de pares contienen los WAV sintéticos y manifiestos fijados de los ensayos de Mantequilla, Hora y D6. Ninguna variante recuperó una voz reservada. Una variante propuso Hora ante el control `public-86`. Los experimentos quedan fuera de la aplicación.
 
+## Estudiante de 96 canales
+
+El ensayo amplía el banco original de 28 a 96 canales y conserva sus salidas al inicializar. Entrena con los mismos turnos CHM150, caché sintético, 16 épocas y peso CTC 1,00 del ensayo de 28 canales. Conserva la división por locutor y verifica el manifiesto de ajuste anterior antes de iniciar. Los artefactos de evaluación se quedan locales.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/wider_phone_student_lab.py \
+  --corpus "$lab/chm150/corpus.parquet" --speakers "$lab/chm150/speaker-roles.json" \
+  --speech "$initial_synthetic_features" --bank "$initial_bank" --frontend "$kws" \
+  --ffmpeg "$ffmpeg" --espeak "$espeak_ng" \
+  --human-manifest "$lab/chm-transcript/local-input.json" --output "$lab/student-96"
+```
+
+Para incluirlo en el replay de intenciones y en el ensayo de gramática, agregar `--wide-bank "$lab/student-96"` a los comandos anteriores. En el ensayo de gramática se usa una ruta de receta nueva para fijar el banco antes del replay. Las pruebas nativas leen el ancho del checkpoint validado y conservan 28 canales para los bancos históricos. [Pruebas numéricas en Mac y ESP32-S3 emulado](phoneme_native/README.md).
+
 ## Diagnóstico de etapas de D6
 
 ```sh

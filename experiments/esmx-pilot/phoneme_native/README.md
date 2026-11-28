@@ -55,6 +55,8 @@ IDF_COMPONENT_MANAGER=0 idf.py -C "$native/qemu" -B "$output/build" \
 
 La línea `PHONEME_DONE` informa el número de pruebas y el número de discrepancias. Las líneas `PHONEME_CASE` incluyen el tiempo que reporta el emulador. El tiempo real en el robot y el incremento del ejecutable de fábrica requieren medición propia.
 
+Los bancos de laboratorio pueden usar 28 o 96 canales. Los scripts `check_host.sh` y `build_qemu.sh` reciben el ancho del exportador y compilan el núcleo con esa geometría. La cabecera generada exige que coincida con el banco. En las compilaciones manuales con un banco de 96 canales, usar `-DBB_ESMX_PHONEME_WIDTH=96` para todos los archivos C++ del núcleo y su consumidor. El ancho predeterminado de la aplicación sigue en 28.
+
 `ALIGN_DONE` comprueba el costo y el intervalo de alineación CTC sobre logits de referencia. Usa una secuencia con fonemas repetidos y un espacio de estados acotado. `ALIGN_CASE` registra las mediciones del emulador. La inferencia y la alineación se comprueban por separado.
 
 En Mac se puede contrastar también una selección más amplia de secuencias con empates, repeticiones y límites de entrada.

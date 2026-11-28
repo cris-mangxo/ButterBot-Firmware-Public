@@ -8,7 +8,12 @@
 namespace EsMx::PhonemeNative {
 
 inline constexpr std::size_t Bands = 20;
+#ifdef BB_ESMX_PHONEME_WIDTH
+inline constexpr std::size_t Width = BB_ESMX_PHONEME_WIDTH;
+#else
 inline constexpr std::size_t Width = 28;
+#endif
+static_assert(Width == 28 || Width == 96);
 inline constexpr std::size_t PhoneCount = 32;
 inline constexpr std::size_t IntentCount = 5;
 inline constexpr std::size_t MaxFrames = 199;
@@ -47,8 +52,8 @@ struct Output {
     uint8_t intentId;
 };
 
-static_assert(sizeof(Bank) == 9180);
-static_assert(sizeof(Workspace) == 44576);
+static_assert(sizeof(Bank) == (Width == 28 ? 9180 : 50320));
+static_assert(sizeof(Workspace) == 2 * MaxFrames * Width * sizeof(float));
 
 // Frame-major signed int8 output from the existing word-frames extractor.
 // Workspace and output are caller-owned. Do not put them on an ESP32 task stack.
