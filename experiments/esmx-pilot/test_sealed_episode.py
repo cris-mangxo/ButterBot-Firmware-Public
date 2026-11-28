@@ -77,6 +77,17 @@ class SealedEpisodeTests(unittest.TestCase):
         self.assertEqual(report, {"status": "capture_inconclusive"})
         child.assert_called_once()
 
+    def test_wave_headers_do_not_create_independent_pcm(self):
+        copy = self.root / "same-sound.wav"
+        copy.write_bytes(self.wav.read_bytes() + b"local file metadata")
+        self.spec["episodes"].append({
+            **self.case, "wav": copy.name, "wav_sha256": harness.digest(copy),
+            "source_id": "different fixture", "speaker_group": "other speaker",
+        })
+        self.seal()
+        with self.assertRaisesRegex(harness.PanelError, "^duplicate PCM recording$"):
+            harness.read_panel(self.args)
+
     def test_invalid_signal_is_not_verified_as_rejection(self):
         decision = b'{"intent":0,"disposition":"invalid_audio","allows_fallback":false}'
         responses = [subprocess.CompletedProcess([], 0, content, b"") for content in (b"0\n", decision)]

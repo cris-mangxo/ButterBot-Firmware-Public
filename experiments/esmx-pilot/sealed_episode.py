@@ -15,6 +15,10 @@ from capture_replay import DISPATCH, pcm_from
 
 
 LABEL = {0: "none", 1: "butter", 3: "joke", 5: "time", 6: "dice6"}
+ABSTENTION = {
+    "no_match", "fact_veto", "unconfirmed_dice", "phrase_rejected",
+    "dice_negation_veto", "dice_negation_conflict", "dice_follow_up",
+}
 ARTIFACTS = ("recognizer", "capture", "routine", "ffmpeg")
 MAX_SAMPLES = 64_000
 MIN_SAMPLES = 4_160  # 24 log-mel windows, including 23 hops of 160 samples.
@@ -50,6 +54,12 @@ def groups(row):
     return source, speaker
 
 
+def verify_programs(programs, pinned):
+    for name, path in programs.items():
+        require(path.is_file() and os.access(path, os.X_OK) and digest(path) == pinned[name],
+                "executable missing or digest mismatch: " + name)
+
+
 def read_panel(args):
     manifest = args.manifest.resolve(strict=True)
     content = manifest.read_bytes()
@@ -60,9 +70,7 @@ def read_panel(args):
     require(re.fullmatch(r"[0-9a-f]{40}", spec["source_sha"]), "invalid source commit")
     require(set(spec["artifact_sha256"]) == set(ARTIFACTS), "incomplete executable inventory")
     programs = {name: getattr(args, name).resolve(strict=True) for name in ARTIFACTS}
-    for name, path in programs.items():
-        require(path.is_file() and os.access(path, os.X_OK) and digest(path) == spec["artifact_sha256"][name],
-                "executable missing or digest mismatch: " + name)
+    verify_programs(programs, spec["artifact_sha256"])
 
     env = {"PATH": os.defpath, "LC_ALL": "C"}
     clock_files = spec["clock_files_sha256"]
@@ -91,7 +99,7 @@ def read_panel(args):
         adjust_sources.add(source)
         adjust_speakers.add(speaker)
     source_ids = set()
-    wave_hashes = set()
+    pcm_hashes = set()
     panel = []
     for row in rows:
         role, expected = row["role"], row["expected"]
@@ -107,11 +115,9 @@ def read_panel(args):
         path = manifest.parent / file
         require(path.is_file() and not path.is_symlink(), "expected a regular WAV inside the panel directory")
         wave_hash = row["wav_sha256"]
-        require(re.fullmatch(r"[0-9a-f]{64}", wave_hash)
-                and row["source_id"] not in source_ids and wave_hash not in wave_hashes,
-                "invalid pin or duplicate recording")
+        require(re.fullmatch(r"[0-9a-f]{64}", wave_hash) and row["source_id"] not in source_ids,
+                "invalid pin or duplicate source recording")
         source_ids.add(row["source_id"])
-        wave_hashes.add(wave_hash)
         with wave.open(str(path)) as wav:
             sample_count = wav.getnframes()
         require(MIN_SAMPLES <= sample_count <= MAX_SAMPLES, "WAV sample count outside the pilot budget")
@@ -120,6 +126,9 @@ def read_panel(args):
         except ValueError:
             raise PanelError("WAV format or digest mismatch") from None
         require(len(pcm) == 2 * sample_count, "truncated WAV")
+        pcm_hash = sha256(pcm).hexdigest()
+        require(pcm_hash not in pcm_hashes, "duplicate PCM recording")
+        pcm_hashes.add(pcm_hash)
         panel.append((role, expected, pcm))
     return spec, programs, env, panel
 
@@ -140,8 +149,11 @@ def episode_view(programs, env, expected, pcm, aac):
         decision = json.loads(detailed.stdout)
         require(isinstance(decision, dict) and type(decision.get("intent")) is int and decision["intent"] == 0
                 and text(decision.get("disposition")), "inconsistent abstention disposition")
-        if decision["disposition"] == "invalid_audio":
+        disposition = decision["disposition"]
+        if disposition == "invalid_audio":
             return {**reduced, "status": "invalid_audio"}
+        require(disposition in ABSTENTION, "unknown abstention disposition")
+        reduced["disposition"] = disposition
     output = invoke(programs["routine"], (LABEL[expected],), pcm,
                     {**env, "BB_ROUTINE_HOST_AAC_OUT": str(aac)})
     require(output.returncode in (0, 1), "unexpected routine result")
@@ -206,16 +218,21 @@ def main():
         with tempfile.TemporaryDirectory() as scratch:
             for number, (role, expected, pcm) in enumerate(panel, 1):
                 stem = Path(scratch) / str(number)
-                rows.append({"episode": number, "role": role, "expected": expected,
+                rows.append({"episode": number, "role_declared": role, "expected": expected,
                              "raw": episode_view(programs, env, expected, pcm, stem.with_suffix(".raw.aac")),
                              "retained": retained_view(programs, env, expected, pcm,
                                                        stem.with_suffix(".retained.aac"))})
+        verify_programs(programs, spec["artifact_sha256"])
     except (OSError, ValueError, KeyError, TypeError, EOFError, wave.Error, subprocess.TimeoutExpired) as error:
         # Do not publish paths, transcript data or text received from subprocesses.
         reason = str(error) if isinstance(error, PanelError) else type(error).__name__
         parser.exit(2, reason + "\n")
-    receipt = {"source_sha_declared": spec["source_sha"], "manifest_sha256": args.manifest_sha256,
-               "artifact_sha256": spec["artifact_sha256"], "label_injected": False, "episodes": rows}
+    receipt = {"source_sha_declared": spec["source_sha"],
+               "verifier_sha256": digest(Path(__file__).resolve()),
+               "manifest_sha256": args.manifest_sha256,
+               "artifact_sha256": spec["artifact_sha256"], "role_source": "manifest",
+               "capture_mode": "host_simulated_vad", "routine_expected_arg": "comparator_only",
+               "label_injected": False, "episodes": rows}
     print(json.dumps(receipt, indent=2))
     return int(any(row[view]["status"] != "verified" for row in rows for view in ("raw", "retained")))
 
