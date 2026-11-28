@@ -2,12 +2,13 @@
 set -euo pipefail
 
 if [[ ( $# != 1 && $# != 3 ) || ! -f "$1/voice_data.h" ]]; then
-    printf 'Usage: %s GENERATED_VOICE_DIR [GENERATED_MODEL_DIR EXPECTED_INTENT < pcm.s16le]\n' "$0" >&2
+    printf 'Usage: %s GENERATED_VOICE_DIR [GENERATED_MODEL_DIR EXPECTED_INTENT < pcm.s16le | --observed-intent EXPECTED_INTENT < label.txt]\n' "$0" >&2
     exit 2
 fi
 
 voice="$(cd -- "$1" && pwd)"
-if [[ $# == 3 ]]; then
+models=''
+if [[ $# == 3 && $2 != --observed-intent ]]; then
     models="$(cd -- "$2" && pwd)"
     expected="$3"
 fi
@@ -51,7 +52,7 @@ sources=("$fixture/main.cpp" main/src/Routines/PassTheButterRoutine.cpp main/src
          main/src/Routines/CurrentTimeRoutine.cpp main/src/Routines/DiceRollRoutine.cpp
          main/src/Audio/EsMxPilot/Dispatch.cpp main/src/Audio/EsMxPilot/Voice.cpp
          main/src/Audio/MemoryAudioSource.cpp components/ButterBot-Common/src/Phrases.cpp)
-if [[ $# == 3 ]]; then
+if [[ -n "${models:-}" ]]; then
     kws=main/src/Audio/EsMxKws
     experiments=experiments/esmx-compactas
     model_headers=(pilot_model.h phrase_bank.h word_bank.h word_extra.h word_adapted.h
@@ -71,8 +72,10 @@ fi
 
 "${CXX:-c++}" "${flags[@]}" "${sources[@]}" -o "$scratch/routine_host"
 
-if [[ $# == 3 ]]; then
+if [[ -n "${models:-}" ]]; then
     "$scratch/routine_host" "$expected"
+elif [[ $# == 3 ]]; then
+    "$scratch/routine_host" --observed-intent "$3"
 else
     "$scratch/routine_host"
 fi

@@ -170,6 +170,28 @@ Se admitieron 48 de 49 recortes para desarrollo, siete de ellos de «mantequilla
 
 La variante con el manifiesto fijado y los dos recortes CIEMPIESS produjo rasgos válidos para 46 de los 50 recortes candidatos. Como respaldo, recuperó una orden pública histórica de D6 y una sintética. Sumó tres despachos incorrectos con WAV y dos con la captura de escritorio. En el desglose de voces reservadas obtuvo 0/2 para Hora y 0/2 para D6, con una activación incorrecta de Chiste. También activó una negación sintética. Como clasificador nuevo en el panel sintético obtuvo 0/8 en Mantequilla, 1/8 en Chiste, 0/8 en Hora y 1/12 en D6. Esta variante queda fuera de la aplicación.
 
+## Destilación de fonemas en escritorio
+
+`phoneme_teacher_lab.py` usa [Wav2Vec2 XLSR con inventario eSpeak](https://huggingface.co/facebook/wav2vec2-xlsr-53-espeak-cv-ft/tree/2c733782da5604684829819a5eb744c193fe9398). Verifica el peso oficial y proyecta las probabilidades a los fonemas que aparecen en el texto sintético de entrenamiento. La etiqueta vacía de CTC y el grupo de símbolos restantes se mantienen separados. Usa eSpeak NG 1.52.0 con `es-419` y el extractor nativo `word-frames`. Conserva los centros temporales del extractor al interpolar las probabilidades del maestro. El ajuste y desarrollo solo usan las voces sintéticas de esas particiones.
+
+`phoneme_student_lab.py` entrena convoluciones temporales separables con señales de fonemas, intención y negación. Exporta los pesos int8 por canal junto con escalas y sesgos. El replay de escritorio convierte los pesos otra vez a flotante. La inferencia entera y el consumo en la placa quedan pendientes.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/phoneme_teacher_lab.py \
+  --root "$experiment_root" --wav "$lab/fallback/wav" --teacher "$teacher" \
+  --espeak "$espeak_ng" --features "$kws" --output "$lab/phone-targets"
+"$training_python" -B experiments/esmx-pilot/phoneme_student_lab.py \
+  --cache "$lab/phone-targets" --output "$lab/phone-student"
+"$training_python" -B experiments/esmx-pilot/phoneme_replay_lab.py \
+  --root "$experiment_root" --features "$kws" --cache "$lab/phone-targets" \
+  --frozen "$lab/phone-student" --reference "$lab/recognize" --capture "$lab/capture"
+"$training_python" -B -m unittest discover -s experiments/esmx-pilot -p test_phoneme_lab.py
+```
+
+Requiere Transformers 4.57.6 y PyTorch 2.9.1. El maestro se carga desde el directorio local con `weights_only=True`. El replay verifica el sello del banco y del extractor y compara con el compacto que ya usa el piloto. El respaldo solo actúa si el piloto se abstiene. El resultado de escritorio distingue las nuevas órdenes acertadas de las activaciones incorrectas.
+
+El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El respaldo reconoció una de dos tomas humanas reservadas de Hora en ambas entradas. En el panel histórico añadió 16 activaciones incorrectas por WAV y 17 con la captura retenida. El resultado impide incorporarlo al firmware. La opción `--episode` emite la decisión de una toma humana sellada para pasarla al [arnés de rutinas](routine_host/README.md).
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.

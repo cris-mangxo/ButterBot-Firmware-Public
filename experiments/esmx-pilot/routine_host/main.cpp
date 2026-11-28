@@ -7,8 +7,6 @@
 #include "Audio/EsMxPilot/Dispatch.h"
 #ifdef ROUTINE_HOST_RECOGNITION
 #include "Audio/EsMxPilot/Recognition.h"
-#include <iostream>
-#include <string_view>
 #endif
 #include "Routines/CurrentTimeRoutine.h"
 #include "Routines/DiceRollRoutine.h"
@@ -18,11 +16,15 @@
 #include "voice_data.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <initializer_list>
+#include <iostream>
 #include <iterator>
+#include <optional>
 #include <span>
+#include <string_view>
 
 using EsMx::Kws::Intent;
 using namespace RoutineHost;
@@ -182,34 +184,28 @@ void testEnglishFallbackWhenAacUnavailable(){
     assert(expectPlayback(1, Source::Speech).argument == Phrases::map(Phrase::PassTheButter, id));
 }
 
-#ifdef ROUTINE_HOST_RECOGNITION
-int testPcmEpisode(std::string_view requested){
-    using namespace std::literals;
-    constexpr std::array labels{
-        std::pair{"butter"sv, Intent::Butter},
-        std::pair{"joke"sv, Intent::Joke},
-        std::pair{"time"sv, Intent::Time},
-        std::pair{"dice6"sv, Intent::Dice6},
-        std::pair{"none"sv, Intent::Unknown},
-    };
-    const auto expected = std::ranges::find_if(labels, [&](auto entry){ return entry.first == requested; });
-    if(expected == labels.end()){
+using namespace std::literals;
+constexpr std::array EpisodeLabels{
+    std::pair{"butter"sv, Intent::Butter},
+    std::pair{"joke"sv, Intent::Joke},
+    std::pair{"time"sv, Intent::Time},
+    std::pair{"dice6"sv, Intent::Dice6},
+    std::pair{"none"sv, Intent::Unknown},
+};
+
+std::optional<Intent> expectedIntent(std::string_view requested){
+    const auto expected = std::ranges::find_if(EpisodeLabels, [&](auto entry){ return entry.first == requested; });
+    if(expected == EpisodeLabels.end()){
         std::fputs("Expected intent: butter, joke, time, dice6 or none\n", stderr);
-        return 2;
+        return std::nullopt;
     }
+    return expected->second;
+}
 
-    std::array<int16_t, EsMx::Kws::MaxSamples + 1> pcm;
-    std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
-    const auto bytes = std::cin.gcount();
-    if(std::cin.bad() || bytes <= 0 || bytes % 2 || bytes > EsMx::Kws::MaxSamples * 2){
-        std::fputs("Expected mono PCM s16le at 16 kHz, at most four seconds\n", stderr);
-        return 2;
-    }
-
-    const auto observed = EsMx::Pilot::recognize(std::span(pcm.data(), bytes / 2));
-    if(observed != expected->second){
+int testEpisode(Intent observed, Intent expected){
+    if(observed != expected){
         std::printf("{\"recognized_label\":%u,\"expected_label\":%u,\"real_ticks\":0}\n",
-                    static_cast<unsigned>(observed), static_cast<unsigned>(expected->second));
+                    static_cast<unsigned>(observed), static_cast<unsigned>(expected));
         return 1;
     }
 
@@ -230,15 +226,44 @@ int testPcmEpisode(std::string_view requested){
                 "\"matching_aac_clips\":true}\n", static_cast<unsigned>(observed));
     return 0;
 }
+
+int testExternalEpisode(Intent expected){
+    unsigned label;
+    char trailing;
+    if(!(std::cin >> label) || (std::cin >> trailing) || std::cin.bad()){
+        return 2;
+    }
+    const auto observed = std::ranges::find_if(EpisodeLabels, [&](auto entry){
+        return static_cast<unsigned>(entry.second) == label;
+    });
+    return observed == EpisodeLabels.end() ? 2 : testEpisode(observed->second, expected);
+}
+
+#ifdef ROUTINE_HOST_RECOGNITION
+int testPcmEpisode(Intent expected){
+    std::array<int16_t, EsMx::Kws::MaxSamples + 1> pcm;
+    std::cin.read(reinterpret_cast<char*>(pcm.data()), sizeof(pcm));
+    const auto bytes = std::cin.gcount();
+    if(std::cin.bad() || bytes <= 0 || bytes % 2 || bytes > EsMx::Kws::MaxSamples * 2){
+        std::fputs("Expected mono PCM s16le at 16 kHz, at most four seconds\n", stderr);
+        return 2;
+    }
+    return testEpisode(EsMx::Pilot::recognize(std::span(pcm.data(), bytes / 2)), expected);
+}
 #endif
 
 } // namespace
 
 int main(int argc, char** argv){
     Phrases::preallocate();
+    if(argc == 3 && std::string_view(argv[1]) == "--observed-intent"){
+        const auto expected = expectedIntent(argv[2]);
+        return expected ? testExternalEpisode(*expected) : 2;
+    }
 #ifdef ROUTINE_HOST_RECOGNITION
     if(argc == 2){
-        return testPcmEpisode(argv[1]);
+        const auto expected = expectedIntent(argv[1]);
+        return expected ? testPcmEpisode(*expected) : 2;
     }
 #endif
     if(argc != 1){

@@ -18,4 +18,10 @@ experiments/esmx-pilot/routine_host.sh "$voice_dir" "$model_dir" dice6 < "$pcm_f
 
 El directorio de compilación es temporal. El binario recibe muestras por entrada estándar y la salida se limita a resultados JSON.
 
+La prueba de un reconocedor externo de escritorio usa `--observed-intent`. Lee una etiqueta numérica de la entrada estándar, la coteja con la expectativa independiente y ejecuta la misma comprobación de rutina y AAC. El resultado cubre el recorrido en la Mac entre el reconocedor externo y el despacho. Esa entrada solo existe en el arnés de escritorio. `phoneme_replay_lab.py --episode ID_RESERVADO` emite la etiqueta que el respaldo congelado predijo después de la captura simulada, conservando cualquier decisión del compacto.
+
+```bash
+experiments/esmx-pilot/routine_host.sh "$voice_dir" --observed-intent time < "$observed_label_file"
+```
+
 Las pruebas sustituyen los servicios del SDK, reloj, comunicación, reproductor, entrada de escucha en inglés, archivo del efecto y generador aleatorio del ESP32. El punto de entrada de la tabla OEM se sustituye por las tres filas ejercitadas. El firmware ESP32-S3 contiene su tabla completa. El reloj y el resultado del dado son deterministas en la prueba. El alcance del resultado es la rutina y sus solicitudes de reproducción, con verificación separada del códec mediante `voice_validate.sh`. El micrófono, el procesamiento de señal del ESP32, la comunicación por radio, el altavoz y el funcionamiento con el mando siguen pendientes de comprobación física.
