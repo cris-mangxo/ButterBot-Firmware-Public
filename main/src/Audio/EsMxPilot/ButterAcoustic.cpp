@@ -15,8 +15,8 @@
 #endif
 
 namespace EsMx::Pilot {
-#ifdef ESP_PLATFORM
-static_assert(!ButterModelAssets::Gate.enabled, "The experimental Mantequilla gate is desktop-only");
+#ifdef BB_ESMX_BUTTER_WEAK_CONFLICT
+static_assert(ButterModelAssets::ValidationEnabled, "Weak conflict requires the sealed experimental validation profile");
 #endif
 namespace {
 
@@ -39,12 +39,25 @@ constexpr auto Query = std::array{"qué es"sv, "dónde está"sv, "cuánto cuesta
 constexpr auto Demonstrative = std::array{"la"sv, "esta"sv, "esa"sv};
 constexpr auto Description = std::array{"es"sv, "está"sv, "cuesta"sv, "tiene"sv, "sirve"sv};
 constexpr auto Substitutes = std::array{"margarina"sv, "mermelada"sv, "leche"sv, "harina"sv, "crema"sv};
+constexpr auto Location = std::array{"aquí"sv, "ahí"sv, "allí"sv, "acá"sv};
+constexpr auto LocationVerb = std::array{"está"sv, "estaba"sv, "hay"sv, "había"sv, "tienes"sv,
+                                          "tiene"sv, "tengo"sv, "puse"sv, "queda"sv, "quedó"sv};
 constexpr auto OpposingSuffix = std::array{"no"sv, "mejor no"sv, "olvídalo"sv, "ni se te ocurra"sv, "cancela"sv,
                                             "de maní"sv, "de cacahuate"sv, "de almendra"sv};
 constexpr auto OpposingKeywords = std::array{"de cacahuate"sv, "de maní"sv, "mejor no"sv, "olvídalo"sv,
                                               "no gracias"sv, "no quiero que"sv, "cancela"sv};
 constexpr size_t FrameSamples = bb::asr::kSampleRate / 100;
 constexpr size_t TailSamples = 4 * FrameSamples;
+// Frozen R37 validation settings, calibrated on its development split.
+constexpr int ObjectMinimum = -1800;
+constexpr int ObjectMinFrames = 24;
+constexpr int ObjectMaxFrames = 128;
+constexpr int BoundarySlack = 12;
+constexpr int ArticleGap = 20;
+constexpr int UtteranceTail = 24;
+constexpr int ContrastPerFrame = 3;
+constexpr int CancellationMinimum = -1900;
+constexpr int CancellationLead = 2;
 constexpr uint64_t FloorEnergy = uint64_t(FrameSamples) * 180 * 180;
 
 bool startsPhrase(std::string_view text, std::string_view prefix){
@@ -81,6 +94,9 @@ bool wholeAffirmative(std::string_view text){
 }
 
 bool semanticOpposition(std::string_view text){
+    if(std::count(text.begin(), text.end(), ' ') < 2){
+        return false;
+    }
     text = stripOne(stripOne(text, Address), Courtesy);
     if(std::any_of(Substitutes.begin(), Substitutes.end(), [text](auto word){ return endsPhrase(text, word); })){
         return true;
@@ -92,7 +108,9 @@ bool semanticOpposition(std::string_view text){
     }
     const auto before = noun ? text.substr(0, noun - 1) : std::string_view{};
     const auto after = text.substr(std::min(text.size(), noun + Object.size() + 1));
-    return startsOne(before, Negative) || startsOne(before, Recipe) || startsOne(before, Query) ||
+    const auto locative = stripOne(before, Location);
+    return (locative.size() != before.size() && startsOne(locative, LocationVerb)) ||
+           startsOne(before, Negative) || startsOne(before, Recipe) || startsOne(before, Query) ||
            (std::find(Demonstrative.begin(), Demonstrative.end(), before) != Demonstrative.end() &&
               startsOne(after, Description)) || startsOne(after, OpposingSuffix);
 }
@@ -115,10 +133,16 @@ std::optional<ButterTerm> term(std::string_view word){
     return std::nullopt;
 }
 
-ButterSegment segmentInfo(ps_seg_t* segment){
+int calibratedScore(ps_decoder_t* decoder, int score){
+    // The sealed replay used the PocketSphinx Python probability round trip.
+    auto* logmath = ps_get_logmath(decoder);
+    return logmath_log(logmath, logmath_exp(logmath, score));
+}
+
+ButterSegment segmentInfo(ps_decoder_t* decoder, ps_seg_t* segment){
     ButterSegment info;
     ps_seg_frames(segment, &info.start, &info.end);
-    info.score = ps_seg_prob(segment, nullptr, nullptr, nullptr);
+    info.score = calibratedScore(decoder, ps_seg_prob(segment, nullptr, nullptr, nullptr));
     return info;
 }
 
@@ -129,7 +153,7 @@ bool recordHits(ps_decoder_t* decoder, ButterEvidence& evidence){
                 ps_seg_free(seg);
                 return false;
             }
-            evidence.hits[evidence.hitCount++] = {*kind, segmentInfo(seg)};
+            evidence.hits[evidence.hitCount++] = {*kind, segmentInfo(decoder, seg)};
         }
     }
     return true;
@@ -166,17 +190,52 @@ void freeSamples(int16_t* data){
 #endif
 }
 
-bool matchesObject(const ButterHit& hit, const ButterEvidence& evidence, const ButterGate& gate){
-    if(hit.type == ButterTerm::Opposition || hit.segment.score < gate.keywordMinimum ||
-       hit.segment.start < 0 || hit.segment.end < hit.segment.start){
+bool qualifiesAsObject(const ButterHit& hit){
+    const auto length = hit.segment.end - hit.segment.start + 1;
+    return hit.type != ButterTerm::Opposition && hit.segment.score >= ObjectMinimum &&
+           hit.segment.start >= 0 && length >= ObjectMinFrames && length <= ObjectMaxFrames;
+}
+
+bool matchesObject(const ButterHit& hit, const ButterEvidence& evidence){
+    if(!qualifiesAsObject(hit)){
         return false;
     }
-    const int deltaStart = evidence.affirmObject.start - hit.segment.start;
-    const int lead = hit.type == ButterTerm::ArticleObject ? gate.articleLead : gate.onsetSlack;
+    const int start = hit.type == ButterTerm::ArticleObject ? evidence.affirmArticle.start
+                                                           : evidence.affirmObject.start;
     const int spokenEnd = std::min(evidence.affirmObject.end, evidence.lastSpeech);
-    return deltaStart >= -gate.onsetSlack && deltaStart <= lead &&
-           std::abs(spokenEnd - hit.segment.end) <= gate.endSlack &&
-           evidence.lastSpeech - hit.segment.end <= gate.tailSlack;
+    return start >= 0 && std::abs(start - hit.segment.start) <= BoundarySlack &&
+           std::abs(spokenEnd - hit.segment.end) <= BoundarySlack;
+}
+
+bool hasWitness(const ButterEvidence& evidence){
+    const auto hits = std::span(evidence.hits).first(evidence.hitCount);
+    return std::any_of(hits.begin(), hits.end(), qualifiesAsObject);
+}
+
+void recordAffirmative(ps_decoder_t* decoder, ButterEvidence& evidence){
+    int score = 0;
+    const auto* hypothesis = ps_get_hyp(decoder, &score);
+    if(!hypothesis || !wholeAffirmative(hypothesis)){
+        return;
+    }
+
+    ButterSegment lastArticle;
+    int objects = 0;
+    for(auto* segment = ps_seg_iter(decoder); segment; segment = ps_seg_next(segment)){
+        const std::string_view word = ps_seg_word(segment);
+        if(word == "la"){
+            lastArticle = segmentInfo(decoder, segment);
+        }else if(word == Object){
+            ++objects;
+            evidence.affirmObject = segmentInfo(decoder, segment);
+            const int gap = evidence.affirmObject.start - lastArticle.end;
+            if(lastArticle.start >= 0 && gap >= 0 && gap <= ArticleGap){
+                evidence.affirmArticle = lastArticle;
+            }
+        }
+    }
+    evidence.affirmative = objects == 1;
+    evidence.affirmScore = calibratedScore(decoder, score);
 }
 
 }
@@ -198,6 +257,11 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
         return result;
     }
 
+    if(!hasWitness(result)){
+        result.complete = true;
+        return result;
+    }
+
     const std::unique_ptr<int16_t, decltype(&freeSamples)> buffer(
         static_cast<int16_t*>(allocSamples((pcm.size() + TailSamples) * sizeof(int16_t))), freeSamples);
     if(!buffer){
@@ -209,54 +273,44 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
     if(!decodeAcoustic(decoder, AffirmSearch, padded)){
         return result;
     }
-    if(const auto* hyp = ps_get_hyp(decoder, &result.affirmScore); hyp && wholeAffirmative(hyp)){
-        result.affirmative = true;
-        for(auto* seg = ps_seg_iter(decoder); seg; seg = ps_seg_next(seg)){
-            if(Object == ps_seg_word(seg)){
-                result.affirmObject = segmentInfo(seg);
-            }
-        }
-    }
+    result.ranFsg = true;
+    recordAffirmative(decoder, result);
     if(!decodeAcoustic(decoder, OpposeSearch, padded)){
         return result;
     }
-    if(const auto* hyp = ps_get_hyp(decoder, &result.opposeScore); hyp){
+    int score = 0;
+    if(const auto* hyp = ps_get_hyp(decoder, &score); hyp){
         result.opposing = semanticOpposition(hyp);
+        result.opposeScore = calibratedScore(decoder, score);
     }
     result.frames = ps_get_n_frames(decoder);
     result.complete = true;
     return result;
 }
 
-bool acceptsAcousticButter(const ButterEvidence& evidence, const ButterGate& gate){
-    if(!gate.enabled || !evidence.complete || !evidence.affirmative || evidence.frames <= 0 ||
-       evidence.hitCount > evidence.hits.size() ||
-       evidence.lastSpeech < evidence.affirmObject.start || evidence.affirmObject.start < 0 ||
-       evidence.affirmObject.end < evidence.affirmObject.start ||
-       evidence.affirmScore < int64_t(gate.floorPerFrame) * evidence.frames){
+bool acceptsAcousticButter(const ButterEvidence& evidence){
+    if(!evidence.complete || !evidence.affirmative || !evidence.ranFsg || evidence.frames <= 0 ||
+       evidence.hitCount > evidence.hits.size() || evidence.affirmObject.start < 0){
+        return false;
+    }
+    const int spokenEnd = std::min(evidence.affirmObject.end, evidence.lastSpeech);
+    if(spokenEnd < evidence.affirmObject.start || evidence.lastSpeech - spokenEnd > UtteranceTail){
         return false;
     }
     if(evidence.opposing &&
-       int64_t(evidence.affirmScore) - evidence.opposeScore <= int64_t(gate.contrastPerFrame) * evidence.frames){
+       int64_t(evidence.affirmScore) - evidence.opposeScore <= int64_t(ContrastPerFrame) * evidence.frames){
         return false;
     }
     const auto hits = std::span(evidence.hits).first(evidence.hitCount);
-    const int noObject = evidence.frames + 1;
-    int earliest = noObject;
-    for(const auto& hit : hits){
-        if(matchesObject(hit, evidence, gate)){
-            earliest = std::min(earliest, hit.segment.start);
-        }
-    }
-    return earliest != noObject && std::none_of(hits.begin(), hits.end(), [&](const ButterHit& opposition){
-        return opposition.type == ButterTerm::Opposition &&
-               opposition.segment.score >= gate.oppositionKeywordMinimum &&
-               opposition.segment.end >= earliest;
-    });
+    return std::none_of(hits.begin(), hits.end(), [&](const ButterHit& hit){
+               return hit.type == ButterTerm::Opposition && hit.segment.score >= CancellationMinimum &&
+                      hit.segment.end >= spokenEnd - CancellationLead;
+           }) &&
+           std::any_of(hits.begin(), hits.end(), [&](const ButterHit& hit){ return matchesObject(hit, evidence); });
 }
 
 bool recognizesAcousticButter(std::span<const int16_t> pcm){
-    return ButterModelAssets::Gate.enabled && acceptsAcousticButter(measureAcousticButter(pcm), ButterModelAssets::Gate);
+    return ButterModelAssets::ValidationEnabled && acceptsAcousticButter(measureAcousticButter(pcm));
 }
 
 }

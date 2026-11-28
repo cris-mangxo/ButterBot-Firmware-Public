@@ -12,11 +12,22 @@ import struct
 MODEL = ("feat.params", "mdef", "noisedict", "mixture_weights", "transition_matrices", "means", "variances")
 ALIAS = "mantequillabb"
 BUTTER = "mantequilla"
-FIELDS = (
-    "keywordMinimum", "onsetSlack", "articleLead", "endSlack", "tailSlack",
-    "floorPerFrame", "contrastPerFrame", "oppositionKeywordMinimum",
-)
-TIMING_FIELDS = {"onsetSlack", "articleLead", "endSlack", "tailSlack"}
+VALIDATED_R37 = {
+    "affirm.gram": "94a618d4214c5c76502b6b9b3126392358b87ffff9bc9c281cc3b56b2fec46d4",
+    "oppose.gram": "2769232ffefc49d5b2eb2981b128ae28fbc51ba1eda2fcbe99e43aa3ef8a2903",
+    "butter.dict": "b9d5d263751c19011f0a9632f527be3b513e9c7a681dc49882dae6d6bf9757b6",
+    "focus.kws": "cb94341b84a3eaf3524d87f14e480ea579e37eb153f72e6851e882292eeeaeb9",
+}
+VALIDATED_PROFILE = {
+    "feat.params": "6ad725f620b3f0c1d82bba878498630e8be4fa1f0b0bf035a7fe9ffb36f5a735",
+    "mdef": "0296ecd8d4220fc6e361c599536a50b34653d95bb7b6fe30cc38d14cf4c0a5af",
+    "means": "82fb3cf8b8c0655c5e6929b8ac2c9612d7a01f70a3609fc5c6158e87224ff093",
+    "mixture_weights": "667fa282b96e747e38815be24ba5c4f45ed78d166f381e784f6ea28872425cae",
+    "noisedict": "f9f30e70167dfb43605a1d68f86e15c0874655055e0488e34251789b668cf819",
+    "transition_matrices": "c42587630dde772ef349fea9c050cdd8adcb360b919cfc460c3a18749b08ec24",
+    "variances": "e504372628bcabba2b810e3af563f834a90a014ab22fb3f459d60359ce941e32",
+}
+VALIDATED_CLOCK_DICTIONARY = "68b218e5fbd2f381944cea5bf33b4267905bde66bec022a17d7a84ee1cf46ccf"
 
 
 def seal(path):
@@ -64,25 +75,11 @@ def raw_text(name, value):
     return f'inline constexpr char {name}[] = R"bb37({value})bb37";\n'
 
 
-def gate_fields(path):
-    if path is None:
-        return ""
-    gate = json.loads(path.read_text(encoding="utf-8"))
-    if set(gate) != set(FIELDS):
-        raise ValueError("An experimental gate must specify each field")
-    for key, value in gate.items():
-        if type(value) is not int or not (-10000 <= value <= 10000):
-            raise ValueError(f"Invalid gate value: {key}")
-        if key in TIMING_FIELDS and not 0 <= value <= 100:
-            raise ValueError(f"Invalid gate timing: {key}")
-    return ".enabled = true, " + ", ".join(f".{key} = {gate[key]}" for key in FIELDS)
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     for flag in ("clock-model", "r36-searches", "out"):
         p.add_argument("--" + flag, type=Path, required=True)
-    p.add_argument("--gate", type=Path, help="explicit experimental thresholds; omit to collect evidence only")
+    p.add_argument("--validation", action="store_true", help="enable the frozen experimental R37 filter")
     a = p.parse_args()
     for name in ("means", "variances"):
         tail = (a.clock_model / name).read_bytes().split(b"endhdr\n", 1)[1]
@@ -95,7 +92,12 @@ def main():
     keywords = rewrite(sources["focus.kws"])
     affirmative = rewrite(sources["affirm.gram"])
     opposing = rewrite(sources["oppose.gram"])
-    settings = gate_fields(a.gate)
+    clock_seal = seal(clock_dict)
+    profile_seal = {name: seal(a.clock_model / name) for name in MODEL}
+    r37_seal = {name: seal(path) for name, path in sources.items()}
+    if a.validation and (profile_seal != VALIDATED_PROFILE or r37_seal != VALIDATED_R37
+                         or clock_seal != VALIDATED_CLOCK_DICTIONARY):
+        raise ValueError("The experimental R37 profile requires the sealed CI32-Q8 and locative grammar")
 
     a.out.mkdir(parents=True, exist_ok=False)
     for file in (*MODEL, "clock.dict"):
@@ -110,16 +112,16 @@ def main():
         + bytes_array("Keywords", keywords)
         + raw_text("Affirmative", affirmative)
         + raw_text("Opposing", opposing)
-        + f"inline constexpr ButterGate Gate{{{settings}}};\n"
+        + f"inline constexpr bool ValidationEnabled = {str(a.validation).lower()};\n"
         + "}\n",
         encoding="utf-8",
     )
     receipt = {
-        "ci32": {name: seal(a.clock_model / name) for name in MODEL},
-        "clock_dictionary_sha256": seal(clock_dict),
-        "r36": {name: seal(path) for name, path in sources.items()},
+        "ci32": profile_seal,
+        "clock_dictionary_sha256": clock_seal,
+        "searches": r37_seal,
         "header_sha256": seal(header),
-        "experimental_gate": json.loads(a.gate.read_text()) if a.gate else None,
+        "validation_enabled": a.validation,
     }
     (a.out / "manifest.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt))

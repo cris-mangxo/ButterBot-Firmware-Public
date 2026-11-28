@@ -31,7 +31,10 @@ int main(){
               << ",\"affirm_score\":" << butter.affirmScore
               << ",\"oppose_score\":" << butter.opposeScore
               << ",\"object\":[" << butter.affirmObject.start << ',' << butter.affirmObject.end
-              << "],\"accepted\":" << Pilot::acceptsAcousticButter(butter, Pilot::ButterModelAssets::Gate)
+              << "],\"accepted\":" << Pilot::acceptsAcousticButter(butter)
+              << ",\"article\":[" << butter.affirmArticle.start << ',' << butter.affirmArticle.end << ']'
+              << ",\"ran_fsg\":" << butter.ranFsg
+              << ",\"profile_enabled\":" << Pilot::ButterModelAssets::ValidationEnabled
               << ",\"hits\":[";
     const auto hits = std::span(butter.hits).first(butter.hitCount);
     for(size_t i = 0; i < hits.size(); ++i){

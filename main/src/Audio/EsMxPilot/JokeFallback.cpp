@@ -10,6 +10,9 @@
 #endif
 #include <algorithm>
 #include <cstring>
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+#include <cmath>
+#endif
 #include <memory>
 #include <new>
 #include <string_view>
@@ -173,6 +176,47 @@ Kws::Intent recognizePhonemeFallback(bb::asr::LogMel& frontend, Kws::WordFeature
 #endif
     return Intent::Unknown;
 }
+
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+ButterPhonemeEvidence measureButterPhonemes(bb::asr::LogMel& frontend, Kws::WordFeatures& words,
+                                          std::span<const int16_t> pcm){
+    static_assert(std::string_view(FrozenSha256) ==
+                  "1785628e682569e77cdc4e934da8714cf5021b518a2bf745abc76aa24cfd0619");
+    constexpr size_t MinFrames = 8;
+    constexpr size_t ButterSlot = 1;
+    const auto trimmed = trimTurn(pcm);
+    if(trimmed.size() < samplesForFrames(MinFrames)){
+        return {};
+    }
+    std::unique_ptr<Scratch, decltype(&freeScratch)> scratch(allocateScratch(), &freeScratch);
+    if(!scratch || !inferView(frontend, words, trimmed, MinFrames, *scratch)){
+        return {};
+    }
+    const auto& output = scratch->output;
+    if(!std::isfinite(output.negation) ||
+       !std::all_of(output.intents.begin(), output.intents.end(), [](float value){ return std::isfinite(value); })){
+        return {};
+    }
+    const double peak = *std::max_element(output.intents.begin(), output.intents.end());
+    double sum = 0;
+    double butter = 0;
+    double other = 0;
+    for(size_t index = 0; index < output.intents.size(); ++index){
+        const double weight = std::exp(static_cast<double>(output.intents[index]) - peak);
+        sum += weight;
+        if(index == ButterSlot){
+            butter = weight;
+        }else{
+            other = std::max(other, weight);
+        }
+    }
+    return {butter / sum, (butter - other) / sum, output.negation, true};
+}
+
+bool confirmsButterPhonemes(const ButterPhonemeEvidence& head){
+    return head.valid && head.posterior >= 0.80 && head.margin >= 0.30 && head.negation < -0.5f;
+}
+#endif
 
 }
 #endif

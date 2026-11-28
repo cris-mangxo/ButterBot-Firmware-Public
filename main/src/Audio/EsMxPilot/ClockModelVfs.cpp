@@ -43,6 +43,10 @@ struct Asset {
 };
 
 using namespace ClockModelAssets;
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+static_assert(!ButterModelAssets::ValidationEnabled || Densities == 32,
+              "The Mantequilla validation profile requires a CI32 pack");
+#endif
 static_assert(sizeof(MeansQ8) == PackedHeader + 90 * Densities * Dimensions);
 static_assert(sizeof(VariancesQ8) == sizeof(MeansQ8));
 

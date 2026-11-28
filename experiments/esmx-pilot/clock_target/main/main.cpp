@@ -73,6 +73,13 @@ extern "C" void app_main() {
         const auto upstream = recognizeDetailed(item.samples).disposition;
         const bool expected = recognized == item.intent && upstream == item.upstream;
         ok &= expected;
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+        constexpr int64_t InferenceWindowUs = 3'000'000;
+        const bool withinBudget = elapsed <= InferenceWindowUs;
+        ok &= withinBudget;
+        std::printf("BB_BUTTER_BUDGET %s %lld %u\n", item.name,
+                    static_cast<long long>(elapsed), withinBudget);
+#endif
         std::printf("BB_CLOCK_CASE %s %u %u %lld %u\n", item.name, recognized,
                     static_cast<unsigned>(upstream), static_cast<long long>(elapsed), expected);
     }

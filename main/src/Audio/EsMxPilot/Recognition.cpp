@@ -98,6 +98,13 @@ bool hasAmbiguousDiceFollowUp(std::span<const int16_t> pcm){
 	return false;
 }
 
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+bool confirmsButterRequest(std::span<const int16_t> pcm){
+    return recognizesAcousticButter(pcm) &&
+           confirmsButterPhonemes(measureButterPhonemes(frontend, words, pcm));
+}
+#endif
+
 }
 
 RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
@@ -119,17 +126,17 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 		}
 #endif
 #ifdef BB_ESMX_BUTTER_ACOUSTIC
-		if(phoneme == Kws::Intent::Unknown && recognizesAcousticButter(pcm)){
+		if(phoneme == Kws::Intent::Unknown && confirmsButterRequest(pcm)){
 			return Kws::Intent::Butter;
 		}
 #endif
 		return phoneme;
 	}
 #endif
-#if defined(BB_ESMX_BUTTER_ACOUSTIC) && defined(BB_ESMX_BUTTER_DIAGNOSE_DICE_CONFLICT) && !defined(ESP_PLATFORM)
-	// Desktop-only arm to audit this weak conflict. Other terminal vetoes remain sealed.
+#if defined(BB_ESMX_BUTTER_ACOUSTIC) && defined(BB_ESMX_BUTTER_WEAK_CONFLICT)
+	// Only this experimental Butter route may evaluate the weak D6 conflict.
 	if(decision.intent == Kws::Intent::Unknown && decision.disposition == TurnDisposition::DiceNegationConflict &&
-	   recognizesAcousticButter(pcm)){
+	   confirmsButterRequest(pcm)){
 		return Kws::Intent::Butter;
 	}
 #endif
