@@ -121,6 +121,25 @@ Desde la raíz del repositorio, en el entorno de entrenamiento de fonemas con Du
 
 Usar el host y la captura del perfil vigente con Chiste y Hora activados. Los manifiestos locales contienen hashes de entrada y de pesos. El recorte de Mantequilla de *Angelina* es un diagnóstico leído y se informa aparte de las voces mexicanas reservadas. El ensayo trabaja en la Mac y mantiene los pesos, las entradas y los ejecutables en almacenamiento local. [CHM150](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr).
 
+## Gramática de turno completo con esos bancos
+
+El ensayo calcula el costo CTC del turno completo para Mantequilla, Hora y D6. Cada petición compite con negaciones, frases de agenda u otros controles de su clase y las peticiones de las dos clases rivales. Usa el banco original para la negación y mide por separado los fonemas de los cuatro bancos. Abstiene si varias intenciones pasan el umbral. Calibra con pares de ajuste y desarrollo y los 494 turnos humanos de desarrollo. La evaluación compara PCM directo y captura simulada, conserva las decisiones del host y registra una hipótesis aparte para los conflictos D6.
+
+```sh
+for stage in fit replay; do
+  "$training_python" -B experiments/esmx-pilot/paired_phone_grammar_lab.py "$stage" \
+    --recipe "$lab/paired-grammar.json" --base "$initial_bank" --adaptations "$lab/chm-transcript" \
+    --speech "$initial_synthetic_features/index.json" --frontend "$kws" \
+    --corpus "$lab/chm150/corpus.parquet" --speakers "$lab/chm150/speaker-roles.json" \
+    --ffmpeg "$ffmpeg" --espeak "$espeak_ng" --root "$experiment_root" \
+    --butter-pairs "$butter_pairs" --clock-pairs "$clock_pairs" --d6-pairs "$d6_pairs" \
+    --host "$lab/host" --capture "$lab/capture" --butter-diagnostic "$angelina_sealed_wav" \
+    > "$lab/paired-grammar-$stage.json"
+done
+```
+
+Los directorios de pares contienen los WAV sintéticos y manifiestos fijados de los ensayos de Mantequilla, Hora y D6. Ninguna variante recuperó una voz reservada. Una variante propuso Hora ante el control `public-86`. Los experimentos quedan fuera de la aplicación.
+
 ## Diagnóstico de etapas de D6
 
 ```sh
