@@ -11,6 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
+from d6_teacher_guard_lab import Scorer, accepted as d6_accepted, eligible_pcm, select_limit
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
 from phoneme_replay_lab import overlaps_adjustment, strip_digital_edges, summarize
@@ -130,6 +131,33 @@ class PhonemeLabTest(unittest.TestCase):
         self.assertEqual(confirmed(0, None, cutoff), 0)
         self.assertEqual(confirmed(5, 2.5, cutoff), 0)
         self.assertEqual(confirmed(5, 2.0, cutoff), 5)
+
+    def test_d6_reference_calibration_rejects_ties_with_controls(self):
+        def score(positive, cost, margin, veto=False):
+            return {"positive": positive, "score": {"cost": cost, "margin": margin, "veto": veto}}
+
+        development = [score(True, 0.25, 0.5), score(True, 1.0, 0.5),
+                       score(False, 1.0, 0.5), score(False, 0.0, 1.0, veto=True)]
+        limit, margin = select_limit(development)
+        self.assertEqual(limit, 0.25)
+        self.assertTrue(d6_accepted(development[0]["score"], limit, margin))
+        self.assertFalse(d6_accepted(development[2]["score"], limit, margin))
+        self.assertFalse(d6_accepted(development[3]["score"], limit, margin))
+
+    def test_d6_reference_reports_no_fit_for_indistinguishable_utterances(self):
+        score = {"cost": 0.5, "margin": 1.0, "veto": False}
+        development = [{"positive": True, "score": score}, {"positive": False, "score": score}]
+        self.assertEqual(select_limit(development), (None, None))
+
+    def test_d6_reference_skips_inference_for_invalid_pcm(self):
+        scorer = Scorer.__new__(Scorer)
+        invalid = (b"", bytes(127_999), bytes(128_002))
+        with patch.object(scorer, "predict") as predict:
+            for sample in invalid:
+                self.assertFalse(eligible_pcm(sample))
+                self.assertIsNone(scorer.run(sample))
+            predict.assert_not_called()
+        self.assertTrue(eligible_pcm(bytes(128_000)))
 
     def test_adapted_bank_cannot_change_the_intent_head(self):
         with TemporaryDirectory() as work:

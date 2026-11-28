@@ -248,6 +248,25 @@ Para comprobar las tres variantes del guard con el banco adaptado, usa `--base "
 
 Para aislar el efecto del relleno digital, agrega `--align-zero-edges` a `replay` y `replay-chm` con el mismo guard congelado. El respaldo retira solo los ceros PCM16 antes de la primera y después de la última muestra distinta de cero, antes del recorte de energía y la extracción nativa. Conserva las pausas internas. El compacto sigue recibiendo el audio de la comparación anterior y los turnos que exceden cuatro segundos mantienen su rechazo. La opción reproduce un contraste de escritorio con límites sin recalibrar. El ruido real del AFE y los ceros digitales se comportan de forma distinta.
 
+### Referencia fonética de D6 con el vocabulario completo
+
+`d6_teacher_guard_lab.py` conserva todas las salidas del maestro para contrastar una orden de D6 con patrones de cancelación, otros dados y plurales. El estudiante aplica su veto de negación. El maestro y el estudiante reciben el PCM16 sin ceros exteriores. El compacto conserva su entrada original y la referencia solo prueba añadir D6 a sus abstenciones. Se congela el costo máximo y el margen mínimo en 86 turnos sintéticos y cuatro humanos de desarrollo. Los dos límites se eligen sin falsas activaciones en desarrollo. El replay mide por separado WAV y captura del panel histórico. Cuenta como acierto previo del compacto cada etiqueta 6 ante un D6 esperado. Las listas de altas separan los D6 esperados del resto de etiquetas. Un resultado sin ajuste deja al compacto como única vía de despacho.
+
+```fish
+set common --root "$experiment_root" --teacher "$teacher" --student "$lab/phone-natural-head" \
+  --espeak "$espeak_ng" --features "$kws" --guard "$lab/d6-teacher-guard.json"
+"$training_python" -B experiments/esmx-pilot/d6_teacher_guard_lab.py freeze $common \
+  --human "$experiment_root/autonomous-v18/train-first-candidate" \
+  --synthetic-index "$lab/phone-targets/index.json" --wav "$lab/fallback/wav"
+"$training_python" -B experiments/esmx-pilot/d6_teacher_guard_lab.py replay $common \
+  --reference "$lab/recognize" --capture "$lab/capture"
+"$training_python" -B experiments/esmx-pilot/d6_teacher_guard_lab.py replay-chm $common \
+  --reference "$lab/recognize" --corpus "$chm_parquet" --ffmpeg "$ffmpeg" \
+  --speaker-split "$lab/chm150/speaker-roles.json"
+```
+
+El maestro de 1,26 GB y esta comparación se ejecutan en la Mac. El ajuste no modifica los pesos ni la aplicación ESP32-S3.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
