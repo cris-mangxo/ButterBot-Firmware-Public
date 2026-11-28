@@ -7,10 +7,10 @@ from collections import Counter
 import duckdb
 from pocketsphinx import Decoder
 
-from sphinx_clock_reference import GRAMMAR
+from sphinx_clock_reference import GRAMMAR, acoustic_seal
 from capture_replay import pcm_from, recordings
 from phoneme_chm150_lab import CORPUS_SHA256, SPEAKER_SPLIT_SHA256, decode, eligible_rows
-from time_lab import file_digest, invoke
+from time_lab import digest, file_digest, invoke
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -54,5 +54,8 @@ if __name__ == "__main__":
                     assess(index, decode(a.ffmpeg, audio), 0)
         outcomes[panel] = {"counts":dict(counts), "new_wrong": witnesses}
     print(json.dumps({"host_sha256": file_digest(a.host), "corpus_sha256": CORPUS_SHA256,
-                      "speaker_split_sha256": SPEAKER_SPLIT_SHA256, "panels": outcomes},
+                      "speaker_split_sha256": SPEAKER_SPLIT_SHA256,
+                      "grammar_sha256": digest(GRAMMAR.encode()),
+                      "dictionary_subset_sha256": file_digest(a.dict),
+                      "model_files": acoustic_seal(a.acoustic), "panels": outcomes},
                      indent=2, allow_nan=False))

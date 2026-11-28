@@ -469,3 +469,9 @@ decodificador. El control adicional `sphinx_clock_controls.py` acepta ese
 diccionario en `--dict`, el directorio acústico en `--acoustic`, el arnés
 actual en `--host` y el panel de conversación en `--chm`, `--speakers` y
 `--ffmpeg`. El panel histórico se pasa en `--history`.
+
+La gramática se diseñó conociendo los tipos de preguntas de Heroico y se
+probó de nuevo sobre ese panel de diagnóstico. La coincidencia exacta
+«qué hora es» tampoco cubrió las tres peticiones históricas de Hora.
+Los controles adicionales usan PCM crudo. El modelo declara licencia GPL
+3.0 o posterior. La publicación incluye código de investigación y métricas.

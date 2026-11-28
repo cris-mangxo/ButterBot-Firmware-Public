@@ -28,13 +28,6 @@ def read_s3(path, dimensions):
     return geometry[:-1], np.frombuffer(contents, dtype="<f4", count=size, offset=start)
 
 
-def write_s3(path, dimensions, values):
-    header = b"s3\nversion 1.0\nendhdr\n"
-    values = np.asarray(values, dtype="<f4")
-    geometry = struct.pack(f"<{2 + len(dimensions)}I", 0x11223344, *dimensions, values.size)
-    path.write_bytes(header + geometry + values.tobytes())
-
-
 GRAMMAR = """
 #JSGF V1.0 UTF-8;
 grammar robot;
@@ -115,6 +108,10 @@ def reduce(source, target, densities=None, quantize=False):
     return evidence
 
 
+def acoustic_seal(directory):
+    return {name: file_digest(directory / name) for name in sorted(ACOUSTIC_FILES)}
+
+
 def replay(args):
     grammar = re.sub(r"<[^>]+>", " ", GRAMMAR.split("public")[1])
     words = set(re.findall(r"[a-záéíóúñ]+", grammar))
@@ -151,9 +148,8 @@ def replay(args):
                                  "pilot": row[partition]["decision"]}
         records.append(report)
     print(json.dumps({"grammar_sha256": digest(GRAMMAR.encode()), "subset_sha256": file_digest(dictionary),
-                      "replay_input_sha256": file_digest(args.panel),
-                      "model_files": {entry.name: file_digest(entry) for entry in sorted(args.acoustic.iterdir())
-                                      if entry.is_file() and entry.name in ACOUSTIC_FILES},
+                      "replay_input_sha256": file_digest(args.panel), "quality_sha256": file_digest(args.quality),
+                      "model_files": acoustic_seal(args.acoustic),
                       "records": records}, indent=2,
                      ensure_ascii=False, allow_nan=False))
 
