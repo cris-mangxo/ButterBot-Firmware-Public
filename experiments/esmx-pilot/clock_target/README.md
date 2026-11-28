@@ -67,3 +67,30 @@ escritorio. El decodificador calienta en una tarea independiente y la
 escucha solo lo consulta si está listo. El enlace y la emulación tienen
 un alcance de escritorio. La latencia junto con el resto de servicios
 y el margen de memoria durante el funcionamiento físico quedan por medir.
+
+## D6 acústico experimental
+
+`BB_ESMX_DICE_ACOUSTIC` reutiliza el decodificador de Hora. La búsqueda
+compacta exige una orden completa de un solo dado de seis y un contraste
+de afirmación y negación del turno. Solo se ejecuta ante un conflicto
+débil de negación de D6. Los vetos terminales y las decisiones
+confirmadas tienen prioridad. La opción admite abstención y queda
+desactivada de forma predeterminada.
+
+Genera los activos de D6 en un directorio nuevo con
+`../dice_acoustic_pack.py --source DICCIONARIO_CIEMPIESS_GZ --clock CLOCK_DICT --output NUEVO_DIRECTORIO`.
+Este comando comprueba el diccionario de Hora fijado, corrige las entradas
+MEXBET de «usted» y «lance», y conserva las pronunciaciones que comparte
+con Hora. Coloca en ese directorio el `ClockModelAssets.h` local y los
+archivos expandidos del mismo modelo de Hora. Activa
+`BB_ESMX_DICE_ACOUSTIC=ON` en el firmware completo y usa ese directorio
+en `BB_ESMX_CLOCK_PACK`. En Mac activa `BB_ESMX_DICE_ACOUSTIC=1` y usa
+ese directorio en `BB_ESMX_CLOCK_ACOUSTIC_DIR` al compilar y al ejecutar.
+
+Para probar una orden de D6 con una entrada local de 16 kHz, mono, PCM16,
+usa `../routine_host.sh DIRECTORIO_VOZ DIRECTORIO_MODELOS dice6 < entrada.pcm`.
+El arnés debe recibir audio real y devolver intención 6, llamada a la
+rutina original, mensaje comprobado y los clips AAC esperados. También
+debe comprobarse que el reconocedor se abstiene en las cancelaciones.
+La opción no extiende por sí sola la cobertura a cualquier frase o a
+otros tipos de dado.

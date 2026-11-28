@@ -2,6 +2,9 @@
 #include "ClockModelVfs.h"
 
 #include "ClockModelAssets.h"
+#ifdef BB_ESMX_DICE_ACOUSTIC
+#include "DiceAcousticAssets.h"
+#endif
 #include "esp_vfs.h"
 #include <algorithm>
 #include <array>
@@ -44,8 +47,14 @@ static_assert(sizeof(MeansQ8) == PackedHeader + 90 * Densities * Dimensions);
 static_assert(sizeof(VariancesQ8) == sizeof(MeansQ8));
 
 constexpr Asset Files[]{
+#ifdef BB_ESMX_DICE_ACOUSTIC
+    {"/esmx-dice.dict", DiceAcousticAssets::Dictionary, {}},
+    {"/dice.kws", DiceAcousticAssets::Keywords, {}},
+#else
+    {"/clock.dict", Dictionary, {}},
+#endif
     {"/feat.params", Features, {}}, {"/mdef", Definition, {}}, {"/noisedict", Noise, {}},
-    {"/clock.dict", Dictionary, {}}, {"/mixture_weights", Mixture, {}},
+    {"/mixture_weights", Mixture, {}},
     {"/transition_matrices", Transitions, {}},
     {"/means", MeansPrefix, MeansQ8}, {"/variances", VariancesPrefix, VariancesQ8},
 };

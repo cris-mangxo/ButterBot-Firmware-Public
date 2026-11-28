@@ -7,6 +7,9 @@ namespace EsMx::Pilot {
 
 // Called only by the single recognition worker after an eligible abstention.
 bool recognizesAcousticClock(std::span<const int16_t> pcm);
+#ifdef BB_ESMX_DICE_ACOUSTIC
+bool recognizesAcousticDice(std::span<const int16_t> pcm);
+#endif
 
 #ifdef ESP_PLATFORM
 bool prepareAcousticClock();

@@ -23,4 +23,8 @@ target_link_libraries(${COMPONENT_LIB} PRIVATE bb_esmx_target_sphinx)
 target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,-u,__wrap_longjmp")
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
                            BB_ESMX_PILOT BB_ESMX_JOKE_FALLBACK BB_ESMX_CLOCK_FALLBACK BB_ESMX_CLOCK_ACOUSTIC)
+if(BB_ESMX_DICE_ACOUSTIC)
+    target_sources(${COMPONENT_LIB} PRIVATE "${PILOT}/DiceAcoustic.cpp")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BB_ESMX_DICE_ACOUSTIC)
+endif()
 target_compile_options(${COMPONENT_LIB} PRIVATE -ffp-contract=off)

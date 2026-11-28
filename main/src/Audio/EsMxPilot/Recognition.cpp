@@ -117,6 +117,14 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 		return phoneme;
 	}
 #endif
+#ifdef BB_ESMX_DICE_ACOUSTIC
+	// Limit the extra acoustic work to a weak D6 conflict. Generic abstentions
+	// may already have spent most of the capture deadline on the clock search.
+	if(decision.disposition == TurnDisposition::DiceNegationConflict &&
+	   recognizesAcousticDice(pcm) && !hasAmbiguousDiceFollowUp(pcm)){
+		return Kws::Intent::Dice6;
+	}
+#endif
 	return decision.intent;
 }
 

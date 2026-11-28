@@ -3,6 +3,9 @@
 
 #include "Audio/EsMxKws/Compact.h"
 #include "ClockGrammar.h"
+#ifdef BB_ESMX_DICE_ACOUSTIC
+#include "DiceAcoustic.h"
+#endif
 #include <cstdlib>
 #include <memory>
 #include <pocketsphinx.h>
@@ -37,6 +40,10 @@ namespace {
 using Config = std::unique_ptr<ps_config_t, decltype(&ps_config_free)>;
 using Decoder = std::unique_ptr<ps_decoder_t, decltype(&ps_free)>;
 
+#ifdef BB_ESMX_DICE_ACOUSTIC
+bool diceSearchReady = false;
+#endif
+
 Decoder createDecoder() {
 #ifdef ESP_PLATFORM
     // PocketSphinx treats allocation failure as fatal. Keep this optional path
@@ -54,7 +61,12 @@ Decoder createDecoder() {
         return {nullptr, &ps_free};
     }
 
-    const std::string dictionary = std::string(root) + "/clock.dict";
+    const std::string dictionary = std::string(root) +
+#ifdef BB_ESMX_DICE_ACOUSTIC
+        "/esmx-dice.dict";
+#else
+        "/clock.dict";
+#endif
     const Config config(ps_config_init(nullptr), &ps_config_free);
     if (!config) {
         return {nullptr, &ps_free};
@@ -71,6 +83,20 @@ Decoder createDecoder() {
         ps_activate_search(decoder.get(), "clock") < 0) {
         return {nullptr, &ps_free};
     }
+#ifdef BB_ESMX_DICE_ACOUSTIC
+#ifdef ESP_PLATFORM
+    // Keep Hora available if the optional D6 searches cannot reserve their
+    // additional working set. PocketSphinx can exit on allocation failure.
+    const bool roomForDice = heap_caps_get_free_size(ClockMemoryCaps) >= 3 * 1024 * 1024 &&
+                             heap_caps_get_largest_free_block(ClockMemoryCaps) >= 512 * 1024;
+#else
+    constexpr bool roomForDice = true;
+#endif
+    if (roomForDice) {
+        const std::string keywords = std::string(root) + "/dice.kws";
+        diceSearchReady = addAcousticDice(decoder.get(), keywords.c_str());
+    }
+#endif
     return decoder;
 }
 
@@ -110,7 +136,7 @@ bool recognizesAcousticClock(std::span<const int16_t> pcm) {
 #else
     auto* decoder = decoderInstance().get();
 #endif
-    if (!decoder || ps_start_utt(decoder) < 0) {
+    if (!decoder || ps_activate_search(decoder, "clock") < 0 || ps_start_utt(decoder) < 0) {
         return false;
     }
     const auto processed = ps_process_raw(decoder, pcm.data(), pcm.size(), 0, 1);
@@ -121,6 +147,18 @@ bool recognizesAcousticClock(std::span<const int16_t> pcm) {
     const auto* hypothesis = ps_get_hyp(decoder, nullptr);
     return hypothesis && std::string_view(hypothesis) == "qué hora es";
 }
+
+#ifdef BB_ESMX_DICE_ACOUSTIC
+bool recognizesAcousticDice(std::span<const int16_t> pcm) {
+    if (pcm.empty() || pcm.size() > Kws::MaxSamples) return false;
+#ifdef ESP_PLATFORM
+    auto* decoder = readyDecoder.load(std::memory_order_acquire);
+#else
+    auto* decoder = decoderInstance().get();
+#endif
+    return decoder && diceSearchReady && confirmsAcousticDice(decoder, pcm);
+}
+#endif
 
 }
 #endif
