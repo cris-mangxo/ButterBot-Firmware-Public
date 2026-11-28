@@ -88,9 +88,15 @@ Decoder createDecoder() {
     }
 #ifdef BB_ESMX_BUTTER_ACOUSTIC
     const std::string keywords = std::string(root) + "/butter.kws";
+#ifdef BB_ESMX_BUTTER_APP_EXPERIMENT
+    // The last search installed is the opposing FSG. Its readiness is checked
+    // before each Butter decode, so a partial installation leaves Hora usable.
+    installButterAcousticSearches(decoder.get(), keywords.c_str());
+#else
     if (!installButterAcousticSearches(decoder.get(), keywords.c_str())) {
         return {nullptr, &ps_free};
     }
+#endif
 #endif
 #if (defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)) || defined(BB_ESMX_D6_SCOPE_BENCH)
     const std::string diceKeywords = std::string(root) + "/dice-scope.kws";

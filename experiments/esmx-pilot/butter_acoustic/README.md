@@ -42,3 +42,51 @@ El arnés de rutinas recibe PCM e infiere la intención antes de invocar el cód
 `prepare_target.py` recibe `--cases` con un JSON de casos `id`, `pcm` relativo al manifiesto, `sha256`, `intent` esperado y `upstream` esperado. Pasa `--model "$butter_assets/manifest.json"` y la ruta local de salida `--header` llamada `ClockTargetCases.h`. Para compilar el arnés aislado de Hora en ESP32-S3, fija su `BB_ESMX_CLOCK_TARGET_CASES` a ese directorio y usa los parámetros anteriores de PocketSphinx y el mismo CI16-Q8. Añade `-D BB_ESMX_BUTTER_ACOUSTIC=ON -D BB_ESMX_BUTTER_WEAK_CONFLICT=ON -D BB_ESMX_BUTTER_ASSETS="$butter_assets"` para probar la excepción experimental. El arnés imprime `BB_BUTTER_BUDGET` por turno, con el tiempo de inferencia y el resultado del límite de tres segundos.
 
 Mantén locales los modelos, clips, cabeceras generadas y binarios. La ejecución aislada verifica inferencia y presupuesto emulado. La latencia con servicios activos y las pruebas físicas del robot quedan pendientes.
+
+## Perfil experimental de Mantequilla en la aplicación
+
+`BB_ESMX_BUTTER_APP_EXPERIMENT` habilita Mantequilla en la aplicación
+compacta del robot. Se activa explícitamente en una compilación de
+escritorio. Conserva el selector de rutinas original. El alcance acústico
+D6 se mantiene en su arnés experimental. Los vetos terminales conservan
+prioridad sobre cualquier respaldo. El conflicto débil se evalúa solo
+con la doble confirmación acústica y fonética de Mantequilla.
+
+Prepara los activos locales de voz compacta y el perfil CI16 según
+[la guía del banco](../clock_target/README.md). Usa el
+`ButterModelAssets.h` sellado de validación y su `ClockModelAssets.h`
+CI16. CMake comprueba ambas huellas. Genera `$vendor_out` en un
+directorio nuevo con el mismo ESP-IDF fijado para el robot.
+
+```bash
+bash experiments/esmx-pilot/clock_target/build_pocketsphinx.sh \
+  "$pocketsphinx_git" "$vendor_out" esp32s3 --oppose-pool --skip-empty-history
+
+idf.py -B "$app_out" -D "SDKCONFIG=$app_sdkconfig" \
+  -D BB_ESMX_PILOT=ON -D BB_ESMX_JOKE_FALLBACK=ON \
+  -D BB_ESMX_CLOCK_FALLBACK=ON -D BB_ESMX_CLOCK_ACOUSTIC=ON \
+  -D BB_ESMX_COMPACT_VOICE=ON -D "BB_ESMX_COMPACT_VOICE_ASSETS=$compact_voice" \
+  -D "BB_ESMX_ASSETS=$pilot_assets" -D "BB_ESMX_CLOCK_PACK=$ci16_pack" \
+  -D BB_ESMX_BUTTER_ACOUSTIC=ON -D BB_ESMX_BUTTER_APP_EXPERIMENT=ON \
+  -D "BB_ESMX_BUTTER_ASSETS=$butter_pack" \
+  -D "BB_ESMX_SPHINX_LIBRARY=$vendor_out/build/libpocketsphinx.a" \
+  -D "BB_ESMX_SPHINX_INCLUDE=$vendor_out/source/include" \
+  -D "BB_ESMX_SPHINX_GENERATED_INCLUDE=$vendor_out/build/include" \
+  -D "BB_ESMX_SPHINX_PRIVATE_INCLUDE=$vendor_out/source/src" build
+```
+
+El perfil abre el respaldo acústico solo cuando el grupo opositor está
+disponible. Si falla la instalación opcional de sus búsquedas, Hora
+conserva su decodificador y Mantequilla se abstiene. El arnés de ESP32-S3
+admite `BB_ESMX_BUTTER_APP_EXPERIMENT=ON` con Mantequilla acústica,
+las mismas bibliotecas y los mismos activos. Configura `BB_ESMX_EXPECT_OPPOSING_POOL=ON`
+para comprobar esa preparación. Para esta variante deja apagadas las tres
+opciones del arnés `BB_ESMX_D6_SCOPE_BENCH`, `BB_ESMX_BUTTER_WEAK_CONFLICT`
+y `BB_ESMX_BUTTER_CEPSTRA`. El perfil ya selecciona las opciones de
+Mantequilla. En el manifiesto de comparación identifica los casos que
+dependían del alcance D6 y su expectativa al quedar apagado.
+
+Se evalúan por separado la aplicación completa, el reconocedor aislado en
+ESP32-S3 y la ejecución de rutinas en la Mac. La latencia y la memoria con
+los servicios de audio, cámara y mando activos requieren medición en el
+robot. Los datos y binarios generados se quedan en el laboratorio.

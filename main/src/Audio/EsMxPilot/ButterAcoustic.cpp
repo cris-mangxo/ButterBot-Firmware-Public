@@ -18,7 +18,10 @@
 #endif
 
 namespace EsMx::Pilot {
-#if defined(ESP_PLATFORM) && !defined(BB_ESMX_BUTTER_BENCHMARK)
+#ifdef BB_ESMX_BUTTER_APP_EXPERIMENT
+static_assert(ButterModelAssets::ValidationEnabled, "The application experiment requires sealed validation assets");
+extern "C" int bb_fsg_opposing_pool_active(const ps_decoder_t*);
+#elif defined(ESP_PLATFORM) && !defined(BB_ESMX_BUTTER_BENCHMARK)
 static_assert(!ButterModelAssets::ValidationEnabled, "Butter validation is reserved for the emulator benchmark");
 #endif
 #ifdef BB_ESMX_BUTTER_WEAK_CONFLICT
@@ -325,6 +328,11 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
     }
     result.lastSpeech = lastSpeechFrame(pcm);
     auto* decoder = sharedAcousticDecoder();
+#ifdef BB_ESMX_BUTTER_APP_EXPERIMENT
+    if(!bb_fsg_opposing_pool_active(decoder)){
+        return result;
+    }
+#endif
     if(result.lastSpeech < 0 || !decodeAcoustic(decoder, KeywordsSearch, pcm) || !recordHits(decoder, result)){
         return result;
     }
