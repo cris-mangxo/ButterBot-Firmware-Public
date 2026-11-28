@@ -211,6 +211,24 @@ El banco de este experimento usó 9 180 bytes de pesos, escalas y sesgos. El res
 
 La preparación y la evaluación CHM150 requieren DuckDB 1.4.4. Se usa la [conversión Parquet fijada](https://huggingface.co/datasets/carlosdanielhernandezmena/chm150_asr/tree/7decd77dc38db34bb1125ca66bf5727cc91f05ab). Para correr el panel histórico con el banco adaptado, usa `--frozen "$lab/phone-rejection"` y añade `--negatives "$lab/chm150/native-negative-features"` a `phoneme_replay_lab.py`. En el control de 536 turnos de locutores reservados, el ajuste redujo las activaciones añadidas al compacto de 223 a 26. Perdió una toma humana de Hora reservada y una suplementaria que reconocía el banco inicial. El banco adaptado queda fuera de la aplicación.
 
+### Confirmación fonética sin volver a entrenar
+
+`phoneme_confirm_lab.py` comprueba la salida de fonemas del banco inicial. Antes de aceptar una intención, busca el camino local CTC de la palabra o frase esperada y mide su déficit frente a los máximos por cuadro. Admite las repeticiones y blancos de CTC. Fija el menor límite por intención que conserva al menos 80 % de los ejemplos sintéticos afirmativos que el banco ya reconocía en ajuste. El modo `--human-anchors` también admite los dos recortes léxicos públicos de Mantequilla y Chiste y la toma de ajuste de Hora. El modo `--clock-context` evalúa frases completas de Hora con ese mismo método.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/phoneme_confirm_lab.py freeze \
+  --base "$lab/phone-student" --cache "$lab/phone-targets" \
+  --negatives "$lab/chm150/native-negative-features" --speaker-split "$lab/chm150/speaker-roles.json" \
+  --guard "$lab/phone-guard.json" --espeak "$espeak_ng"
+"$training_python" -B experiments/esmx-pilot/phoneme_confirm_lab.py replay \
+  --base "$lab/phone-student" --cache "$lab/phone-targets" \
+  --negatives "$lab/chm150/native-negative-features" --speaker-split "$lab/chm150/speaker-roles.json" \
+  --guard "$lab/phone-guard.json" --root "$experiment_root" --features "$kws" \
+  --reference "$lab/recognize" --capture "$lab/capture"
+```
+
+Para la variante humana agrega `--human-anchors "$experiment_root/primer-candidato-voces" --features "$kws"` a `freeze` y usa otro `--guard`. El modo `replay-chm` recibe `--corpus`, `--ffmpeg`, `--features` y `--reference` además de los argumentos comunes. Evalúa los 30 hablantes reservados de CHM150. La confirmación solo conserva o veta la etiqueta del banco. En esta prueba, el modo estricto perdió las órdenes humanas de Hora y Mantequilla. La variante con voces de ajuste las conservó y siguió agregando activaciones incorrectas. Las variantes quedan fuera del firmware.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.

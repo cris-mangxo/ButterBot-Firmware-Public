@@ -72,7 +72,7 @@ def overlaps_adjustment(pcm, hashes, native_hashes=()):
     return sha256(trimmed.tobytes()).hexdigest() in hashes
 
 
-def evaluate(args, model, adjustment_hashes, negative_hashes=()):
+def evaluate(args, model, adjustment_hashes, negative_hashes=(), predict=student_intent):
     rows = list(recordings(args.root))
     if len(rows) != 112:
         raise ValueError("Historical comparison panel must contain 112 rows")
@@ -89,7 +89,7 @@ def evaluate(args, model, adjustment_hashes, negative_hashes=()):
             baseline = candidate = 0
             if 0 < len(sample) <= 128_000:
                 baseline = int(invoke(args.reference, sample))
-                candidate = student_intent(model, args.features, sample)
+                candidate = predict(model, args.features, sample)
             outcome[mode] = {
                 "baseline": baseline, "candidate": candidate, "combined": baseline or candidate,
                 "matches_adjustment_pcm": same_pcm,

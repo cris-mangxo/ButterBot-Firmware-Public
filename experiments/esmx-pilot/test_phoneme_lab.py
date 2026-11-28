@@ -14,6 +14,7 @@ from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
 from phoneme_replay_lab import overlaps_adjustment, summarize
 from phoneme_reject_lab import load_negatives
+from phoneme_confirm_lab import confirmed, local_ctc_cost
 from time_lab import file_digest
 
 
@@ -99,6 +100,22 @@ class PhonemeLabTest(unittest.TestCase):
     def test_replay_detects_pcm_overlap_in_native_human_cache(self):
         pcm = np.full(640, 1600, dtype="<i2").tobytes()
         self.assertTrue(overlaps_adjustment(pcm, set(), {sha256(pcm).hexdigest()}))
+
+    def test_local_ctc_ignores_unrelated_leading_and_trailing_frames(self):
+        logits = np.array([[0, 0, 0, 9], [0, 9, 0, 0], [0, 0, 9, 0], [0, 0, 0, 9]], dtype=np.float32)
+        self.assertEqual(local_ctc_cost(logits, (1, 2)), 0.0)
+        self.assertGreater(local_ctc_cost(logits[1:3], (2, 1)), 0)
+
+    def test_local_ctc_repeated_symbols_need_a_blank(self):
+        logits = np.array([[0, 9], [9, 0], [0, 9]], dtype=np.float32)
+        self.assertEqual(local_ctc_cost(logits, (1, 1)), 0.0)
+        self.assertTrue(np.isinf(local_ctc_cost(logits[[0, 2]], (1, 1))))
+
+    def test_lexical_veto_only_removes_an_intention(self):
+        cutoff = {5: 2.0}
+        self.assertEqual(confirmed(0, None, cutoff), 0)
+        self.assertEqual(confirmed(5, 2.5, cutoff), 0)
+        self.assertEqual(confirmed(5, 2.0, cutoff), 5)
 
 
 if __name__ == "__main__":
