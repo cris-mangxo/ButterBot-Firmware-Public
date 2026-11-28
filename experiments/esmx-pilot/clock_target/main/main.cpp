@@ -1,6 +1,10 @@
 #include "Audio/EsMxPilot/ClockAcoustic.h"
 #include "Audio/EsMxPilot/ClockModelVfs.h"
 #include "Audio/EsMxPilot/Recognition.h"
+#ifdef BB_ESMX_EXPECT_OPPOSING_POOL
+#include "Audio/EsMxPilot/AcousticSearch.h"
+extern "C" int bb_fsg_opposing_pool_active(const ps_decoder_t*);
+#endif
 #include "ClockTargetCases.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
@@ -65,6 +69,14 @@ extern "C" void app_main() {
         return;
     }
     std::printf("BB_CLOCK_WARMUP %lld\n", static_cast<long long>(esp_timer_get_time() - coldStart));
+#ifdef BB_ESMX_EXPECT_OPPOSING_POOL
+    const bool poolActive = bb_fsg_opposing_pool_active(sharedAcousticDecoder());
+    std::printf("BB_BUTTER_POOL active=%u\n", static_cast<unsigned>(poolActive));
+    if (!poolActive) {
+        std::puts("BB_CLOCK_FAIL");
+        return;
+    }
+#endif
     bool ok = true;
 #ifdef BB_ESMX_D6_SCOPE_BENCH
     const bool d6Installed = isDiceScopeInstalledInBench();

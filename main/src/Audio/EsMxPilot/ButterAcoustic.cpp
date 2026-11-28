@@ -4,6 +4,10 @@
 #include "AcousticSearch.h"
 #include "Audio/EsMxKws/Compact.h"
 #include "ButterModelAssets.h"
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+#include "cepstra_bridge.h"
+#include <cstdio>
+#endif
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
@@ -325,12 +329,30 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
     std::copy(pcm.begin(), pcm.end(), buffer.get());
     std::fill_n(buffer.get() + pcm.size(), TailSamples, 0);
     const std::span<const int16_t> padded(buffer.get(), pcm.size() + TailSamples);
-    if(!decodeAcoustic(decoder, AffirmSearch, padded)){
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+    const std::unique_ptr<bb_ps_cepstra, decltype(&bb_ps_free_cepstra)> cepstra(
+        bb_ps_capture_cepstra(decoder, padded.data(), padded.size()), bb_ps_free_cepstra);
+    std::printf("BB_BUTTER_CEPSTRA used=%u\n", static_cast<unsigned>(static_cast<bool>(cepstra)));
+#endif
+    const auto decodeFsg = [&](const char* search){
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+        if(cepstra){
+            if(ps_activate_search(decoder, search) < 0 || ps_start_utt(decoder) < 0){
+                return false;
+            }
+            const auto processed = bb_ps_replay_cepstra(decoder, cepstra.get());
+            const auto ended = ps_end_utt(decoder);
+            return processed >= 0 && ended >= 0;
+        }
+#endif
+        return decodeAcoustic(decoder, search, padded);
+    };
+    if(!decodeFsg(AffirmSearch)){
         return result;
     }
     result.ranFsg = true;
     recordAffirmative(decoder, result);
-    if(!decodeAcoustic(decoder, OpposeSearch, padded)){
+    if(!decodeFsg(OpposeSearch)){
         return result;
     }
     int score = 0;

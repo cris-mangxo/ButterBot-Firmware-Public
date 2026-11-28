@@ -67,3 +67,34 @@ escritorio. El decodificador calienta en una tarea independiente y la
 escucha solo lo consulta si está listo. El enlace y la emulación tienen
 un alcance de escritorio. La latencia junto con el resto de servicios
 y el margen de memoria durante el funcionamiento físico quedan por medir.
+
+## Banco conjunto de D6 y Mantequilla
+
+Desde un checkout limpio del commit de PocketSphinx fijado por el
+compilador, crea la variante aislada para Xtensa usando el entorno ESP-IDF
+ya cargado.
+
+```bash
+bash experiments/esmx-pilot/clock_target/build_pocketsphinx.sh \
+  "$pocketsphinx_git" "$vendor_out" esp32s3 --oppose-pool --skip-empty-history
+```
+
+En el arnés, configura `BB_ESMX_D6_SCOPE_BENCH=ON`,
+`BB_ESMX_BUTTER_ACOUSTIC=ON`, `BB_ESMX_BUTTER_WEAK_CONFLICT=ON`,
+`BB_ESMX_BUTTER_CEPSTRA=ON` y `BB_ESMX_EXPECT_OPPOSING_POOL=ON`.
+Usa los tres caminos de biblioteca y encabezados del mismo directorio
+que produjo el script. `BB_ESMX_SPHINX_PRIVATE_INCLUDE` debe apuntar a
+`$vendor_out/source/src`. El archivo `ClockTargetCases.h` se genera con
+el mismo preparador de casos de Mantequilla y un manifiesto local de
+las intenciones y disposiciones de referencia. La configuración de
+ESP32-S3, el banco CI16 y los recursos de Mantequilla se fijan por
+separado. El SDK reproduce una imagen de emulación, con archivos de
+salida exclusivos del arnés.
+
+Antes de comparar tiempos, comprueba `BB_D6_INSTALLED 1`,
+`BB_BUTTER_POOL active=1` y que la orden afirmativa de Mantequilla
+registre `BB_BUTTER_CEPSTRA used=1`. Conserva las decisiones de Hora,
+Chiste y los vetos D6 y de Dato curioso. El plazo se aplica a cada
+turno, con el calentamiento registrado aparte. Estas opciones solo se
+compilan en el arnés aislado. El resultado describe QEMU y requiere
+sus propias comprobaciones con los servicios reales del robot.

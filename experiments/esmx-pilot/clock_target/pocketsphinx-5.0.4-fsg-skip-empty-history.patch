@@ -1,0 +1,17 @@
+diff --git a/src/fsg_history.c b/src/fsg_history.c
+index 63f4312..a029583 100644
+--- a/src/fsg_history.c
++++ b/src/fsg_history.c
+@@ -227,0 +228 @@ fsg_history_end_frame(fsg_history_t * h)
++        glist_t *row = h->frame_entries[s];
+@@ -229 +230,4 @@ fsg_history_end_frame(fsg_history_t * h)
+-            for (gn = h->frame_entries[s][lc]; gn; gn = gnode_next(gn)) {
++            glist_t entries = row[lc];
++            if (entries == NULL)
++                continue;
++            for (gn = entries; gn; gn = gnode_next(gn)) {
+@@ -234,2 +238,2 @@ fsg_history_end_frame(fsg_history_t * h)
+-            glist_free(h->frame_entries[s][lc]);
+-            h->frame_entries[s][lc] = NULL;
++            glist_free(entries);
++            row[lc] = NULL;

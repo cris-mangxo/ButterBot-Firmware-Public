@@ -1,0 +1,85 @@
+diff --git a/src/fsg_search.c b/src/fsg_search.c
+index d4db17c..2c70de2 100644
+--- a/src/fsg_search.c
++++ b/src/fsg_search.c
+@@ -173,0 +174,29 @@ fsg_search_add_altpron(fsg_search_t *fsgs, fsg_model_t *fsg)
++/* Preserve the active-list order while reusing nodes between frames. */
++static glist_t
++fsg_active_push(fsg_search_t *fsgs, fsg_pnode_t *pnode)
++{
++    gnode_t *node;
++    if (fsgs->active_list_pool == NULL)
++        return glist_add_ptr(fsgs->pnode_active_next, pnode);
++
++    node = listelem_malloc(fsgs->active_list_pool);
++    node->data.ptr = pnode;
++    node->next = fsgs->pnode_active_next;
++    return node;
++}
++
++static void
++fsg_active_clear(fsg_search_t *fsgs, glist_t nodes)
++{
++    if (fsgs->active_list_pool == NULL) {
++        glist_free(nodes);
++        return;
++    }
++
++    while (nodes) {
++        gnode_t *node = nodes;
++        nodes = node->next;
++        listelem_free(fsgs->active_list_pool, node);
++    }
++}
++
+@@ -253,0 +283,2 @@ fsg_search_init(const char *name,
++    if (name != NULL && strcmp(name, "bb-butter-oppose") == 0)
++        fsgs->active_list_pool = listelem_alloc_init(sizeof(gnode_t));
+@@ -273,0 +305,3 @@ fsg_search_free(ps_search_t *search)
++    fsg_active_clear(fsgs, fsgs->pnode_active);
++    fsg_active_clear(fsgs, fsgs->pnode_active_next);
++    listelem_alloc_free(fsgs->active_list_pool);
+@@ -436,2 +470 @@ fsg_search_pnode_trans(fsg_search_t *fsgs, fsg_pnode_t * pnode)
+-                    glist_add_ptr(fsgs->pnode_active_next,
+-                                  (void *) child);
++                    fsg_active_push(fsgs, child);
+@@ -532,2 +565 @@ fsg_search_hmm_prune_prop(fsg_search_t *fsgs)
+-                    glist_add_ptr(fsgs->pnode_active_next,
+-                                  (void *) pnode);
++                    fsg_active_push(fsgs, pnode);
+@@ -666,2 +698 @@ fsg_search_word_trans(fsg_search_t *fsgs)
+-                            glist_add_ptr(fsgs->pnode_active_next,
+-                                          (void *) root);
++                            fsg_active_push(fsgs, root);
+@@ -755 +786 @@ fsg_search_step(ps_search_t *search, int frame_idx)
+-    glist_free(fsgs->pnode_active);
++    fsg_active_clear(fsgs, fsgs->pnode_active);
+@@ -848 +879 @@ fsg_search_finish(ps_search_t *search)
+-    glist_free(fsgs->pnode_active);
++    fsg_active_clear(fsgs, fsgs->pnode_active);
+@@ -850 +881 @@ fsg_search_finish(ps_search_t *search)
+-    glist_free(fsgs->pnode_active_next);
++    fsg_active_clear(fsgs, fsgs->pnode_active_next);
+@@ -1576,0 +1608,14 @@ error_out:
++
++
++int
++bb_fsg_opposing_pool_active(const ps_decoder_t *decoder)
++{
++    void *candidate;
++    const ps_search_t *search;
++    if (decoder == NULL || hash_table_lookup(decoder->searches, "bb-butter-oppose", &candidate) < 0)
++        return 0;
++    search = (const ps_search_t *) candidate;
++    if (strcmp(ps_search_type(search), PS_SEARCH_TYPE_FSG) != 0)
++        return 0;
++    return ((const fsg_search_t *) search)->active_list_pool != NULL;
++}
+diff --git a/src/fsg_search_internal.h b/src/fsg_search_internal.h
+index 2bcba6c..694a0ea 100644
+--- a/src/fsg_search_internal.h
++++ b/src/fsg_search_internal.h
+@@ -46,0 +47 @@
++#include "util/listelem_alloc.h"
+@@ -84,0 +86 @@ typedef struct fsg_search_s {
++    listelem_alloc_t *active_list_pool;
