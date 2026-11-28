@@ -249,7 +249,8 @@ def main():
         'non_human_summary_included': True,
         'chm': dict(planned, speakers=len(speakers_tested)) if args.corpus else None,
     }
-    focus = {'mty-003-02-15','mty-042-04-15','coerll-int02c-hora-esmx','public-03','public-37','public-81','public-88','public-89','veto-fact'}
+    focus = {'mty-003-02-15','mty-042-04-15','coerll-int02c-hora-esmx','public-03','public-37','public-81',
+             'public-88','public-89','veto-fact','veto-d6'}
     summary['episodes'] = [row for row in selection if row['id'] in focus]
     print(json.dumps(summary, indent=2))
 

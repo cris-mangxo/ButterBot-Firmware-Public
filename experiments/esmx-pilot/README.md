@@ -194,7 +194,7 @@ El segundo comando conserva la prioridad del piloto de escritorio y compara grab
 
 ### Motivo de abstención del piloto
 
-El reconocedor de escritorio admite `--decision` con el mismo PCM16 mono de 16 kHz. Reporta intención, motivo y si el turno se puede considerar para una segunda inferencia. El modo normal sigue entregando el identificador de intención. Audio inválido, orden reconocida, D6 sin confirmar, conflicto acústico y vetos explícitos quedan fuera de la evaluación alternativa. El conflicto de negación es una señal acústica, con menor certeza que un veto explícito. Un caso elegible todavía exige que el modelo de respaldo compruebe la orden y descarte una negación.
+El reconocedor de escritorio admite `--decision` con el mismo PCM16 mono de 16 kHz. Reporta intención, motivo y si el turno se puede considerar para una segunda inferencia. El modo normal sigue entregando el identificador de intención. La política excluye audio inválido, órdenes reconocidas, rechazos del filtro de frases y conflictos o vetos que el piloto detecta. El conflicto de negación es una señal acústica, con menor certeza que un veto explícito. Una negación que el piloto no detecte puede quedar en falta de coincidencia, como el control sintético `veto-d6`. Un caso elegible todavía exige que el modelo de respaldo compruebe la orden y compruebe la negación de forma independiente.
 
 ```sh
 "$training_python" -B experiments/esmx-pilot/recognition_decision_replay.py \

@@ -13,6 +13,7 @@ std::string_view dispositionName(EsMx::Pilot::TurnDisposition disposition){
 		case InvalidAudio: return "invalid_audio";
 		case FactVeto: return "fact_veto";
 		case UnconfirmedDice: return "unconfirmed_dice";
+		case PhraseRejected: return "phrase_rejected";
 		case DiceNegationVeto: return "dice_negation_veto";
 		case DiceNegationConflict: return "dice_negation_conflict";
 		case DiceFollowUp: return "dice_follow_up";

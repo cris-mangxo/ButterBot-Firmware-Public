@@ -3,12 +3,13 @@
 #include "AcousticDice.h"
 #include "WordDice.h"
 #include <algorithm>
+#include <cstdint>
 
 namespace EsMx::Kws {
 
 enum class ConsensusMode { SharedSix, OrderedDie };
 
-enum class DiceRejection : uint8_t { None, NegationConflict, NegationVeto };
+enum class DiceRejection : std::uint8_t { None, NegationConflict, NegationVeto };
 
 struct DiceCompletion {
 	Intent intent;

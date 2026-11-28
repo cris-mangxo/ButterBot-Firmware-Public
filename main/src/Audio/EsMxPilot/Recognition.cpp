@@ -30,12 +30,6 @@ RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
 
 	const auto baseline = classify(signature, PilotModel, PilotLimits).intent;
 	const auto verified = verifyPhrase(signature, baseline, PilotPhrases);
-	if(verified == Intent::Unknown && baseline == Intent::Fact){
-		return {Intent::Unknown, TurnDisposition::FactVeto};
-	}
-	if(verified == Intent::Unknown && baseline == Intent::Dice6){
-		return {Intent::Unknown, TurnDisposition::UnconfirmedDice};
-	}
 	words.count = 0;
 	const auto wordIntent = completeWordDice(frontend, pcm, baseline, verified, PilotWordDice, words, supplements);
 	const auto dice = resolveConsensusDice(signature, baseline, wordIntent, PilotAcousticDice, PilotConsensusDice,
@@ -43,6 +37,13 @@ RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
 	                                      ConsensusMode::OrderedDie, &PilotBackupDice);
 	if(dice.intent != Intent::Unknown){
 		return {dice.intent, TurnDisposition::Accepted};
+	}
+	if(verified == Intent::Unknown && baseline != Intent::Unknown){
+		switch(baseline){
+			case Intent::Fact: return {Intent::Unknown, TurnDisposition::FactVeto};
+			case Intent::Dice6: return {Intent::Unknown, TurnDisposition::UnconfirmedDice};
+			default: return {Intent::Unknown, TurnDisposition::PhraseRejected};
+		}
 	}
 	switch(dice.rejection){
 		case DiceRejection::NegationVeto: return {Intent::Unknown, TurnDisposition::DiceNegationVeto};

@@ -1,15 +1,17 @@
 #pragma once
 
 #include "Audio/EsMxKws/Compact.h"
+#include <cstdint>
 
 namespace EsMx::Pilot {
 
-enum class TurnDisposition : uint8_t {
+enum class TurnDisposition : std::uint8_t {
 	Accepted,
 	NoMatch,
 	InvalidAudio,
 	FactVeto,
 	UnconfirmedDice,
+	PhraseRejected,
 	DiceNegationVeto,
 	DiceNegationConflict,
 	DiceFollowUp,
