@@ -13,7 +13,8 @@ struct JokeRule {
 	double threshold;
 };
 
-std::optional<double> scoreJoke(const Output& output, std::size_t frames, const JokeRule& rule);
-bool confirmsJoke(const Output& output, std::size_t frames, const JokeRule& rule);
+std::optional<double> scoreJoke(const Output& output, std::size_t frames, const JokeRule& rule,
+                                std::span<float> peakWorkspace);
+bool confirmsJoke(const Output& output, std::size_t frames, const JokeRule& rule, std::span<float> peakWorkspace);
 
 }

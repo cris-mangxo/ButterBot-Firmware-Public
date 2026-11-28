@@ -114,8 +114,9 @@ bool matchesJokeFallback(bb::asr::LogMel& frontend, Kws::WordFeatures& words,
     }
     auto features = std::span(scratch->features).first(count * Bands);
     std::memcpy(features.data(), words.frames.data(), features.size_bytes());
+    // The encoder's first work buffer is free once inference has produced its output.
     return infer(features, Frozen, scratch->workspace, scratch->output) &&
-           confirmsJoke(scratch->output, count, FrozenJoke);
+           confirmsJoke(scratch->output, count, FrozenJoke, scratch->workspace.first);
 }
 
 }

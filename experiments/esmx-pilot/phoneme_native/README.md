@@ -71,3 +71,14 @@ Si guardas la salida en un registro, se puede reducir a un informe que sella el 
 ```sh
 "$training_python" -B "$native/summarize_qemu.py" "$output/qemu.log" "$bank/report.json"   "$output/build/ButterBotPhonemeNativeBench.bin"   --emulated-flash "$output/build/qemu_flash.bin"
 ```
+
+Para medir solo el costo de clasificar Chiste a partir de logits, `bench_joke_alignment.cpp` genera cuatro matrices fijas. El resultado da la suma de puntajes, nanosegundos y evaluaciones. El perfil de firmware reutiliza en esta etapa la primera zona temporal del codificador.
+
+```sh
+c++ -std=c++20 -O2 -ffp-contract=off -DBB_PREPARED_ALIGNMENT \
+  -I"$native" -I"$lab/generated" "$native/Alignment.cpp" "$native/JokeGuard.cpp" \
+  "$native/bench_joke_alignment.cpp" -o "$scratch/bench-joke"
+"$scratch/bench-joke"
+```
+
+Para comparar contra el perfil anterior a la preparación de máximos, compila el mismo arnés sin `-DBB_PREPARED_ALIGNMENT` con los dos fuentes y el directorio de encabezados de aquel perfil. Alterna ambas ejecuciones y conserva la latencia real del dispositivo como una medición aparte.

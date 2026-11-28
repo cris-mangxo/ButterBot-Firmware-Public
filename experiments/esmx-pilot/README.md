@@ -342,6 +342,18 @@ Para comparar WAV, captura y CHM150, añade `--scope-guard "$lab/d6-scope.json"`
 
 ### Adaptación del modelo compacto para D6
 
+`dice_imperative_lab.py` compara el margen de intención con la evidencia fonética del verbo, «dado de seis», el orden y los controles de turno completo. Puede usar el banco pequeño de Chiste o el banco que se adaptó a D6. Reutiliza la señal de negación entrenada. El modo de conflicto existe solo en el laboratorio y excluye el veto terminal y las pausas que activan el control de continuación. Congela cada umbral con datos de ajuste y desarrollo antes de clasificar el histórico. Se ejecuta una vez por banco.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/dice_imperative_lab.py \
+  --root "$experiment_root" --output "$lab/dice-imperative" --bank "$bank" \
+  --speech "$synthetic_features" --labelled "$lab/d6-labelled" --chm "$lab/chm150" \
+  --frontend "$kws" --pilot "$lab/recognize" --capture "$lab/capture" --espeak "$espeak_ng" \
+  > "$lab/dice-imperative-replay.json"
+```
+
+La comparación marca las coincidencias exactas con el ajuste y conserva cualquier decisión que ya tomó el piloto. Los modelos, los rasgos y el audio quedan locales.
+
 `compact_d6_training_lab.py` extrae rasgos nativos y alinea las probabilidades del maestro para las tomas humanas selladas y las frases de contexto de `compact_d6_train_cases.json`. Ajusta todas las capas del estudiante con tres fuentes. La repetición sintética conserva las cuatro intenciones y su supervisión fonética. Las tomas completas añaden órdenes, menciones y cancelaciones. CHM150 añade conversación como abstención, sin convertirla en una etiqueta de cancelación. Las tomas humanas de desarrollo quedan fuera del optimizador. Se mide el archivo int8 recargado.
 
 ```fish

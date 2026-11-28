@@ -19,23 +19,39 @@ Path preferred(Path left, Path right){
 
 }
 
-std::optional<Alignment> align(std::span<const float> logits, std::span<const std::uint8_t> phones){
-	if(phones.empty() || phones.size() > MaxTemplatePhones || logits.empty() ||
-	   logits.size() % PhoneCount || logits.size() / PhoneCount > MaxFrames ||
+std::optional<AlignmentFrames> AlignmentFrames::prepare(std::span<const float> logits,
+                                                       std::span<float> peakWorkspace){
+	const auto frames = logits.size() / PhoneCount;
+	if(!frames || logits.size() % PhoneCount || frames > MaxFrames || frames > peakWorkspace.size()){
+		return std::nullopt;
+	}
+	for(std::size_t frame = 0; frame < frames; ++frame){
+		const auto row = logits.subspan(frame * PhoneCount, PhoneCount);
+		float peak = row.front();
+		for(const float value : row){
+			if(!std::isfinite(value)){
+				return std::nullopt;
+			}
+			peak = std::max(peak, value);
+		}
+		peakWorkspace[frame] = peak;
+	}
+	return AlignmentFrames(logits, peakWorkspace.first(frames));
+}
+
+std::optional<Alignment> AlignmentFrames::match(std::span<const std::uint8_t> phones,
+                                                std::size_t frameCount) const{
+	if(phones.empty() || phones.size() > MaxTemplatePhones || !frameCount || frameCount > rowPeaks.size() ||
 	   std::any_of(phones.begin(), phones.end(), [](auto phone){ return phone == 0 || phone >= PhoneCount; })){
 		return std::nullopt;
 	}
 	std::array<Path, 2 * MaxTemplatePhones - 1> previous;
 	const auto states = 2 * phones.size() - 1;
-	const auto frameCount = logits.size() / PhoneCount;
 	Path best;
 	std::uint16_t end = 0;
 	for(std::uint16_t frame = 0; frame < frameCount; ++frame){
 		const auto row = logits.subspan(frame * PhoneCount, PhoneCount);
-		if(!std::all_of(row.begin(), row.end(), [](float value){ return std::isfinite(value); })){
-			return std::nullopt;
-		}
-		const auto peak = *std::max_element(row.begin(), row.end());
+		const auto peak = rowPeaks[frame];
 		// Visit states in reverse so all predecessors still belong to the previous frame.
 		for(auto remaining = states; remaining > 0; --remaining){
 			const auto state = remaining - 1;
@@ -59,6 +75,12 @@ std::optional<Alignment> align(std::span<const float> logits, std::span<const st
 		return std::nullopt;
 	}
 	return Alignment{best.deficit / phones.size(), best.begin, end};
+}
+
+std::optional<Alignment> align(std::span<const float> logits, std::span<const std::uint8_t> phones){
+	std::array<float, MaxFrames> peaks;
+	const auto frames = AlignmentFrames::prepare(logits, peaks);
+	return frames ? frames->match(phones, logits.size() / PhoneCount) : std::nullopt;
 }
 
 }

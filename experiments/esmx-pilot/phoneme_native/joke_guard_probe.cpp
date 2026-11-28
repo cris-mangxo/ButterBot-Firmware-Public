@@ -26,7 +26,8 @@ int main(int argc, char** argv){
 	if(!std::cin || std::cin.peek() != std::char_traits<char>::eof() || std::cin.bad()){
 		return 2;
 	}
-	const auto score = scoreJoke(output, frames, FrozenJoke);
+	std::array<float, MaxFrames> peaks;
+	const auto score = scoreJoke(output, frames, FrozenJoke, peaks);
 	std::cout << "{\"score\":";
 	if(score){
 		std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << *score;
