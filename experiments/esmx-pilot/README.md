@@ -420,3 +420,28 @@ python3 experiments/esmx-pilot/late_cancel_replay.py "$lab/capture" "$d6_ald_wav
 El control toma dos WAV de Ald, una orden afirmativa de D6 y una frase de cancelación. Concatena las voces con pausas de 250, 880 y 950 ms, tres niveles de amplitud para la segunda frase y ambos brazos de VAD. En la evaluación se usaron «No, mejor no lo tires», «No, cancela» y «No lo tires». De 54 controles, 30 llegaron a inferencia y 24 excedieron la ventana del modelo. Las 30 inferencias quedaron en abstención. En una comparación host con la misma captura y el reconocedor de `451d185`, previo a la guardia, 14 de esas 30 inferencias despacharon D6. Se clasifica ambigüedad acústica en las tomas sintéticas. Falta medir las cancelaciones humanas.
 
 El arnés añade una cola digital de ceros. Si el AFE real produce ruido no nulo durante el segundo de retención y los 1,2 s de confirmación, esa cola puede ocupar unos 2,2 s de la ventana de cuatro. Quedarían unos 1,8 s para la voz y sus pausas, frente a unos 2,7 s con la ventana anterior bajo los mismos supuestos. Un segundo de cola artificial de pico de 1 unidad PCM sobre `public-81` bastó para que el nuevo capturador se abstuviera por longitud en ambos brazos. Se requiere audio del AFE para decidir el recorte tolerable y verificar latencia en placa. Las cancelaciones fuera del mismo turno se quedan para otra prueba.
+
+### Hora con un locutor Heroico separado
+
+`clock_elastic_lab.py` compara la pregunta completa con plantillas cepstrales y
+alineación temporal acotada. `clock_compact_lab.py` entrena un clasificador
+temporal de escritorio con y sin la toma humana de ajuste. Ninguno participa
+en la compilación del firmware. Mantén los audios, pesos y manifiestos de
+locución en un directorio local ajeno a Git.
+
+En ambos programas `fit` recibe `--frontend` (el extractor C++ del caché CHM150),
+`--donor` y `--agenda` (manifiestos de ajuste), `--synthetic`, `--negatives`
+y `--speakers` (caché y partición CHM150). El ensayo elástico imprime el sello JSON
+y recibe el archivo en `--synthetic`. El compacto crea el directorio indicado
+en `--output`, con su sello y pesos independientes. Recibe el directorio creado
+por su etapa `generate --output` en `--synthetic`. Esta última usa las voces
+del sistema macOS declaradas en `keyword_lab.py`.
+
+Cada etapa `replay` recibe `--frozen` (archivo JSON del elástico o directorio
+del compacto), `--frontend`, `--host`, `--capture`, `--panel`, `--quality`
+y `--pcm`. El panel es el informe sellado de Heroico, la calidad identifica
+las preguntas confirmadas y el directorio PCM contiene las vistas cruda
+y retenida que coinciden con las huellas del informe. El elástico también
+acepta `--history` con la raíz del panel histórico. La política de replay
+solo considera una nueva propuesta si el piloto original se abstiene con
+`NoMatch`. Una propuesta de escritorio no equivale a un despacho de firmware.
