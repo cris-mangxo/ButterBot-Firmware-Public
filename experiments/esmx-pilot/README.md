@@ -174,6 +174,24 @@ La variante con el manifiesto fijado y los dos recortes CIEMPIESS produjo rasgos
 
 `phoneme_teacher_lab.py` usa [Wav2Vec2 XLSR con inventario eSpeak](https://huggingface.co/facebook/wav2vec2-xlsr-53-espeak-cv-ft/tree/2c733782da5604684829819a5eb744c193fe9398). Verifica el peso oficial y proyecta las probabilidades a los fonemas que aparecen en el texto sintético de entrenamiento. La etiqueta vacía de CTC y el grupo de símbolos restantes se mantienen separados. Usa eSpeak NG 1.52.0 con `es-419` y el extractor nativo `word-frames`. Conserva los centros temporales del extractor al interpolar las probabilidades del maestro. El ajuste y desarrollo solo usan las voces sintéticas de esas particiones.
 
+### Comparación fonética de Hora
+
+`clock_contrast_lab.py` reproduce un filtro descartado para la aplicación. Evalúa pronunciaciones de la pregunta completa frente a preguntas de agenda, menciones y negaciones. El estudiante se conserva congelado. Una regresión logística usa costos de alineación, márgenes CTC y promedios de cada cuarto temporal de la distribución fonética. El ajuste de coeficientes se limita a registros sintéticos y fragmentos de conversación del carril de entrenamiento. El umbral es el mayor puntaje negativo de entrenamiento y desarrollo. SpanishPod A0056 se mide como referencia de ajuste separada.
+
+```bash
+shared=(--config "$scratch/clock-contrast.json" --base "$clock_bank"
+        --cache "$phoneme_cache" --negatives "$chm_feature_cache"
+        --speaker-split "$chm_split" --features "$word_frames_host"
+        --human-anchors "$public_root/primer-candidato-voces")
+"$training_python" -B experiments/esmx-pilot/clock_contrast_lab.py \
+  freeze "${shared[@]}" --espeak "$espeak"
+"$training_python" -B experiments/esmx-pilot/clock_contrast_lab.py \
+  replay "${shared[@]}" --root "$public_root" --reference "$pilot_host" --capture "$capture_host" \
+  --coerll-supplemental "$coerll_manifest" --corpus "$chm_parquet" --ffmpeg "$ffmpeg"
+```
+
+El segundo comando conserva la prioridad del piloto de escritorio y compara grabaciones históricas y sintéticas como PCM original y con captura simulada. En CHM150 usa locutores separados por el manifiesto previo. Excluye coincidencias PCM con el ajuste. El resultado no recuperó tomas humanas históricas de Hora y añadió una activación en CHM150. El filtro se conserva como experimento, separado del firmware.
+
 `phoneme_student_lab.py` entrena convoluciones temporales separables con señales de fonemas, intención y negación. Exporta los pesos int8 por canal junto con escalas y sesgos. El replay de escritorio convierte los pesos otra vez a flotante. La inferencia entera y el consumo en la placa quedan pendientes.
 
 ```sh
