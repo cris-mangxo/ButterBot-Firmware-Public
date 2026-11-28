@@ -5,6 +5,7 @@ from itertools import product
 import argparse
 import gzip
 import json
+import os
 from pathlib import Path
 import re
 import threading
@@ -123,10 +124,17 @@ def decide(view, positive_floor, negative_floor, exterior):
     return False
 
 def measure(rows, setting, policy, view):
-    accepted = [row for row in rows if (observation := row["views"].get(view))
-                and (policy == "conflict" or observation["baseline"] == "no_match")
-                and decide(observation, *setting)]
-    return {"tp": sum(row["expected"] == 6 for row in accepted),
+    visible = [row for row in rows if view in row["views"]]
+    accepted = [row for row in visible
+                if (policy == "conflict" or row["views"][view]["baseline"] == "no_match")
+                and decide(row["views"][view], *setting)]
+    added_true = sum(row["expected"] == 6 for row in accepted)
+    expected = sum(row["expected"] == 6 for row in visible)
+    previous_true = sum(row["expected"] == 6 and row["views"][view]["label"] == 6 for row in visible)
+    return {"evaluated": len(visible), "skipped": len(rows) - len(visible),
+            "expected_d6": expected, "baseline_correct_d6": previous_true,
+            "remaining_d6_misses": expected - previous_true - added_true,
+            "tp": added_true,
             "fp": sum(row["expected"] != 6 for row in accepted),
             "accepted": [row["id"] for row in accepted]}
 
@@ -160,6 +168,7 @@ def main():
     if file_digest(args.corpus) != CORPUS_SHA256 or file_digest(args.roles) != SPEAKER_SPLIT_SHA256:
         raise ValueError("Corpus or speaker split differs")
     reference = clock_reference(args.baseline_evidence, args.model, args.host, args.capture)
+    os.environ["BB_ESMX_CLOCK_ACOUSTIC_DIR"] = str(args.model.resolve())
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
         raise ValueError("Keep per-turn records outside the repository")
     args.output.mkdir(mode=0o700)
