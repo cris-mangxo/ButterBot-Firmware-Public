@@ -136,6 +136,22 @@ mkdir -m 0700 "$lab/keywords"
 
 La ruta usa 4 898 bytes de pesos int8 más escalas en disco y opera con los pesos de nuevo en flotante en Python. No se midieron memoria, latencia ni equivalencia de inferencia entera en ESP32-S3. El panel público incluye casos históricos de desarrollo del compacto. El modelo nuevo no ajustó sobre esas grabaciones. Las falsas activaciones en ese panel y en las negaciones sintéticas impiden integrarlo. `keyword_public_replay.py` permite repetir el contraste adicional con los manifiestos sellados de CIEMPIESS LIGHT y el material suplementario de FSI. Sus audios permanecen locales.
 
+## Transferencia acústica de palabras humanas
+
+`word_transfer.py` preentrena la parte local de la red con el corpus de palabras humanas alineadas de MSWC y la ajusta después con órdenes completas. Sus dos comprobaciones para D6 exigen que el turno sea afirmativo y que haya evidencia acústica de verbo, dado y seis en ese orden. La preparación de MSWC usa `experiments/esmx-compactas/autonomous/human_words.py`. Los modos de congelación y replay están separados.
+
+```sh
+mkdir -m 0700 "$lab/transfer"
+"$training_python" -B experiments/esmx-pilot/word_transfer.py freeze \
+  --root "$experiment_root" --wav "$lab/fallback/wav" --features "$kws" \
+  --human "$experiment_root/autonomous-v3/human-words" --output "$lab/transfer"
+"$training_python" -B experiments/esmx-pilot/word_transfer.py replay \
+  --root "$experiment_root" --wav "$lab/fallback/wav" --features "$kws" \
+  --output "$lab/transfer" --reference "$lab/recognize" --capture "$lab/capture"
+```
+
+La variante con `--anahuac-words` y `--ciempiess-words` añade recortes humanos de desarrollo. Se entrena la presencia de la palabra a la vez que se etiqueta el turno como rechazo. Usa un directorio distinto para congelar cada variante. `cv27_word_prep.py` genera el manifiesto de Anáhuac a partir de la revisión fijada del corpus, su `manifest.json` de auditoría y los ocho TAR numerados según el script. El programa verifica dos alineaciones automáticas y guarda solo clips pequeños y metadatos locales. Las marcas de tiempo son estimaciones para desarrollo. El conjunto no tiene locutores verificados mediante identificadores y queda fuera de las pruebas de aceptación. [Anáhuac](https://huggingface.co/datasets/skeletonsword/fonetica-cv27/tree/2a9d611ee5c268fe8fd155adbb37eba790ef8e08/anahuac) · [Marcas de palabra en Whisper.cpp](https://github.com/ggml-org/whisper.cpp#word-level-timestamp-experimental).
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
