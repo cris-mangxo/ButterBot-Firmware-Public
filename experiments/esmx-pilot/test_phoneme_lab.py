@@ -11,6 +11,8 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
+from compact_d6_training_lab import accepted as compact_accepted, calibrate as calibrate_compact_d6
+from compact_d6_training_lab import context_accepted, select_context_limits
 from d6_teacher_guard_lab import Scorer, accepted as d6_accepted, eligible_pcm, permitted, scope_cap, select_limit
 from d6_teacher_guard_lab import exterior_phone_counts
 from phoneme_student_lab import WIDTH, Student, gate, quantize
@@ -187,6 +189,33 @@ class PhonemeLabTest(unittest.TestCase):
         # A blank separates a repeated symbol into a different phone.
         greedy = np.array([1, 0, 1, 2, 2, 0, 2])
         self.assertEqual(exterior_phone_counts(greedy, 2, 4), (1, 1))
+
+    def test_compact_d6_cutoff_uses_only_eligible_development_controls(self):
+        def score(probability, veto=False):
+            return {"d6_probability": probability, "veto": veto}
+
+        rows = [(True, "human", score(0.97)), (False, "human", score(0.99, veto=True)),
+                (False, "synthetic", score(0.35)), (False, "CHM150", score(0.60))]
+        cutoff = calibrate_compact_d6(rows)
+        self.assertEqual(cutoff, 0.60)
+        self.assertFalse(compact_accepted(score(0.60), cutoff))
+        self.assertTrue(compact_accepted(score(0.61), cutoff))
+        self.assertFalse(compact_accepted(score(0.99, veto=True), cutoff))
+
+    def test_compact_d6_context_keeps_human_order_and_rejects_quoted_trigger(self):
+        def score(probability, cost, outside, veto=False):
+            return {"d6_probability": probability, "veto": veto, "ctc_cost": cost, "outside": outside}
+
+        order = score(0.71, 1.0, 2)
+        quote = score(0.99, 0.1, 9)
+        equally_short_control = score(0.65, 0.9, 1)
+        rows = [(True, "human", order), (True, "synthetic", score(0.80, 0.1, 11)),
+                (False, "human", quote), (False, "CHM150", equally_short_control)]
+        limits = select_context_limits(rows)
+        self.assertTrue(context_accepted(order, limits))
+        self.assertFalse(context_accepted(quote, limits))
+        self.assertFalse(context_accepted(equally_short_control, limits))
+        self.assertFalse(context_accepted(dict(order, veto=True), limits))
 
     def test_adapted_bank_cannot_change_the_intent_head(self):
         with TemporaryDirectory() as work:

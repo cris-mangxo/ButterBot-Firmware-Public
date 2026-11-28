@@ -282,6 +282,32 @@ El archivo `d6_turn_scope_cases.json` fija peticiones coloquiales, menciones, ex
 
 Para comparar WAV, captura y CHM150, añade `--scope-guard "$lab/d6-scope.json"` a los comandos `replay` y `replay-chm` de la referencia. La cuenta describe salidas del maestro. La comprobación carece de transcripción humana de los fonemas exteriores y se ejecuta en la Mac.
 
+### Adaptación del modelo compacto para D6
+
+`compact_d6_training_lab.py` extrae rasgos nativos y alinea las probabilidades del maestro para las tomas humanas selladas y las frases de contexto de `compact_d6_train_cases.json`. Ajusta todas las capas del estudiante con tres fuentes. La repetición sintética conserva las cuatro intenciones y su supervisión fonética. Las tomas completas añaden órdenes, menciones y cancelaciones. CHM150 añade conversación como abstención, sin convertirla en una etiqueta de cancelación. Las tomas humanas de desarrollo quedan fuera del optimizador. Se mide el archivo int8 recargado.
+
+```fish
+set labelled "$lab/compact-d6-labelled"
+set compact_bank "$lab/compact-d6-bank"
+set negative_features "$lab/chm150/native-negative-features"
+set speaker_roles "$lab/chm150/speaker-roles.json"
+"$training_python" -B experiments/esmx-pilot/compact_d6_training_lab.py prepare \
+  --human "$experiment_root/autonomous-v18/train-first-candidate" --teacher "$teacher" \
+  --features "$kws" --synthetic-index "$lab/phone-targets/index.json" --output "$labelled"
+"$training_python" -B experiments/esmx-pilot/compact_d6_training_lab.py train \
+  --base "$lab/phone-natural-head" --cache "$lab/phone-targets" --labelled "$labelled" \
+  --negatives "$negative_features" --speaker-split "$speaker_roles" --output "$compact_bank"
+set compact_common --bank "$compact_bank" --cache "$lab/phone-targets" --labelled "$labelled" \
+  --negatives "$negative_features" --features "$kws"
+"$training_python" -B experiments/esmx-pilot/compact_d6_training_lab.py calibrate-context $compact_common \
+  --speaker-split "$speaker_roles" --espeak "$espeak_ng" --output "$lab/compact-d6-context.json"
+"$training_python" -B experiments/esmx-pilot/compact_d6_training_lab.py replay $compact_common \
+  --root "$experiment_root" --capture "$lab/capture" --reference "$lab/recognize" \
+  --context "$lab/compact-d6-context.json"
+```
+
+Omite `--context` para probar solo la probabilidad D6. El contraste combinado añade costo CTC y fonemas exteriores medidos sobre los 32 símbolos del estudiante. El límite se ajusta con voces de desarrollo, con veto de negación y cero altas en los controles de desarrollo. En `replay-scope-test` usa el mismo bloque común y el guard opcional. `replay-chm` recibe también `--reference`, `--corpus`, `--speaker-split` y `--ffmpeg`. Estos ensayos tratan el banco como respaldo de D6 de escritorio. Cualquier decisión del compacto válido tiene prioridad.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.

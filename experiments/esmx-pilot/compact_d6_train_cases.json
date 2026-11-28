@@ -1,0 +1,23 @@
+{
+  "orders": [
+    "Robot, tira un dado de seis.",
+    "Aviéntame un dado de seis, porfa.",
+    "Ponme una tirada con un dado de seis.",
+    "Lanza para mí un dado de seis.",
+    "Pásale, tira un dado de seis.",
+    "Aviéntate un dado de seis, porfis."
+  ],
+  "controls": [
+    "La guía recomienda: tira un dado de seis al inicio.",
+    "Dijo textualmente: lanza un dado de seis para entrar.",
+    "El juego dice avienta un dado de seis tras el ataque.",
+    "En la regla se lee: tira un dado de seis.",
+    "Repite lo escrito: lanza un dado de seis.",
+    "Para explicar la regla digo: tira un dado de seis."
+  ],
+  "cancelled": [
+    "Tira un dado de seis. No, cancela eso.",
+    "Lanza un dado de seis. No lo tires.",
+    "Avienta un dado de seis. No, olvídalo."
+  ]
+}
