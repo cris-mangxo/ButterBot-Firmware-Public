@@ -13,7 +13,7 @@ import torch
 
 from phoneme_student_lab import WIDTH, Student, gate, quantize
 from phoneme_teacher_lab import align_frontend, collapse, edit_distance, nearest_intent, project
-from phoneme_replay_lab import overlaps_adjustment, summarize
+from phoneme_replay_lab import overlaps_adjustment, strip_digital_edges, summarize
 from phoneme_reject_lab import load_negatives
 from phoneme_confirm_lab import checked_bank, confirmed, local_ctc_cost
 from phoneme_ctc_adapt_lab import METHOD as ADAPTATION, TARGET_SHA256
@@ -102,6 +102,18 @@ class PhonemeLabTest(unittest.TestCase):
     def test_replay_detects_pcm_overlap_in_native_human_cache(self):
         pcm = np.full(640, 1600, dtype="<i2").tobytes()
         self.assertTrue(overlaps_adjustment(pcm, set(), {sha256(pcm).hexdigest()}))
+
+    def test_digital_edge_alignment_keeps_every_sample_inside_the_turn(self):
+        body = np.array([1, 0, 0, -1, 0, 230], dtype="<i2").tobytes()
+        original = bytes(640) + body + bytes(320)
+        capture = bytes(960) + body + bytes(960)
+        self.assertEqual(strip_digital_edges(original), body)
+        self.assertEqual(strip_digital_edges(capture), body)
+        self.assertEqual(strip_digital_edges(bytes(128_000)), b"")
+
+    def test_digital_edge_alignment_cannot_recover_an_oversized_turn(self):
+        overlong = b"\x01\x00" + bytes(128_000)
+        self.assertEqual(strip_digital_edges(overlong), overlong)
 
     def test_local_ctc_ignores_unrelated_leading_and_trailing_frames(self):
         logits = np.array([[0, 0, 0, 9], [0, 9, 0, 0], [0, 0, 9, 0], [0, 0, 0, 9]], dtype=np.float32)

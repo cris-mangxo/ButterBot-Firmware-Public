@@ -14,7 +14,7 @@ import keyword_lab as kw
 from capture_replay import pcm_from
 from phoneme_ctc_adapt_lab import HEAD_ARRAYS, METHOD as ADAPTATION, TARGET_SHA256
 from phoneme_reject_lab import BASE_SHA256, NEGATIVE_CACHE_SHA256, load_negatives
-from phoneme_replay_lab import evaluate, frozen_model, native_frames, overlaps_adjustment, summarize
+from phoneme_replay_lab import evaluate, frozen_model, native_frames, overlaps_adjustment, strip_digital_edges, summarize
 from phoneme_student_lab import gate, load_cache
 from phoneme_teacher_lab import phonemes
 from time_lab import file_digest, invoke
@@ -229,8 +229,9 @@ def replay(args, model, source):
         return confirmed(*observe(selected, native_frames(features, pcm), patterns), thresholds)
 
     adjustment = {row["pcm_sha256"] for row in source["records"].values()}
-    rows = list(evaluate(args, model, adjustment, human_adjustment, predict=prediction))
-    original = list(evaluate(args, model, adjustment, human_adjustment))
+    rows = list(evaluate(args, model, adjustment, human_adjustment, predict=prediction,
+                         align_zero_edges=args.align_zero_edges))
+    original = list(evaluate(args, model, adjustment, human_adjustment, align_zero_edges=args.align_zero_edges))
     excluded_pcm = [row["id"] for row in rows[:112]
                     if any(row[mode]["matches_adjustment_pcm"] for mode in ("raw", "retained"))]
     pure = {row["id"] for row in rows[:112]} - set(excluded_pcm)
@@ -251,11 +252,16 @@ def replay(args, model, source):
         for mode, sample in (("raw", pcm), ("retained", invoke(args.capture, pcm, "--pcm-with-hangover"))):
             if overlaps_adjustment(sample, adjustment, human_adjustment):
                 raise ValueError("Human diagnostic overlaps training or development audio")
+            if args.align_zero_edges:
+                sample = strip_digital_edges(sample)
+                if overlaps_adjustment(sample, adjustment, human_adjustment):
+                    raise ValueError("Aligned human diagnostic overlaps training or development audio")
             intent, cost = observe(model, native_frames(args.features, sample), patterns)
             diag[mode] = {"initial": intent, "ctc_cost": cost, "verified": confirmed(intent, cost, thresholds)}
         diagnostics.append(diag)
+    alignment = {"alignment": "strip_outer_pcm16_zeros"} if args.align_zero_edges else {}
     return {"guard_sha256": file_digest(args.guard), "historical_excluded_pcm": excluded_pcm,
-            "summary": summaries, "diagnostic": diagnostics,
+            **alignment, "summary": summaries, "diagnostic": diagnostics,
             "episodes": [row for row in rows if row["id"] in {
                 "mty-042-04-15", "coerll-int02c-hora-esmx", "public-03", "public-37", "public-81",
                 "public-88", "public-89", "veto-fact",
@@ -290,13 +296,18 @@ def chm_replay(args, model, source):
             if old:
                 compact[old] += 1
                 continue
+            if args.align_zero_edges:
+                pcm = strip_digital_edges(pcm)
+                if sha256(kw.trimmed(pcm)).hexdigest() in adjustment:
+                    raise ValueError("Aligned CHM150 waveform intersects adjustment or development")
             intent, cost = observe(model, native_frames(args.features, pcm), patterns)
             if intent:
                 initial[intent] += 1
             accepted = confirmed(intent, cost, thresholds)
             if accepted:
                 verified[accepted] += 1
-    return {"guard_sha256": file_digest(args.guard), "utterances": count, "speakers": len(tested),
+    alignment = {"alignment": "strip_outer_pcm16_zeros"} if args.align_zero_edges else {}
+    return {"guard_sha256": file_digest(args.guard), **alignment, "utterances": count, "speakers": len(tested),
             "compact": compact, "initial_added": initial, "verified_added": verified}
 
 
@@ -344,9 +355,11 @@ def main():
     preparation.add_argument("--features", type=existing)
     preparation.add_argument("--clock-context", action="store_true")
     evaluation = children.add_parser("replay", parents=[common])
+    evaluation.add_argument("--align-zero-edges", action="store_true")
     for key in ("root", "features", "reference", "capture", "coerll-supplemental", "diagnostic"):
         evaluation.add_argument("--" + key, type=existing, required=key not in ("coerll-supplemental", "diagnostic"))
     chm = children.add_parser("replay-chm", parents=[common])
+    chm.add_argument("--align-zero-edges", action="store_true")
     for key in ("corpus", "features", "reference", "ffmpeg"):
         chm.add_argument("--" + key, type=existing, required=True)
     args = parser.parse_args()

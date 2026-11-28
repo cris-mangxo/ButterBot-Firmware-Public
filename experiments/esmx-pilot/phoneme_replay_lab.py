@@ -55,6 +55,13 @@ def native_frames(features, pcm):
     return frames if len(frames) >= 8 else None
 
 
+def strip_digital_edges(pcm):
+    if not 0 < len(pcm) <= 128_000:
+        return pcm
+    nonzero = np.flatnonzero(np.frombuffer(pcm, dtype="<i2"))
+    return pcm[2 * nonzero[0]:2 * (nonzero[-1] + 1)] if len(nonzero) else b""
+
+
 @torch.inference_mode()
 def intent_from_frames(model, frames):
     if frames is None:
@@ -76,7 +83,7 @@ def overlaps_adjustment(pcm, hashes, native_hashes=()):
     return sha256(trimmed.tobytes()).hexdigest() in hashes
 
 
-def evaluate(args, model, adjustment_hashes, negative_hashes=(), predict=student_intent):
+def evaluate(args, model, adjustment_hashes, negative_hashes=(), predict=student_intent, align_zero_edges=False):
     rows = list(recordings(args.root))
     if len(rows) != 112:
         raise ValueError("Historical comparison panel must contain 112 rows")
@@ -87,13 +94,16 @@ def evaluate(args, model, adjustment_hashes, negative_hashes=(), predict=student
         outcome = {"id": identifier, "split": split, "category": category, "expected": expected}
         captured = invoke(args.capture, pcm, "--pcm-with-hangover")
         for mode, sample in (("raw", pcm), ("retained", captured)):
+            candidate_sample = strip_digital_edges(sample) if align_zero_edges else sample
             same_pcm = overlaps_adjustment(sample, adjustment_hashes, negative_hashes)
+            if align_zero_edges and candidate_sample != sample:
+                same_pcm |= overlaps_adjustment(candidate_sample, adjustment_hashes, negative_hashes)
             if same_pcm and split.startswith(("public", "supplemental")):
                 raise ValueError(f"Human evaluation intersects the fitting or development cache: {identifier}")
             baseline = candidate = 0
             if 0 < len(sample) <= 128_000:
                 baseline = int(invoke(args.reference, sample))
-                candidate = predict(model, args.features, sample)
+                candidate = predict(model, args.features, candidate_sample)
             outcome[mode] = {
                 "baseline": baseline, "candidate": candidate, "combined": baseline or candidate,
                 "matches_adjustment_pcm": same_pcm,

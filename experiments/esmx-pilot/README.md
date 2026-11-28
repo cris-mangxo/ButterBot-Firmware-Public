@@ -246,6 +246,8 @@ Para la variante humana agrega `--human-anchors "$experiment_root/primer-candida
 
 Para comprobar las tres variantes del guard con el banco adaptado, usa `--base "$lab/phone-natural-head" --reference-bank "$lab/phone-student"` en `freeze`, `replay` y `replay-chm`. Crea un guard distinto para cada variante. Los ejemplos sintéticos afirmativos de ajuste y los anclajes opcionales fijan los límites. CHM150 se usa para medirlos. El replay comprueba la procedencia, la igualdad de cada tensor ajeno a la capa fonética y las coincidencias exactas de PCM con el ajuste. Los locutores reservados de CHM150 entran únicamente en `replay-chm`.
 
+Para aislar el efecto del relleno digital, agrega `--align-zero-edges` a `replay` y `replay-chm` con el mismo guard congelado. El respaldo retira solo los ceros PCM16 antes de la primera y después de la última muestra distinta de cero, antes del recorte de energía y la extracción nativa. Conserva las pausas internas. El compacto sigue recibiendo el audio de la comparación anterior y los turnos que exceden cuatro segundos mantienen su rechazo. La opción reproduce un contraste de escritorio con límites sin recalibrar. El ruido real del AFE y los ceros digitales se comportan de forma distinta.
+
 ## Rutinas de fábrica en Mac
 
 El [arnés de rutinas](routine_host/README.md) ejecuta los métodos `tick` de Mantequilla, Chiste, Hora y D6 con servicios sustituidos. Coteja el selector de intención, las estructuras que se enviarían al mando y los bytes que recibe el reproductor. Admite también PCM por entrada estándar para enlazar el reconocedor real con esa prueba.
