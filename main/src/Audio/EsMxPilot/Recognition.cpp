@@ -1,5 +1,8 @@
 #ifdef BB_ESMX_PILOT
 #include "Recognition.h"
+#ifdef BB_ESMX_JOKE_FALLBACK
+#include "JokeFallback.h"
+#endif
 
 #include "DiceConsensus.h"
 #include "phrase_bank.h"
@@ -97,7 +100,13 @@ RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
 }
 
 Kws::Intent recognize(std::span<const int16_t> pcm){
-	return recognizeDetailed(pcm).intent;
+	const auto decision = recognizeDetailed(pcm);
+#ifdef BB_ESMX_JOKE_FALLBACK
+	if(decision.allowsFallback() && matchesJokeFallback(pcm)){
+		return Kws::Intent::Joke;
+	}
+#endif
+	return decision.intent;
 }
 
 }

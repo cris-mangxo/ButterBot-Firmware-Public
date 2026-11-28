@@ -205,6 +205,23 @@ El reconocedor de escritorio admite `--decision` con el mismo PCM16 mono de 16 k
 
 `$ald_cancellation` apunta al recorte local sintético `cancela-d6.wav` del ensayo de captura. El informe compara las etiquetas finales y la captura de las cuatro versiones de escritorio. Para repetir el contraste de Hora aplicando este límite conservador, agrega `--respect-pilot-disposition` al comando `replay`. El piloto del firmware sigue usando su reconocedor actual.
 
+### Perfil experimental con Chiste
+
+`joke_contrast_lab.py` compara la evidencia de la palabra, la posición del verbo y el costo de frases afirmativas frente a menciones o negaciones. Tiene los pasos `freeze`, `replay` y `conversation`. Los coeficientes de la variante candidata se ajustan con el material sintético previo y negativos de CHM150. Los donantes públicos y el conjunto de desarrollo intervienen en la calibración. Las tomas reservadas permanecen en un manifiesto de evaluación separado. Los pesos y encabezados generados se conservan localmente.
+
+```sh
+native=experiments/esmx-pilot/phoneme_native
+"$training_python" -B "$native/export_bank.py" "$phoneme_bank" "$assets/student_bank.h"
+"$training_python" -B "$native/export_joke_rule.py" "$frozen_joke" "$assets/joke_rule.h" \
+  --sha256 "$verified_joke_sha256"
+BB_ESMX_JOKE_FALLBACK=1 bash experiments/esmx-pilot/build_host.sh "$assets" "$joke_host"
+BB_ESMX_JOKE_FALLBACK=1 bash experiments/esmx-pilot/build_host.sh "$assets" "$joke_capture" --capture
+BB_ESMX_JOKE_FALLBACK=1 bash experiments/esmx-pilot/routine_host.sh "$assets" "$assets" joke \
+  < "$reserved_chiste_pcm"
+```
+
+`$assets` reúne los encabezados locales habituales, los dos de Chiste y la voz generada para el piloto. Para compilar el mismo perfil con ESP-IDF, agrega `-D BB_ESMX_JOKE_FALLBACK=ON` al build piloto con `BB_ESMX_PILOT=ON`. Ambos perfiles están desactivados por defecto. Infiere Chiste solo en los turnos completos que el piloto declara elegibles. `--decision` sigue explicando la decisión del piloto antes de evaluar el respaldo. La prueba PCM con la rutina comprueba el reconocimiento, el despacho y la respuesta de voz y cuenta aparte los estímulos de ensayo inyectados por etiqueta.
+
 `phoneme_student_lab.py` entrena convoluciones temporales separables con señales de fonemas, intención y negación. Exporta los pesos int8 por canal junto con escalas y sesgos. El replay de escritorio convierte los pesos otra vez a flotante. La inferencia entera y el consumo en la placa quedan pendientes.
 
 ```sh

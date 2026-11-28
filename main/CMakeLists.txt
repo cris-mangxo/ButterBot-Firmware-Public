@@ -14,6 +14,10 @@ file(GLOB_RECURSE SOURCES
 idf_component_register(SRCS ${SOURCES} ${LIBS} INCLUDE_DIRS "src")
 
 option(BB_ESMX_PILOT "Build the experimental es-MX speech pilot" OFF)
+option(BB_ESMX_JOKE_FALLBACK "Build the experimental es-MX Chiste fallback" OFF)
+if(BB_ESMX_JOKE_FALLBACK AND NOT BB_ESMX_PILOT)
+    message(FATAL_ERROR "BB_ESMX_JOKE_FALLBACK requires BB_ESMX_PILOT")
+endif()
 if(BB_ESMX_PILOT)
     foreach(header IN ITEMS pilot_model.h phrase_bank.h word_bank.h word_extra.h word_adapted.h
                             acoustic_dice.h consensus_acoustic_dice.h backup_acoustic_dice.h voice_data.h)
@@ -29,6 +33,22 @@ if(BB_ESMX_PILOT)
                    "${ESMX_EXPERIMENT}/autonomous/AcousticDice.cpp")
     target_include_directories(${COMPONENT_LIB} PRIVATE "${BB_ESMX_ASSETS}" "${ESMX_EXPERIMENT}/guard"
                                "${ESMX_EXPERIMENT}/autonomous" "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/EsMxKws")
+endif()
+
+if(BB_ESMX_JOKE_FALLBACK)
+    foreach(header IN ITEMS student_bank.h joke_rule.h)
+        if(NOT EXISTS "${BB_ESMX_ASSETS}/${header}")
+            message(FATAL_ERROR "Generate the local es-MX Chiste assets. Missing: ${header}")
+        endif()
+    endforeach()
+    set(ESMX_PHONEME "${CMAKE_CURRENT_SOURCE_DIR}/../experiments/esmx-pilot/phoneme_native")
+    set(ESMX_JOKE_SOURCES "${ESMX_PHONEME}/Kernel.cpp" "${ESMX_PHONEME}/Alignment.cpp"
+                         "${ESMX_PHONEME}/JokeGuard.cpp")
+    target_sources(${COMPONENT_LIB} PRIVATE ${ESMX_JOKE_SOURCES})
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BB_ESMX_JOKE_FALLBACK)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${ESMX_PHONEME}")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/EsMxPilot/JokeFallback.cpp"
+                        ${ESMX_JOKE_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 spiffs_create_partition_image(storage ../spiffs FLASH_IN_PROJECT)

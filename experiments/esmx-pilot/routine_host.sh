@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ ( $# != 1 && $# != 3 ) || ! -f "$1/voice_data.h" ]]; then
-    printf 'Usage: %s GENERATED_VOICE_DIR [GENERATED_MODEL_DIR EXPECTED_INTENT < pcm.s16le | --observed-intent EXPECTED_INTENT < label.txt]\n' "$0" >&2
+    printf 'Usage: %s GENERATED_VOICE_DIR [GENERATED_MODEL_DIR EXPECTED_INTENT < pcm.s16le | --observed-intent EXPECTED_INTENT < label.txt]\nSet BB_ESMX_JOKE_FALLBACK=1 with GENERATED_MODEL_DIR to compile the experimental Chiste filter.\n' "$0" >&2
     exit 2
 fi
 
@@ -11,6 +11,10 @@ models=''
 if [[ $# == 3 && $2 != --observed-intent ]]; then
     models="$(cd -- "$2" && pwd)"
     expected="$3"
+fi
+if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 && -z "$models" ]]; then
+    printf 'BB_ESMX_JOKE_FALLBACK=1 requires GENERATED_MODEL_DIR.\n' >&2
+    exit 2
 fi
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"
@@ -64,6 +68,25 @@ if [[ -n "${models:-}" ]]; then
         fi
         ln -s -- "$models/$header" "$scratch/generated/$header"
     done
+    if [[ ${BB_ESMX_JOKE_FALLBACK:-0} == 1 ]]; then
+        native=experiments/esmx-pilot/phoneme_native
+        for header in student_bank.h joke_rule.h; do
+            if [[ ! -f "$models/$header" ]]; then
+                printf 'Missing generated Chiste header: %s\n' "$header" >&2
+                exit 2
+            fi
+            ln -s -- "$models/$header" "$scratch/generated/$header"
+        done
+        flags+=(-DBB_ESMX_JOKE_FALLBACK -I "$native")
+        joke_sources=(main/src/Audio/EsMxPilot/JokeFallback.cpp "$native/Kernel.cpp"
+                      "$native/Alignment.cpp" "$native/JokeGuard.cpp")
+        for source in "${joke_sources[@]}"; do
+            object="$scratch/$(basename "${source%.cpp}").o"
+            "${CXX:-c++}" "${flags[@]}" -ffp-contract=off -I "$kws" -I "$experiments/autonomous" \
+                -c "$source" -o "$object"
+            sources+=("$object")
+        done
+    fi
     flags+=(-DROUTINE_HOST_RECOGNITION -I "$kws" -I "$experiments/guard" -I "$experiments/autonomous")
     sources+=(main/src/Audio/EsMxPilot/Recognition.cpp "$kws/Compact.cpp" "$kws/logmel.cpp"
               "$experiments/guard/PhraseGate.cpp" "$experiments/autonomous/WordDice.cpp"
