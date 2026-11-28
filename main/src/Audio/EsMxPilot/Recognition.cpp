@@ -133,6 +133,12 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 			return Kws::Intent::Butter;
 		}
 #endif
+#if defined(BB_ESMX_D6_DIRECT_HOST) && defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+		if(phoneme == Kws::Intent::Unknown &&
+		   confirmsDiceScope(pcm, true) && !hasAmbiguousDiceFollowUp(pcm)){
+			return Kws::Intent::Dice6;
+		}
+#endif
 		return phoneme;
 	}
 #endif

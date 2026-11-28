@@ -14,7 +14,7 @@
 namespace EsMx::Pilot {
 
 bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords);
-bool confirmsDiceScope(std::span<const int16_t> pcm);
+bool confirmsDiceScope(std::span<const int16_t> pcm, bool requireFiniteVerb = false);
 
 }
 #endif

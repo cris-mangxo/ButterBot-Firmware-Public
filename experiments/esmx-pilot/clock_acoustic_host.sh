@@ -44,5 +44,11 @@ if [[ ${BB_ESMX_D6_SCOPE_HOST:-0} == 1 ]]; then
     if [[ ${BB_ESMX_D6_SCOPE_TRACE:-0} == 1 ]]; then
         flags+=(-DBB_ESMX_D6_SCOPE_TRACE)
     fi
+    if [[ ${BB_ESMX_D6_DIRECT_HOST:-0} == 1 ]]; then
+        flags+=(-DBB_ESMX_D6_DIRECT_HOST)
+    fi
     clock_sources+=("$dice_scope/DiceScope.cpp")
+elif [[ ${BB_ESMX_D6_DIRECT_HOST:-0} == 1 ]]; then
+    printf 'BB_ESMX_D6_DIRECT_HOST=1 requires BB_ESMX_D6_SCOPE_HOST=1.\n' >&2
+    exit 2
 fi

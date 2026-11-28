@@ -192,7 +192,7 @@ bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords) {
     return ps_add_kws(decoder, Spot, keywords) == 0;
 }
 
-bool confirmsDiceScope(std::span<const int16_t> pcm) {
+bool confirmsDiceScope(std::span<const int16_t> pcm, bool requireFiniteVerb) {
     auto* decoder = sharedAcousticDecoder();
     const auto speech = voicedSpan(pcm);
     if (!speech || !decodeAcoustic(decoder, Spot, pcm)) return false;
@@ -206,6 +206,12 @@ bool confirmsDiceScope(std::span<const int16_t> pcm) {
 #endif
     if (!body || body->score < BodyFloor || gapBefore(*body, *speech) > MaxStartGap ||
         gapAfter(*body, *speech) > MaxEndGap) return false;
+    if (requireFiniteVerb) {
+        // Infinitives in the closed order list can occur in explanations.
+        const auto text = body->phrase->text;
+        const auto verb = text.substr(0, text.find(' '));
+        if (verb.ends_with("ar") || verb.ends_with("er") || verb.ends_with("ir")) return false;
+    }
     const bool mentioned = conflictingMention(decoder, *body);
 #ifdef BB_ESMX_D6_SCOPE_TRACE
     std::fprintf(stderr, "BB_D6_TRACE mention %u\n", mentioned);

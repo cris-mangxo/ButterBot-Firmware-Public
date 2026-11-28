@@ -2,7 +2,7 @@
 
 Este experimento usa el decodificador CI16 compartido de Hora. La compilación de escritorio lo habilita con `BB_ESMX_D6_SCOPE_HOST=1`. La aplicación completa lo deja fuera. La inferencia sigue devolviendo el identificador que activa la rutina original de un dado.
 
-El código consulta la evidencia acústica únicamente si el clasificador base deja un conflicto débil de negación de dado. Los vetos terminales, la detección de una segunda intervención y las rutas anteriores tienen prioridad. El decodificador localiza una orden completa y contrasta hipótesis afirmativas y negativas en ventanas alrededor de ella. También rechaza menciones detectadas cerca de la orden. El léxico conserva las pronunciaciones del diccionario existente. Si falta el archivo de palabras clave o alguna pronunciación existente entra en conflicto, esta ruta se abstiene y las búsquedas previas siguen disponibles.
+Con la opción de alcance base, el código consulta la evidencia acústica únicamente si el clasificador deja un conflicto débil de negación de dado. Los vetos terminales, la detección de una segunda intervención y las rutas anteriores tienen prioridad. El decodificador localiza una orden completa y contrasta hipótesis afirmativas y negativas en ventanas alrededor de ella. También rechaza menciones detectadas cerca de la orden. El léxico conserva las pronunciaciones del diccionario existente. Si falta el archivo de palabras clave o alguna pronunciación existente entra en conflicto, esta ruta se abstiene y las búsquedas previas siguen disponibles.
 
 ## Reproducción local
 
@@ -25,6 +25,16 @@ La entrada para esta prueba es PCM16 mono a 16 kHz. El archivo de salida debe se
 
 La política de alcance se fijó con datos de desarrollo antes de volver a evaluar 88 y 89. La política limitada recuperó 88 en las dos vistas, mantuvo 03 y 81, y dejó 37, 89 y los vetos de Dato curioso sin activación. 88 y 89 son diagnósticos históricos. Todavía se necesita una orden y una cancelación espontánea de locutores reservados de español mexicano y una prueba de memoria y latencia en el ESP32-S3 antes de ofrecer esta ruta en el dispositivo.
 
+## Comparación de órdenes directas en la Mac
+
+Con `BB_ESMX_D6_SCOPE_HOST=1`, repite el mismo arnés con
+`BB_ESMX_D6_DIRECT_HOST=0` y `BB_ESMX_D6_DIRECT_HOST=1`. La segunda
+configuración prueba una ruta adicional después de `NoMatch` y la abstención
+de los respaldos anteriores. Exige un verbo conjugado en el cuerpo del turno
+y aplica las mismas comprobaciones de alcance, oposición y segunda
+intervención. Los vetos terminales tienen prioridad en las dos configuraciones.
+Compara por separado PCM crudo y retenido, con órdenes y negativos sellados
+antes de inferir. La opción está disponible en los arneses de la Mac.
 
 ## Emulación de ESP32-S3
 
