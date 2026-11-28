@@ -88,6 +88,15 @@ if(BB_ESMX_CLOCK_ACOUSTIC)
                  APPEND PROPERTY COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
+if(BB_ESMX_COMPACT_VOICE)
+    if(NOT IS_ABSOLUTE "${BB_ESMX_COMPACT_VOICE_ASSETS}" OR
+       NOT EXISTS "${BB_ESMX_COMPACT_VOICE_ASSETS}/compact_voice_bank.h")
+        message(FATAL_ERROR "Generate compact_voice_bank.h locally and set BB_ESMX_COMPACT_VOICE_ASSETS")
+    endif()
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE BB_ESMX_COMPACT_VOICE)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${BB_ESMX_COMPACT_VOICE_ASSETS}")
+endif()
+
 spiffs_create_partition_image(storage ../spiffs FLASH_IN_PROJECT)
 
 idf_build_get_property(BASEDIR PROJECT_DIR)

@@ -1,11 +1,18 @@
 #ifndef BUTTERBOT_FIRMWARE_SPEECHGEN_H
 #define BUTTERBOT_FIRMWARE_SPEECHGEN_H
 
-#include <memory>
+#include <cstdint>
 #include <span>
+#include <string>
+#ifdef BB_ESMX_COMPACT_VOICE
+#include <freertos/FreeRTOS.h>
+#include "CompactSpeech.h"
+#else
+#include <memory>
 #include "flite.h"
 #include "freertos/ringbuf.h"
 #include "Thread/Threaded.h"
+#endif
 
 /**
  * Flite thread, koji vrti TTS
@@ -60,6 +67,9 @@ public:
 	};
 
 private:
+#ifdef BB_ESMX_COMPACT_VOICE
+	EsMx::CompactSpeech::Stream stream;
+#else
 	static constexpr size_t BufferSize = 4 * 1024;
 	static constexpr size_t FliteMinBufSize = 512;
 
@@ -89,6 +99,7 @@ private:
 	[[maybe_unused]] static std::string flitePhoneToCMU(const cst_item* seg);
 	static std::string CMUToFlitePhone(const std::string& cmu);
 	static std::string multinetToCMU(const std::string& input);
+#endif
 };
 
 

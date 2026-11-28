@@ -1,3 +1,4 @@
+#ifndef BB_ESMX_COMPACT_VOICE
 #include "SpeechGen.h"
 #include <utility>
 #include "Memory/ObjectMemory.h"
@@ -335,3 +336,5 @@ std::string SpeechGen::multinetToCMU(const std::string& input){
 
 	return result;
 }
+
+#endif

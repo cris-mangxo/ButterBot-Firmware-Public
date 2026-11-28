@@ -6,5 +6,13 @@ set(CMAKE_CXX_STANDARD 23)
 
 set(IDF_TARGET esp32s3)
 
+option(BB_ESMX_COMPACT_VOICE "Build the incomplete es-MX clip playback experiment without Flite" OFF)
+if(BB_ESMX_COMPACT_VOICE)
+    if(NOT BB_ESMX_PILOT)
+        message(FATAL_ERROR "BB_ESMX_COMPACT_VOICE requires BB_ESMX_PILOT")
+    endif()
+    list(APPEND EXCLUDE_COMPONENTS flite)
+endif()
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(ButterBot-Firmware)
