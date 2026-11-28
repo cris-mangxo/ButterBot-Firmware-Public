@@ -125,7 +125,7 @@ bool conflictingMention(ps_decoder_t* decoder, const Cue& cue) {
 std::optional<double> score(ps_decoder_t* decoder, const char* name, std::span<const int16_t> pcm,
                             bool negative, bool prefix) {
     if (!decodeAcoustic(decoder, name, pcm)) return std::nullopt;
-    int32_t logScore = 0;
+    int32 logScore = 0;
     const auto* heard = ps_get_hyp(decoder, &logScore);
     const auto count = ps_get_n_frames(decoder);
     if (!heard || count <= 0) return std::nullopt;
