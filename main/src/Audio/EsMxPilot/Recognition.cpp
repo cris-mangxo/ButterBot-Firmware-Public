@@ -16,7 +16,7 @@
 namespace EsMx::Pilot {
 namespace {
 
-Kws::Intent recognizeTurn(std::span<const int16_t> pcm){
+RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
 	using namespace Kws;
 	static bb::asr::LogMel frontend;
 	static WordFeatures words;
@@ -25,16 +25,31 @@ Kws::Intent recognizeTurn(std::span<const int16_t> pcm){
 
 	Signature signature;
 	if(!ready || !extract(frontend, pcm, signature)){
-		return Intent::Unknown;
+		return {Intent::Unknown, TurnDisposition::InvalidAudio};
 	}
 
 	const auto baseline = classify(signature, PilotModel, PilotLimits).intent;
 	const auto verified = verifyPhrase(signature, baseline, PilotPhrases);
+	if(verified == Intent::Unknown && baseline == Intent::Fact){
+		return {Intent::Unknown, TurnDisposition::FactVeto};
+	}
+	if(verified == Intent::Unknown && baseline == Intent::Dice6){
+		return {Intent::Unknown, TurnDisposition::UnconfirmedDice};
+	}
 	words.count = 0;
 	const auto wordIntent = completeWordDice(frontend, pcm, baseline, verified, PilotWordDice, words, supplements);
-	return completeConsensusDice(signature, baseline, wordIntent, PilotAcousticDice, PilotConsensusDice, words,
-	                             PilotWordDice, PilotWordExtra, PilotWordAdapted, ConsensusMode::OrderedDie,
-	                             &PilotBackupDice);
+	const auto dice = resolveConsensusDice(signature, baseline, wordIntent, PilotAcousticDice, PilotConsensusDice,
+	                                      words, PilotWordDice, PilotWordExtra, PilotWordAdapted,
+	                                      ConsensusMode::OrderedDie, &PilotBackupDice);
+	if(dice.intent != Intent::Unknown){
+		return {dice.intent, TurnDisposition::Accepted};
+	}
+	switch(dice.rejection){
+		case DiceRejection::NegationVeto: return {Intent::Unknown, TurnDisposition::DiceNegationVeto};
+		case DiceRejection::NegationConflict: return {Intent::Unknown, TurnDisposition::DiceNegationConflict};
+		case DiceRejection::None: return {Intent::Unknown, TurnDisposition::NoMatch};
+	}
+	return {Intent::Unknown, TurnDisposition::InvalidAudio};
 }
 
 bool hasSpeechEnergy(std::span<const int16_t> frame){
@@ -60,7 +75,7 @@ bool hasAmbiguousDiceFollowUp(std::span<const int16_t> pcm){
 		if(lastVoiceEnd && offset - lastVoiceEnd >= FollowUpGap){
 			// A completed D6 request followed by separate speech is ambiguous.
 			// Replay only complete prefixes and cap extra inference on the MCU.
-			if(checks == MaxPrefixChecks || recognizeTurn(pcm.first(lastVoiceEnd)) == Kws::Intent::Dice6){
+			if(checks == MaxPrefixChecks || recognizeTurn(pcm.first(lastVoiceEnd)).intent == Kws::Intent::Dice6){
 				return true;
 			}
 			++checks;
@@ -72,12 +87,16 @@ bool hasAmbiguousDiceFollowUp(std::span<const int16_t> pcm){
 
 }
 
-Kws::Intent recognize(std::span<const int16_t> pcm){
-	const auto intent = recognizeTurn(pcm);
-	if(intent == Kws::Intent::Dice6 && hasAmbiguousDiceFollowUp(pcm)){
-		return Kws::Intent::Unknown;
+RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
+	const auto decision = recognizeTurn(pcm);
+	if(decision.intent == Kws::Intent::Dice6 && hasAmbiguousDiceFollowUp(pcm)){
+		return {Kws::Intent::Unknown, TurnDisposition::DiceFollowUp};
 	}
-	return intent;
+	return decision;
+}
+
+Kws::Intent recognize(std::span<const int16_t> pcm){
+	return recognizeDetailed(pcm).intent;
 }
 
 }

@@ -138,6 +138,8 @@ def main():
         parser.add_argument('--'+key.replace('_','-'), type=Path, required=True)
     for key in ('corpus','reference','capture','root','coerll_supplemental','ffmpeg','espeak'):
         parser.add_argument('--'+key.replace('_','-'), type=Path)
+    parser.add_argument('--respect-pilot-disposition', action='store_true',
+                        help='Evaluate fallback only for abstentions eligible under the pilot policy')
     args = parser.parse_args()
     if args.stage == 'freeze' and not args.espeak:
         parser.error('freeze requires --espeak')
@@ -198,6 +200,10 @@ def main():
     hashes = natural_adjustment_hashes(args.negatives) | {recipe['anchor_pcm_sha256']}
     synthetic_hashes = {row['pcm_sha256'] for row in synthetic['records'].values()}
     def decision(selected, frontend, pcm):
+        if args.respect_pilot_disposition:
+            pilot = json.loads(invoke(args.reference, pcm, '--decision'))
+            if not pilot['allows_fallback']:
+                return 0
         feats = clock_features(selected, native_frames(frontend, pcm), paths)
         value = score(feats, params)
         return CLOCK if value is not None and value > params['threshold'] else 0
@@ -235,6 +241,7 @@ def main():
         'config_sha256': file_digest(args.config),
         'baseline_sha256': file_digest(args.reference),
         'capture_sha256': file_digest(args.capture),
+        'respected_pilot_disposition': args.respect_pilot_disposition,
         'historical': compact,
         'excluded_fitting_overlap': [
             row['id'] for row in selection if any(row[mode]['matches_adjustment_pcm'] for mode in compact)

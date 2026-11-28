@@ -192,6 +192,19 @@ shared=(--config "$scratch/clock-contrast.json" --base "$clock_bank"
 
 El segundo comando conserva la prioridad del piloto de escritorio y compara grabaciones históricas y sintéticas como PCM original y con captura simulada. En CHM150 usa locutores separados por el manifiesto previo. Excluye coincidencias PCM con el ajuste. El resultado no recuperó tomas humanas históricas de Hora y añadió una activación en CHM150. El filtro se conserva como experimento, separado del firmware.
 
+### Motivo de abstención del piloto
+
+El reconocedor de escritorio admite `--decision` con el mismo PCM16 mono de 16 kHz. Reporta intención, motivo y si el turno se puede considerar para una segunda inferencia. El modo normal sigue entregando el identificador de intención. Audio inválido, orden reconocida, D6 sin confirmar, conflicto acústico y vetos explícitos quedan fuera de la evaluación alternativa. El conflicto de negación es una señal acústica, con menor certeza que un veto explícito. Un caso elegible todavía exige que el modelo de respaldo compruebe la orden y descarte una negación.
+
+```sh
+"$training_python" -B experiments/esmx-pilot/recognition_decision_replay.py \
+  --old "$pilot_previous" --new "$pilot_host" \
+  --old-capture "$capture_previous" --new-capture "$capture_host" \
+  --root "$public_root" --coerll "$coerll_manifest" --late-cancel "$ald_cancellation"
+```
+
+`$ald_cancellation` apunta al recorte local sintético `cancela-d6.wav` del ensayo de captura. El informe compara las etiquetas finales y la captura de las cuatro versiones de escritorio. Para repetir el contraste de Hora aplicando este límite conservador, agrega `--respect-pilot-disposition` al comando `replay`. El piloto del firmware sigue usando su reconocedor actual.
+
 `phoneme_student_lab.py` entrena convoluciones temporales separables con señales de fonemas, intención y negación. Exporta los pesos int8 por canal junto con escalas y sesgos. El replay de escritorio convierte los pesos otra vez a flotante. La inferencia entera y el consumo en la placa quedan pendientes.
 
 ```sh
