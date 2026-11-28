@@ -37,6 +37,12 @@ struct ButterEvidence {
     ButterSegment terminalNo;
 };
 
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+enum class ButterCepstraStatus : uint8_t { Unused, Used, Failed };
+void resetButterCepstraStatus();
+ButterCepstraStatus butterCepstraStatus();
+#endif
+
 bool butterOpposesRequest(std::string_view hypothesis);
 bool admitsTerminalNoSupportCheck(std::string_view hypothesis);
 ButterEvidence measureAcousticButter(std::span<const int16_t> pcm);

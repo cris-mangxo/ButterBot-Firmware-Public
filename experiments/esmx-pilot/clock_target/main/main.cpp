@@ -1,6 +1,9 @@
 #include "Audio/EsMxPilot/ClockAcoustic.h"
 #include "Audio/EsMxPilot/ClockModelVfs.h"
 #include "Audio/EsMxPilot/Recognition.h"
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+#include "Audio/EsMxPilot/ButterAcoustic.h"
+#endif
 #ifdef BB_ESMX_EXPECT_OPPOSING_POOL
 #include "Audio/EsMxPilot/AcousticSearch.h"
 extern "C" int bb_fsg_opposing_pool_active(const ps_decoder_t*);
@@ -92,9 +95,19 @@ extern "C" void app_main() {
 #ifdef BB_ESMX_D6_SCOPE_BENCH
         std::printf("BB_D6_CASE_BEGIN %s\n", item.name);
 #endif
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+        resetButterCepstraStatus();
+#endif
         const auto elapsedStart = esp_timer_get_time();
         const auto recognized = static_cast<unsigned>(recognize(item.samples));
         const auto elapsed = esp_timer_get_time() - elapsedStart;
+#ifdef BB_ESMX_BUTTER_CEPSTRA
+        const auto cepstra = butterCepstraStatus();
+        const bool usedCepstra = cepstra == ButterCepstraStatus::Used;
+        const bool requiredCepstra = item.intent == static_cast<unsigned>(EsMx::Kws::Intent::Butter);
+        ok &= cepstra != ButterCepstraStatus::Failed && (!requiredCepstra || usedCepstra);
+        std::printf("BB_BUTTER_CEPSTRA used=%u\n", static_cast<unsigned>(usedCepstra));
+#endif
         const auto upstream = recognizeDetailed(item.samples).disposition;
         const bool expected = recognized == item.intent && upstream == item.upstream;
         ok &= expected;

@@ -93,7 +93,7 @@ salida exclusivos del arnés.
 
 Antes de comparar tiempos, comprueba `BB_D6_INSTALLED 1`,
 `BB_BUTTER_POOL active=1` y que la orden afirmativa de Mantequilla
-registre `BB_BUTTER_CEPSTRA used=1`. Conserva las decisiones de Hora,
+registre `BB_BUTTER_CEPSTRA used=1`. El arnés falla si la extracción falla o una orden de Mantequilla esperada no usa las cepstras. Ese marcador se imprime al salir del cronómetro. `BB_ESMX_D6_BENCH_TRACE` se activa por separado para comparar puntajes con la Mac. Conserva las decisiones de Hora,
 Chiste y los vetos D6 y de Dato curioso. El plazo se aplica a cada
 turno, con el calentamiento registrado aparte. Estas opciones solo se
 compilan en el arnés aislado. El resultado describe QEMU y requiere

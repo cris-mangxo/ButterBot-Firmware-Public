@@ -3,8 +3,8 @@ set -euo pipefail
 
 if [[ $# -lt 3 || $# -gt 5 || ( $3 != host && $3 != esp32s3 ) ||
       ( $# -ge 4 && $4 != --oppose-pool ) ||
-      ( $# == 5 && $5 != --skip-empty-history && ( $5 != --fsg-breakdown || $3 != esp32s3 ) ) ]]; then
-    printf 'Usage: %s POCKETSPHINX_GIT LOCAL_OUTPUT_DIR host|esp32s3 [--oppose-pool [--fsg-breakdown|--skip-empty-history]]\n' "$0" >&2
+      ( $# == 5 && $5 != --skip-empty-history ) ]]; then
+    printf 'Usage: %s POCKETSPHINX_GIT LOCAL_OUTPUT_DIR host|esp32s3 [--oppose-pool [--skip-empty-history]]\n' "$0" >&2
     exit 2
 fi
 
@@ -39,14 +39,24 @@ check_pinned_file() {
     fi
 }
 
+verify_patched_file() {
+    local relative="$1" expected="$2" actual
+    actual="$(git -C "$vendor_git" hash-object "$output/source/$relative")"
+    if [[ $expected != "$actual" ]]; then
+        printf 'PocketSphinx patch output does not match: %s\n' "$relative" >&2
+        exit 2
+    fi
+}
+
 if [[ ${4:-} == --oppose-pool ]]; then
     check_pinned_file src/fsg_search.c
     check_pinned_file src/fsg_search_internal.h
     pool_patch="$(dirname "$patch")/pocketsphinx-5.0.4-fsg-active-pool.patch"
     (cd -- "$output/source" && git apply --unidiff-zero --check "$pool_patch" && git apply --unidiff-zero "$pool_patch")
+    verify_patched_file src/fsg_search.c 2c70de27779654c9b3fc55943595dd70747c1d79
+    verify_patched_file src/fsg_search_internal.h 694a0eafa28a2244d5a9856f99ddf774242e4654
 fi
 case ${5:-} in
-    --fsg-breakdown) variant_patch=pocketsphinx-5.0.4-fsg-phases.patch ;;
     --skip-empty-history)
         check_pinned_file src/fsg_history.c
         variant_patch=pocketsphinx-5.0.4-fsg-skip-empty-history.patch
@@ -56,6 +66,7 @@ esac
 if [[ -n $variant_patch ]]; then
     variant_patch="$(dirname "$patch")/$variant_patch"
     (cd -- "$output/source" && git apply --unidiff-zero --check "$variant_patch" && git apply --unidiff-zero "$variant_patch")
+    verify_patched_file src/fsg_history.c a0295834a10c10bd5d92cbbb4553994294b5f670
 fi
 cmake -S "$output/source" -B "$output/build" "${flags[@]}"
 cmake --build "$output/build" --target libpocketsphinx.a
