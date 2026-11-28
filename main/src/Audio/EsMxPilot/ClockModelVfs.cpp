@@ -2,6 +2,9 @@
 #include "ClockModelVfs.h"
 
 #include "ClockModelAssets.h"
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+#include "ButterModelAssets.h"
+#endif
 #include "esp_vfs.h"
 #include <algorithm>
 #include <array>
@@ -44,6 +47,10 @@ static_assert(sizeof(MeansQ8) == PackedHeader + 90 * Densities * Dimensions);
 static_assert(sizeof(VariancesQ8) == sizeof(MeansQ8));
 
 constexpr Asset Files[]{
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+    {"/butter-clock.dict", ButterModelAssets::Dictionary, {}},
+    {"/butter.kws", ButterModelAssets::Keywords, {}},
+#endif
     {"/feat.params", Features, {}}, {"/mdef", Definition, {}}, {"/noisedict", Noise, {}},
     {"/clock.dict", Dictionary, {}}, {"/mixture_weights", Mixture, {}},
     {"/transition_matrices", Transitions, {}},

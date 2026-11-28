@@ -1,5 +1,6 @@
 #ifdef BB_ESMX_CLOCK_ACOUSTIC
 #include "ClockAcoustic.h"
+#include "AcousticSearch.h"
 
 #include "Audio/EsMxKws/Compact.h"
 #include "ClockGrammar.h"
@@ -32,6 +33,9 @@ extern "C" void* bb_clock_realloc(void* data, size_t bytes) {
 #endif
 
 namespace EsMx::Pilot {
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+bool installButterAcousticSearches(ps_decoder_t* decoder, const char* keywords);
+#endif
 namespace {
 
 using Config = std::unique_ptr<ps_config_t, decltype(&ps_config_free)>;
@@ -54,7 +58,11 @@ Decoder createDecoder() {
         return {nullptr, &ps_free};
     }
 
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+    const std::string dictionary = std::string(root) + "/butter-clock.dict";
+#else
     const std::string dictionary = std::string(root) + "/clock.dict";
+#endif
     const Config config(ps_config_init(nullptr), &ps_config_free);
     if (!config) {
         return {nullptr, &ps_free};
@@ -71,6 +79,12 @@ Decoder createDecoder() {
         ps_activate_search(decoder.get(), "clock") < 0) {
         return {nullptr, &ps_free};
     }
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+    const std::string keywords = std::string(root) + "/butter.kws";
+    if (!installButterAcousticSearches(decoder.get(), keywords.c_str())) {
+        return {nullptr, &ps_free};
+    }
+#endif
     return decoder;
 }
 
@@ -101,21 +115,29 @@ void startAcousticClockWarmup() {
 }
 #endif
 
-bool recognizesAcousticClock(std::span<const int16_t> pcm) {
-    if (pcm.empty() || pcm.size() > Kws::MaxSamples) {
-        return false;
-    }
+ps_decoder_t* sharedAcousticDecoder(){
 #ifdef ESP_PLATFORM
-    auto* decoder = readyDecoder.load(std::memory_order_acquire);
+    return readyDecoder.load(std::memory_order_acquire);
 #else
-    auto* decoder = decoderInstance().get();
+    return decoderInstance().get();
 #endif
-    if (!decoder || ps_start_utt(decoder) < 0) {
+}
+
+bool decodeAcoustic(ps_decoder_t* decoder, const char* search, std::span<const int16_t> pcm){
+    if(!decoder || ps_activate_search(decoder, search) < 0 || ps_start_utt(decoder) < 0){
         return false;
     }
     const auto processed = ps_process_raw(decoder, pcm.data(), pcm.size(), 0, 1);
     const auto ended = ps_end_utt(decoder);
-    if (processed < 0 || ended < 0) {
+    return processed >= 0 && ended >= 0;
+}
+
+bool recognizesAcousticClock(std::span<const int16_t> pcm){
+    if(pcm.empty() || pcm.size() > Kws::MaxSamples){
+        return false;
+    }
+    auto* decoder = sharedAcousticDecoder();
+    if(!decodeAcoustic(decoder, "clock", pcm)){
         return false;
     }
     const auto* hypothesis = ps_get_hyp(decoder, nullptr);

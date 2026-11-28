@@ -19,6 +19,10 @@
 
 #include <algorithm>
 
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+#include "ButterAcoustic.h"
+#endif
+
 namespace EsMx::Pilot {
 namespace {
 
@@ -114,7 +118,19 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 			return Kws::Intent::Time;
 		}
 #endif
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+		if(phoneme == Kws::Intent::Unknown && recognizesAcousticButter(pcm)){
+			return Kws::Intent::Butter;
+		}
+#endif
 		return phoneme;
+	}
+#endif
+#if defined(BB_ESMX_BUTTER_ACOUSTIC) && defined(BB_ESMX_BUTTER_DIAGNOSE_DICE_CONFLICT) && !defined(ESP_PLATFORM)
+	// Desktop-only arm to audit this weak conflict. Other terminal vetoes remain sealed.
+	if(decision.intent == Kws::Intent::Unknown && decision.disposition == TurnDisposition::DiceNegationConflict &&
+	   recognizesAcousticButter(pcm)){
+		return Kws::Intent::Butter;
 	}
 #endif
 	return decision.intent;
