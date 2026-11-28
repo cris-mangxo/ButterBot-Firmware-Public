@@ -66,7 +66,20 @@ extern "C" void app_main() {
     }
     std::printf("BB_CLOCK_WARMUP %lld\n", static_cast<long long>(esp_timer_get_time() - coldStart));
     bool ok = true;
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+    const bool d6Installed = isDiceScopeInstalledInBench();
+#ifdef BB_ESMX_D6_BENCH_OMIT_KWS
+    constexpr bool ExpectD6 = false;
+#else
+    constexpr bool ExpectD6 = true;
+#endif
+    std::printf("BB_D6_INSTALLED %u\n", d6Installed);
+    ok &= d6Installed == ExpectD6;
+#endif
     for (const auto& item : TargetCases) {
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+        std::printf("BB_D6_CASE_BEGIN %s\n", item.name);
+#endif
         const auto elapsedStart = esp_timer_get_time();
         const auto recognized = static_cast<unsigned>(recognize(item.samples));
         const auto elapsed = esp_timer_get_time() - elapsedStart;
@@ -77,13 +90,16 @@ extern "C" void app_main() {
         constexpr int64_t InferenceWindowUs = 3'000'000;
         const bool withinBudget = elapsed <= InferenceWindowUs;
         ok &= withinBudget;
-#ifdef BB_ESMX_D6_SCOPE_BENCH
-        constexpr const char* BudgetEvent = "BB_PILOT_BUDGET";
-#else
-        constexpr const char* BudgetEvent = "BB_BUTTER_BUDGET";
-#endif
-        std::printf("%s %s %lld %u\n", BudgetEvent, item.name,
+#ifdef BB_ESMX_BUTTER_ACOUSTIC
+        std::printf("BB_BUTTER_BUDGET %s %lld %u\n", item.name,
                     static_cast<long long>(elapsed), withinBudget);
+#endif
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+        std::printf("BB_PILOT_BUDGET %s %lld %u\n", item.name,
+                    static_cast<long long>(elapsed), withinBudget);
+        std::printf("BB_D6_CASE_STACK %s %u\n", item.name,
+                    static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+#endif
 #endif
         std::printf("BB_CLOCK_CASE %s %u %u %lld %u\n", item.name, recognized,
                     static_cast<unsigned>(upstream), static_cast<long long>(elapsed), expected);

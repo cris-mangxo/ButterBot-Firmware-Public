@@ -10,6 +10,9 @@ bool recognizesAcousticClock(std::span<const int16_t> pcm);
 
 #ifdef ESP_PLATFORM
 bool prepareAcousticClock();
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+bool isDiceScopeInstalledInBench();
+#endif
 void startAcousticClockWarmup();
 #endif
 

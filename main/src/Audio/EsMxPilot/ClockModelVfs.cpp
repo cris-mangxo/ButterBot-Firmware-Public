@@ -5,7 +5,7 @@
 #ifdef BB_ESMX_BUTTER_ACOUSTIC
 #include "ButterModelAssets.h"
 #endif
-#ifdef BB_ESMX_D6_SCOPE_BENCH
+#if defined(BB_ESMX_D6_SCOPE_BENCH) && !defined(BB_ESMX_D6_BENCH_OMIT_KWS)
 #include "DiceScopeKws.h"
 #endif
 #include "esp_vfs.h"
@@ -54,7 +54,7 @@ static_assert(sizeof(MeansQ8) == PackedHeader + 90 * Densities * Dimensions);
 static_assert(sizeof(VariancesQ8) == sizeof(MeansQ8));
 
 constexpr Asset Files[]{
-#ifdef BB_ESMX_D6_SCOPE_BENCH
+#if defined(BB_ESMX_D6_SCOPE_BENCH) && !defined(BB_ESMX_D6_BENCH_OMIT_KWS)
     {"/dice-scope.kws", DiceScopeAssets::KeywordFile, {}},
 #endif
 #ifdef BB_ESMX_BUTTER_ACOUSTIC

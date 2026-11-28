@@ -44,6 +44,10 @@ namespace {
 using Config = std::unique_ptr<ps_config_t, decltype(&ps_config_free)>;
 using Decoder = std::unique_ptr<ps_decoder_t, decltype(&ps_free)>;
 
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+bool diceScopeInstalled = false;
+#endif
+
 Decoder createDecoder() {
 #ifdef ESP_PLATFORM
     // PocketSphinx treats allocation failure as fatal. Keep this optional path
@@ -91,7 +95,11 @@ Decoder createDecoder() {
 #if (defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)) || defined(BB_ESMX_D6_SCOPE_BENCH)
     const std::string diceKeywords = std::string(root) + "/dice-scope.kws";
     // An unavailable optional D6 pack leaves the existing decoder usable.
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+    diceScopeInstalled = installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
+#else
     installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
+#endif
 #endif
     return decoder;
 }
@@ -108,6 +116,12 @@ std::atomic<ps_decoder_t*> readyDecoder{nullptr};
 }
 
 #ifdef ESP_PLATFORM
+#ifdef BB_ESMX_D6_SCOPE_BENCH
+bool isDiceScopeInstalledInBench() {
+    return diceScopeInstalled;
+}
+#endif
+
 bool prepareAcousticClock() {
     auto* decoder = decoderInstance().get();
     readyDecoder.store(decoder, std::memory_order_release);

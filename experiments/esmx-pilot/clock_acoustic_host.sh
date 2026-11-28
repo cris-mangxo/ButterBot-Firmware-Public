@@ -41,5 +41,8 @@ if [[ ${BB_ESMX_D6_SCOPE_HOST:-0} == 1 ]]; then
     fi
     dice_scope=experiments/esmx-pilot/dice_scope
     flags+=(-DBB_ESMX_D6_SCOPE_HOST -I "$dice_scope")
+    if [[ ${BB_ESMX_D6_SCOPE_TRACE:-0} == 1 ]]; then
+        flags+=(-DBB_ESMX_D6_SCOPE_TRACE)
+    fi
     clock_sources+=("$dice_scope/DiceScope.cpp")
 fi

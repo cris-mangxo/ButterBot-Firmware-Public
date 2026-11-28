@@ -6,6 +6,9 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#ifdef BB_ESMX_D6_SCOPE_TRACE
+#include <cstdio>
+#endif
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -148,7 +151,13 @@ bool veto(ps_decoder_t* decoder, std::span<const int16_t> pcm, bool active, bool
     if (!active || pcm.size() < 800) return false;
     const auto affirm = score(decoder, prefix ? "r38_prefix_aff" : "r38_suffix_aff", pcm, false, prefix);
     const auto deny = score(decoder, prefix ? "r38_prefix_neg" : "r38_suffix_neg", pcm, true, prefix);
-    return deny && (!affirm || *deny - *affirm >= VetoMargin);
+    const bool blocked = deny && (!affirm || *deny - *affirm >= VetoMargin);
+#ifdef BB_ESMX_D6_SCOPE_TRACE
+    std::fprintf(stderr, "BB_D6_TRACE %s %u %.8f %u %.8f %u\n",
+                 prefix ? "prefix" : "suffix", affirm.has_value(), affirm.value_or(0.0),
+                 deny.has_value(), deny.value_or(0.0), blocked);
+#endif
+    return blocked;
 }
 
 int roundEven(int numerator, int denominator) {
@@ -188,8 +197,20 @@ bool confirmsDiceScope(std::span<const int16_t> pcm) {
     const auto speech = voicedSpan(pcm);
     if (!speech || !decodeAcoustic(decoder, Spot, pcm)) return false;
     const auto body = pickBody(decoder, *speech);
+#ifdef BB_ESMX_D6_SCOPE_TRACE
+    std::fprintf(stderr, "BB_D6_TRACE span %d %d %d\n", speech->first, speech->last, speech->count);
+    if (body) {
+        std::fprintf(stderr, "BB_D6_TRACE body %d %d %d %d %d %s\n", body->start, body->end, body->score,
+                     gapBefore(*body, *speech), gapAfter(*body, *speech), body->phrase->text.data());
+    }
+#endif
     if (!body || body->score < BodyFloor || gapBefore(*body, *speech) > MaxStartGap ||
-        gapAfter(*body, *speech) > MaxEndGap || conflictingMention(decoder, *body)) return false;
+        gapAfter(*body, *speech) > MaxEndGap) return false;
+    const bool mentioned = conflictingMention(decoder, *body);
+#ifdef BB_ESMX_D6_SCOPE_TRACE
+    std::fprintf(stderr, "BB_D6_TRACE mention %u\n", mentioned);
+#endif
+    if (mentioned) return false;
 
     const int relative = roundEven((body->end - body->start + 1) * body->phrase->verbPhones, body->phrase->phones);
     const int stop = std::min(speech->count, std::max(body->start + 8, body->start + relative + 12));
