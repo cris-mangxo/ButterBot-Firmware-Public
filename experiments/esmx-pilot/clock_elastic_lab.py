@@ -9,6 +9,7 @@ import re
 import numpy as np
 
 from capture_replay import pcm_from, recordings
+from clock_anchor_provenance import verify
 from joke_contrast_lab import fit, score
 from phoneme_reject_lab import load_negatives
 from phoneme_replay_lab import native_frames, strip_digital_edges
@@ -88,6 +89,7 @@ def read_wav(manifest, entry):
 
 
 def train(args):
+    roles_sha = verify(args.roles, donor=args.donor, agenda=args.agenda)
     synthetic = json.loads(args.synthetic.read_text())
     addon = json.loads(args.donor.read_text())
     agenda = json.loads(args.agenda.read_text())
@@ -119,6 +121,7 @@ def train(args):
                   "script": Path(__file__), "frontend": args.frontend, "donor": args.donor,
                   "agenda": args.agenda, "synthetic": args.synthetic, "chm": manifest, "speakers": args.speakers}.items()},
               "arms": {}}
+    result["pins"]["roles"] = roles_sha
     for topology in ("without_donor", "with_donor"):
         for delta in (False, True):
             pos = [(key, m) for key, part, goal, m, phrase, _ in items
@@ -178,15 +181,17 @@ def replay(args):
     for arm in frozen["arms"].values():
         for kind in ("positive", "negative"):
             arm["templates"][kind] = np.array(arm["templates"][kind])
+    if verify(args.roles, panel=args.panel, quality=args.quality) != frozen["pins"]["roles"]:
+        raise ValueError("Replay role seal differs from fitting")
     occupied = set(frozen["occupied_pcm"])
 
     def outcome(data, expected_hash=None, saved=None):
-        if not data or len(data) > 128_000:
-            return {"intention": 0, "decision": "outside_window", "arms": {}}
         if expected_hash and digest(data) != expected_hash:
             raise ValueError("Held-out waveform does not match the sealed evaluation")
         if digest(data) in occupied or digest(strip_digital_edges(data)) in occupied:
             raise ValueError("Evaluation revealed fitting audio")
+        if not data or len(data) > 128_000:
+            return {"intention": 0, "decision": "outside_window", "arms": {}}
         if saved is None:
             intent = int(invoke(args.host, data))
             decision = json.loads(invoke(args.host, data, "--decision"))["disposition"]
@@ -209,16 +214,20 @@ def replay(args):
             row[view] = outcome(pcm, item[view]["pcm_sha256"], saved=item[view])
         rows.append(row)
     history = []
+    duplicates = 0
     if args.history:
         for identifier, split, category, expected, path, digest_wav in recordings(args.history):
             pcm = pcm_from(path, digest_wav)
             if digest(pcm) in occupied:
+                duplicates += 1
                 continue
             retained = invoke(args.capture, pcm, "--pcm-with-hangover")
             history.append({"id": identifier, "split": split, "category": category, "expected": expected,
                             "raw": outcome(pcm), "retained": outcome(retained)})
     return {"freeze_sha256": file_digest(args.frozen), "panel_sha256": file_digest(args.panel),
-            "quality_sha256": file_digest(args.quality), "chosen": frozen["chosen"], "heroico": rows, "history": history}
+            "quality_sha256": file_digest(args.quality), "host_sha256": heldout["host_sha256"],
+            "capture_sha256": heldout["capture_sha256"], "chosen": frozen["chosen"],
+            "heroico": rows, "history": history, "historical_duplicate_pcm_excluded": duplicates}
 
 
 def main():
@@ -227,6 +236,7 @@ def main():
     for key in ("frontend", "donor", "agenda", "synthetic", "negatives", "speakers", "frozen",
                 "host", "capture", "panel", "quality", "pcm", "history"):
         parser.add_argument("--" + key, type=Path)
+    parser.add_argument("--roles", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(train(args) if args.stage == "fit" else replay(args), allow_nan=False, indent=2))
 

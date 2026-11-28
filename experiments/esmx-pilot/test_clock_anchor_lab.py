@@ -7,6 +7,7 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
+from clock_anchor_provenance import require_disjoint
 from clock_compact_lab import Detector, tensor
 from clock_elastic_lab import FRAMES, align, cepstra, example_id, predict
 
@@ -46,3 +47,13 @@ class ClockAnchorLabTest(TestCase):
             logits = detector(features, lengths)
         self.assertEqual(tuple(logits.shape), (2,))
         self.assertTrue(torch.isfinite(logits).all())
+
+    def test_source_role_rejects_different_cuts_of_the_same_session(self):
+        roles = {"fitting": [{"speaker": "a" * 64, "session": "b" * 64, "recording": "c" * 64,
+                              "source_wav_sha256": "d" * 64}],
+                 "heldout": [{"speaker": "e" * 64, "session": "b" * 64, "recording": "f" * 64,
+                              "source_wav_sha256": "0" * 64}]}
+        with self.assertRaisesRegex(ValueError, "overlapping session"):
+            require_disjoint(roles)
+        roles["heldout"][0]["session"] = "1" * 64
+        require_disjoint(roles)

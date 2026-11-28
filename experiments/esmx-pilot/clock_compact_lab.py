@@ -10,11 +10,13 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from capture_replay import pcm_from
+from capture_replay import pcm_from, recordings
+from clock_anchor_provenance import verify
 from clock_elastic_lab import PILOT, example_id, matrix, read_wav
 from keyword_lab import VOICE_SPLITS, render
 from phoneme_reject_lab import load_negatives
-from time_lab import digest, file_digest
+from phoneme_replay_lab import strip_digital_edges
+from time_lab import digest, file_digest, invoke
 
 
 SEED = 2026112801
@@ -116,6 +118,7 @@ def synthesize(args):
 
 
 def fit(args):
+    roles_sha = verify(args.roles, donor=args.donor, agenda=args.agenda)
     torch.set_num_threads(4)
     torch.use_deterministic_algorithms(True)
     donor_meta = json.loads(args.donor.read_text())
@@ -158,7 +161,7 @@ def fit(args):
                   "source": file_digest(Path(__file__)), "frontend": file_digest(args.frontend),
                   "donor": file_digest(args.donor), "agenda": file_digest(args.agenda),
                   "synthesis": file_digest(synth_index), "chm": file_digest(control_index),
-                  "speakers": file_digest(args.speakers)}}
+                  "speakers": file_digest(args.speakers), "roles": roles_sha}}
     args.output.mkdir(mode=0o700)
     for mode in ("without_donor", "with_donor"):
         torch.manual_seed(SEED)
@@ -207,11 +210,30 @@ def replay(args):
         with np.load(path, allow_pickle=False) as weights:
             model.load_state_dict({name: torch.from_numpy(weights[name]) for name in weights.files})
         models[key] = model, arm["threshold"]
+    if verify(args.roles, panel=args.panel, quality=args.quality) != manifest["pins"]["roles"]:
+        raise ValueError("Replay role seal differs from fitting")
     occupied = set(manifest["occupied_pcm"])
     quality = json.loads(args.quality.read_text())["labels"]
     panel = json.loads(args.panel.read_text())
     if panel["host_sha256"] != file_digest(args.host) or panel["capture_sha256"] != file_digest(args.capture):
         raise ValueError("Host or capture does not match the held-out seal")
+    def outcome(pcm, baseline=None):
+        if digest(pcm) in occupied or digest(strip_digital_edges(pcm)) in occupied:
+            raise ValueError("Evaluation revealed fitting audio")
+        if not pcm or len(pcm) > 128_000:
+            return {"baseline": "outside_window", "intent": 0}
+        if baseline is None:
+            baseline = json.loads(invoke(args.host, pcm, "--decision"))
+            baseline["intent"] = int(invoke(args.host, pcm))
+        mel = matrix(args.frontend, pcm)
+        disposition = baseline.get("decision", baseline.get("disposition"))
+        gate = disposition == "no_match" and baseline["intent"] == 0
+        view = {"baseline": disposition, "intent": baseline["intent"]}
+        for name, (model, cut) in models.items():
+            margin = None if mel is None or len(mel) < 12 else float(predict(model, [mel])[0] - cut)
+            view[name] = {"margin": margin, "eligible_accept": gate and margin is not None and margin > 0}
+        return view
+
     rows = []
     for row in panel["results"]:
         identifier = example_id(row["id"], r"[CT][0-9]{2}-[0-9]{3}")
@@ -219,18 +241,25 @@ def replay(args):
                     "confirmed": quality[identifier]["include_in_confirmed_denominator"]}
         for mode in ("raw", "retained"):
             wav = (args.pcm / f"{identifier}.{mode}.pcm").read_bytes()
-            fingerprint = digest(wav)
-            if fingerprint in occupied or fingerprint != row[mode]["pcm_sha256"]:
-                raise ValueError("Held-out PCM overlaps fitting or changed")
-            mel = matrix(args.frontend, wav)
-            gate = row[mode]["decision"] == "no_match" and row[mode]["intent"] == 0
-            view = {"baseline": row[mode]["decision"]}
-            for name, (model, cut) in models.items():
-                margin = None if mel is None or len(mel) < 12 else float(predict(model, [mel])[0] - cut)
-                view[name] = {"margin": margin, "eligible_accept": gate and margin is not None and margin > 0}
-            decision[mode] = view
+            if digest(wav) != row[mode]["pcm_sha256"]:
+                raise ValueError("Held-out PCM changed")
+            decision[mode] = outcome(wav, row[mode])
         rows.append(decision)
-    print(json.dumps({"frozen_sha256": file_digest(frozen), "selected": manifest["selected"], "rows": rows},
+    history = []
+    duplicates = 0
+    if args.history:
+        for identifier, split, category, expected, path, pin in recordings(args.history):
+            pcm = pcm_from(path, pin)
+            if digest(pcm) in occupied:
+                duplicates += 1
+                continue
+            retained = invoke(args.capture, pcm, "--pcm-with-hangover")
+            history.append({"id": identifier, "split": split, "category": category, "expected": expected,
+                            "raw": outcome(pcm), "retained": outcome(retained)})
+    print(json.dumps({"frozen_sha256": file_digest(frozen), "selected": manifest["selected"], "rows": rows,
+                      "panel_sha256": file_digest(args.panel), "quality_sha256": file_digest(args.quality),
+                      "host_sha256": panel["host_sha256"], "capture_sha256": panel["capture_sha256"],
+                      "history": history, "historical_duplicate_pcm_excluded": duplicates},
                      indent=2, allow_nan=False))
 
 
@@ -238,7 +267,9 @@ if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("stage", choices=("generate", "fit", "replay"))
     for name in ("output", "synthetic", "frontend", "donor", "agenda", "negatives", "speakers",
-                 "frozen", "quality", "panel", "pcm", "host", "capture"):
+                 "frozen", "quality", "panel", "pcm", "host", "capture", "history", "roles"):
         parser.add_argument("--" + name, type=Path)
     args = parser.parse_args()
+    if args.stage != "generate" and args.roles is None:
+        parser.error("fit and replay require --roles")
     {"generate": synthesize, "fit": fit, "replay": replay}[args.stage](args)

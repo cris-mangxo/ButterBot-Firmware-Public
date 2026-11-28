@@ -431,17 +431,41 @@ locución en un directorio local ajeno a Git.
 
 En ambos programas `fit` recibe `--frontend` (el extractor C++ del caché CHM150),
 `--donor` y `--agenda` (manifiestos de ajuste), `--synthetic`, `--negatives`
-y `--speakers` (caché y partición CHM150). El ensayo elástico imprime el sello JSON
-y recibe el archivo en `--synthetic`. El compacto crea el directorio indicado
+y `--speakers` (caché y partición CHM150). El sello `--roles` se genera con
+`clock_anchor_provenance.py` y se comprueba también en el replay.
+El ensayo elástico imprime el sello JSON
+y recibe `synthesis.json` de `clock_minimal_pairs_lab.py generate` en `--synthetic`. El compacto crea el directorio indicado
 en `--output`, con su sello y pesos independientes. Recibe el directorio creado
 por su etapa `generate --output` en `--synthetic`. Esta última usa las voces
 del sistema macOS declaradas en `keyword_lab.py`.
 
 Cada etapa `replay` recibe `--frozen` (archivo JSON del elástico o directorio
 del compacto), `--frontend`, `--host`, `--capture`, `--panel`, `--quality`
-y `--pcm`. El panel es el informe sellado de Heroico, la calidad identifica
+y `--pcm` junto con el mismo `--roles`. El panel es el informe sellado de Heroico, la calidad identifica
 las preguntas confirmadas y el directorio PCM contiene las vistas cruda
-y retenida que coinciden con las huellas del informe. El elástico también
-acepta `--history` con la raíz del panel histórico. La política de replay
+y retenida que coinciden con las huellas del informe. Ambos también
+aceptan `--history` con la raíz del panel histórico. La política de replay
 solo considera una nueva propuesta si el piloto original se abstiene con
 `NoMatch`. Una propuesta de escritorio no equivale a un despacho de firmware.
+
+### Referencia acústica CIEMPIESS
+
+El ensayo de escritorio usa PocketSphinx 5.0.4 y un juego local de archivos
+acústicos CIEMPIESS. No incluye pesos ni material del corpus. Obtén el modelo
+original desde la [publicación de CIEMPIESS](https://www.ciempiess.org/articulo/11/releasing-of-our-pocketsphinx-models-by-the-cmu-sphinx-group)
+o utiliza el perfil reproducido en el informe. Consulta la licencia del modelo
+si reutilizas sus archivos.
+
+`sphinx_clock_reference.py reduce` recibe el directorio con el modelo original
+y un directorio de salida nuevo. `--densities 32 --uint8` conserva los estados
+de monófonos y empaqueta medias y varianzas. El mismo comando escribe su
+expansión a float32 para que la referencia de escritorio pueda leerla.
+
+La etapa `replay` recibe `--acoustic`, el `--dictionary` de pronunciaciones
+comprimido con gzip, `--out` (directorio ya existente), y la tríada
+`--panel`, `--quality` y `--pcm` del ensayo anterior. Genera localmente el
+diccionario acotado y verifica las huellas antes de pasar cada vista al
+decodificador. El control adicional `sphinx_clock_controls.py` acepta ese
+diccionario en `--dict`, el directorio acústico en `--acoustic`, el arnés
+actual en `--host` y el panel de conversación en `--chm`, `--speakers` y
+`--ffmpeg`. El panel histórico se pasa en `--history`.
