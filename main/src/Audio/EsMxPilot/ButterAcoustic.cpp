@@ -15,6 +15,9 @@
 #endif
 
 namespace EsMx::Pilot {
+#if defined(ESP_PLATFORM) && !defined(BB_ESMX_BUTTER_BENCHMARK)
+static_assert(!ButterModelAssets::ValidationEnabled, "Butter validation is reserved for the emulator benchmark");
+#endif
 #ifdef BB_ESMX_BUTTER_WEAK_CONFLICT
 static_assert(ButterModelAssets::ValidationEnabled, "Weak conflict requires the sealed experimental validation profile");
 #endif
@@ -29,7 +32,7 @@ constexpr std::string_view ArticleObject = "la mantequillabb";
 constexpr auto Courtesy = std::array{"por favor"sv, "porfa"sv};
 constexpr auto Address = std::array{"oye"sv, "oiga"sv, "oigan"sv, "robot"sv, "amigo"sv, "amiga"sv,
                                     "señor"sv, "señora"sv, "niño"sv, "niña"sv, "juana"sv};
-constexpr auto Negative = std::array{"no"sv, "ni"sv, "mejor no"sv, "ya no"sv};
+constexpr auto Negative = std::array{"no"sv, "ni"sv, "sin"sv, "mejor no"sv, "ya no"sv, "cancela"sv};
 constexpr auto Recipe = std::array{"usa"sv, "uses"sv, "use"sv, "pon"sv, "agrega"sv, "agregue"sv, "derrite"sv,
                                     "derrita"sv, "mezcla"sv, "corta"sv, "corte"sv, "es"sv, "vende"sv,
                                     "preparo"sv, "preparé"sv, "untar"sv, "compra"sv, "compré"sv,
@@ -93,10 +96,9 @@ bool wholeAffirmative(std::string_view text){
     return endsPhrase(text, Object) && text.size() > Object.size();
 }
 
-bool semanticOpposition(std::string_view text){
-    if(std::count(text.begin(), text.end(), ' ') < 2){
-        return false;
-    }
+}
+
+bool butterOpposesRequest(std::string_view text){
     text = stripOne(stripOne(text, Address), Courtesy);
     if(std::any_of(Substitutes.begin(), Substitutes.end(), [text](auto word){ return endsPhrase(text, word); })){
         return true;
@@ -114,6 +116,18 @@ bool semanticOpposition(std::string_view text){
            (std::find(Demonstrative.begin(), Demonstrative.end(), before) != Demonstrative.end() &&
               startsOne(after, Description)) || startsOne(after, OpposingSuffix);
 }
+
+bool admitsTerminalNoSupportCheck(std::string_view hypothesis){
+    constexpr std::string_view terminalNo = " no";
+    if(!endsPhrase(hypothesis, "mantequillabb no")){
+        return false;
+    }
+
+    hypothesis.remove_suffix(terminalNo.size());
+    return !butterOpposesRequest(hypothesis);
+}
+
+namespace {
 
 std::optional<ButterTerm> term(std::string_view word){
     const auto begin = word.find_first_not_of(" \t\r\n");
@@ -183,7 +197,7 @@ int lastSpeechFrame(std::span<const int16_t> pcm){
 
 void validateTerminalNo(ps_decoder_t* decoder, std::string_view hypothesis,
                         std::span<const int16_t> pcm, ButterEvidence& evidence){
-    if(!evidence.opposing || !endsPhrase(hypothesis, "mantequillabb no")){
+    if(!evidence.opposing || !admitsTerminalNoSupportCheck(hypothesis)){
         return;
     }
 
@@ -321,7 +335,7 @@ ButterEvidence measureAcousticButter(std::span<const int16_t> pcm){
     }
     int score = 0;
     if(const auto* hyp = ps_get_hyp(decoder, &score); hyp){
-        result.opposing = semanticOpposition(hyp);
+        result.opposing = butterOpposesRequest(hyp);
         result.opposeScore = calibratedScore(decoder, score);
         validateTerminalNo(decoder, hyp, pcm, result);
     }

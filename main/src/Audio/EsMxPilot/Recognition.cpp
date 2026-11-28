@@ -133,7 +133,8 @@ Kws::Intent recognize(std::span<const int16_t> pcm){
 		return phoneme;
 	}
 #endif
-#if defined(BB_ESMX_BUTTER_ACOUSTIC) && defined(BB_ESMX_BUTTER_WEAK_CONFLICT)
+#if defined(BB_ESMX_BUTTER_ACOUSTIC) && defined(BB_ESMX_BUTTER_WEAK_CONFLICT) && \
+    (!defined(ESP_PLATFORM) || defined(BB_ESMX_BUTTER_BENCHMARK))
 	// Only this experimental Butter route may evaluate the weak D6 conflict.
 	if(decision.intent == Kws::Intent::Unknown && decision.disposition == TurnDisposition::DiceNegationConflict &&
 	   confirmsButterRequest(pcm)){

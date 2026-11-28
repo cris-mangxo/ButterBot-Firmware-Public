@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 
 namespace EsMx::Pilot {
 
@@ -36,6 +37,8 @@ struct ButterEvidence {
     ButterSegment terminalNo;
 };
 
+bool butterOpposesRequest(std::string_view hypothesis);
+bool admitsTerminalNoSupportCheck(std::string_view hypothesis);
 ButterEvidence measureAcousticButter(std::span<const int16_t> pcm);
 bool acceptsAcousticButter(const ButterEvidence& evidence);
 bool recognizesAcousticButter(std::span<const int16_t> pcm);

@@ -4,6 +4,19 @@
 
 int main(){
     using namespace EsMx::Pilot;
+    assert(butterOpposesRequest("no mantequillabb"));
+    assert(butterOpposesRequest("sin mantequillabb"));
+    assert(butterOpposesRequest("mantequillabb cancela"));
+    assert(butterOpposesRequest("mantequillabb no"));
+    assert(!butterOpposesRequest("pásame la mantequillabb"));
+    assert(admitsTerminalNoSupportCheck("pásame la mantequillabb no"));
+    assert(admitsTerminalNoSupportCheck("mantequillabb no"));
+    assert(!admitsTerminalNoSupportCheck("mantequillabb mejor no"));
+    assert(!admitsTerminalNoSupportCheck("aquí está la mantequillabb no"));
+    assert(!admitsTerminalNoSupportCheck("no pásame la mantequillabb no"));
+    assert(!admitsTerminalNoSupportCheck("quiero mantequillabb no"));
+    assert(!admitsTerminalNoSupportCheck("dónde está la mantequillabb no"));
+
     ButterEvidence spoken{
         .hitCount = 1, .affirmObject = {50, 124, -50}, .affirmArticle = {}, .affirmScore = -2500,
         .frames = 125, .lastSpeech = 100, .affirmative = true, .complete = true, .ranFsg = true, .terminalNo = {},
