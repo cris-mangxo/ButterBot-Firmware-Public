@@ -33,7 +33,7 @@ namespace {
 bb::asr::LogMel frontend;
 Kws::WordFeatures words;
 
-RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
+RecognitionDecision recognizeTurn(std::span<const int16_t> pcm, bool* orderedRescue = nullptr){
 	using namespace Kws;
 	static const bool ready = bb::asr::logmel_init(&frontend);
 	constexpr const WordBank* supplements[]{&PilotWordExtra, &PilotWordAdapted};
@@ -51,6 +51,9 @@ RecognitionDecision recognizeTurn(std::span<const int16_t> pcm){
 	                                      words, PilotWordDice, PilotWordExtra, PilotWordAdapted,
 	                                      ConsensusMode::OrderedDie, &PilotBackupDice);
 	if(dice.intent != Intent::Unknown){
+		if(orderedRescue){
+			*orderedRescue = dice.orderedRescue;
+		}
 		return {dice.intent, TurnDisposition::Accepted};
 	}
 	if(verified == Intent::Unknown && baseline != Intent::Unknown){
@@ -111,10 +114,20 @@ bool confirmsButterRequest(std::span<const int16_t> pcm){
 }
 
 RecognitionDecision recognizeDetailed(std::span<const int16_t> pcm){
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+	bool orderedRescue = false;
+	const auto decision = recognizeTurn(pcm, &orderedRescue);
+#else
 	const auto decision = recognizeTurn(pcm);
+#endif
 	if(decision.intent == Kws::Intent::Dice6 && hasAmbiguousDiceFollowUp(pcm)){
 		return {Kws::Intent::Unknown, TurnDisposition::DiceFollowUp};
 	}
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && defined(BB_ESMX_D6_SCOPE_HOST) && !defined(ESP_PLATFORM)
+	if(orderedRescue && !confirmsDiceRescueWitness(pcm)){
+		return {Kws::Intent::Unknown, TurnDisposition::UnconfirmedDice};
+	}
+#endif
 	return decision;
 }
 

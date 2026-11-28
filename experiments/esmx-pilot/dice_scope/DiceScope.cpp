@@ -26,6 +26,9 @@ constexpr int MaxStartGap = 24;
 constexpr int MaxEndGap = 56;
 constexpr int MentionFloor = -1900;
 constexpr double VetoMargin = -1.0;
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
+constexpr char RescueWitness[] = "r43_d6_mention";
+#endif
 
 struct Span {
     int first;
@@ -191,6 +194,29 @@ bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords) {
     // Register the entry search last so partial initialization never admits D6.
     return ps_add_kws(decoder, Spot, keywords) == 0;
 }
+
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
+void installDiceRescueWitness(ps_decoder_t* decoder, const char* keywords) {
+    struct stat info{};
+    if (stat(keywords, &info) == 0 && S_ISREG(info.st_mode)) {
+        ps_add_kws(decoder, RescueWitness, keywords);
+    }
+}
+
+bool confirmsDiceRescueWitness(std::span<const int16_t> pcm) {
+    auto* decoder = sharedAcousticDecoder();
+    if (!decodeAcoustic(decoder, RescueWitness, pcm)) {
+        return false;
+    }
+    for (auto* seg = ps_seg_iter(decoder); seg; seg = ps_seg_next(seg)) {
+        if (ps_seg_prob(seg, nullptr, nullptr, nullptr) >= BodyFloor) {
+            ps_seg_free(seg);
+            return true;
+        }
+    }
+    return false;
+}
+#endif
 
 bool confirmsDiceScope(std::span<const int16_t> pcm, bool requireFiniteVerb) {
     auto* decoder = sharedAcousticDecoder();

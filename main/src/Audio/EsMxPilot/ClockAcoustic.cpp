@@ -104,7 +104,14 @@ Decoder createDecoder() {
 #ifdef BB_ESMX_D6_SCOPE_BENCH
     diceScopeInstalled = installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
 #else
+#ifdef BB_ESMX_D6_RESCUE_WITNESS_HOST
+    if (installDiceScopeSearches(decoder.get(), diceKeywords.c_str())) {
+        const std::string witnessPath = std::string(root) + "/dice-rescue-witness.kws";
+        installDiceRescueWitness(decoder.get(), witnessPath.c_str());
+    }
+#else
     installDiceScopeSearches(decoder.get(), diceKeywords.c_str());
+#endif
 #endif
 #endif
     return decoder;

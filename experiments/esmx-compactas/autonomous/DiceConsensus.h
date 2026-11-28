@@ -14,6 +14,7 @@ enum class DiceRejection : std::uint8_t { None, NegationConflict, NegationVeto }
 struct DiceCompletion {
 	Intent intent;
 	DiceRejection rejection = DiceRejection::None;
+	bool orderedRescue = false;
 };
 
 inline bool prefersNegation(const DiceScores& scores, const AcousticDice& bank){
@@ -50,7 +51,7 @@ inline DiceCompletion resolveConsensusDice(const Signature& input, Intent baseli
 	if(proposesDice6(referenceScores, reference) &&
 	   confirmContinuousDice(verified, Intent::Dice6, words, adapted,
 	                         DiceConfirmation::OrderedRescue) == Intent::Dice6){
-		return {Intent::Dice6};
+		return {.intent = Intent::Dice6, .orderedRescue = true};
 	}
 	// Preserve the shared-six veto. The ordered route can examine weak
 	// competition below the reference bank's absolute score floor.
@@ -70,7 +71,7 @@ inline DiceCompletion resolveConsensusDice(const Signature& input, Intent baseli
 	   (proposed || (backup && !competing && !hasCompetingNegation(candidateScores, candidate))) &&
 	   confirmsOrderedDieSix(words, primary, extra, adapted)){
 		if(proposed || proposesDice6(acousticDiceScores(input, *backup), *backup)){
-			return {Intent::Dice6};
+			return {.intent = Intent::Dice6, .orderedRescue = true};
 		}
 	}
 	const auto rejection = competing || hasCompetingNegation(candidateScores, candidate)

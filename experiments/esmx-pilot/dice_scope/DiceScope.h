@@ -15,6 +15,10 @@ namespace EsMx::Pilot {
 
 bool installDiceScopeSearches(ps_decoder_t* decoder, const char* keywords);
 bool confirmsDiceScope(std::span<const int16_t> pcm, bool requireFiniteVerb = false);
+#if defined(BB_ESMX_D6_RESCUE_WITNESS_HOST) && !defined(ESP_PLATFORM)
+void installDiceRescueWitness(ps_decoder_t* decoder, const char* keywords);
+bool confirmsDiceRescueWitness(std::span<const int16_t> pcm);
+#endif
 
 }
 #endif

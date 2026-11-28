@@ -36,6 +36,17 @@ intervención. Los vetos terminales tienen prioridad en las dos configuraciones.
 Compara por separado PCM crudo y retenido, con órdenes y negativos sellados
 antes de inferir. La opción está disponible en los arneses de la Mac.
 
+## Corroboración acústica de rescates léxicos
+
+Para esta prueba de Mac, copia también `dice-rescue-witness.kws` en
+`$model_dir`. Compila con `BB_ESMX_D6_RESCUE_WITNESS_HOST=1` y
+`BB_ESMX_D6_SCOPE_HOST=1`. Compara con los mismos parámetros y el testigo
+apagado. El testigo reconoce referencias cortas a un dado de seis y solo
+se exige en los dos rescates que recorren las condiciones ordenadas del
+consenso compacto. La decisión de un segundo turno separado se toma antes
+de consultar el testigo. Si falta el recurso, esos rescates se abstienen
+y devuelven `UnconfirmedDice`. Las demás rutas conservan sus prioridades.
+
 ## Emulación de ESP32-S3
 
 El arnés aislado de `clock_target` acepta `-D BB_ESMX_D6_SCOPE_BENCH=ON`.
